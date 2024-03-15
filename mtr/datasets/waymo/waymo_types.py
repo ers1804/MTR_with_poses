@@ -70,7 +70,10 @@ polyline_type = {
     'TYPE_CROSSWALK': 18,
 
     # for speed bump
-    'TYPE_SPEED_BUMP': 19
+    'TYPE_SPEED_BUMP': 19,
+
+    # for driveway
+    'TYPE_DRIVEWAY': 20
 }
 
 

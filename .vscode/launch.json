@@ -1,0 +1,22 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "data_preprocess.py",
+            "type": "python",
+            "program": "data_preprocess.py",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "/home/erik/gitprojects/MTR/mtr/datasets/waymo",
+            "python": "/home/erik/venv/mtr_pose/bin/python",
+            "args": ["/home/erik/NAS/publicdatasets/waymo_motion/uncompressed/scenario/",
+                     "/home/erik/gitprojects/MTR/data/waymo",
+                     "2",
+                    ],
+        },
+    ]
+}

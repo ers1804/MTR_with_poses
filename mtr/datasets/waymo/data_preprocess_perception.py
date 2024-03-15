@@ -49,7 +49,6 @@ def decode_map_features_from_proto(map_features):
         'road_edge': [],
         'stop_sign': [],
         'crosswalk': [],
-        'driveway': [],
         'speed_bump': []
     }
     polylines = []
@@ -122,14 +121,6 @@ def decode_map_features_from_proto(map_features):
             cur_polyline = np.concatenate((cur_polyline[:, 0:3], cur_polyline_dir, cur_polyline[:, 3:]), axis=-1)
 
             map_infos['crosswalk'].append(cur_info)
-        
-        elif cur_data.driveway.ByteSize() > 0:
-            global_type = polyline_type['TYPE_DRIVEWAY']
-            cur_polyline = np.stack([np.array([point.x, point.y, point.z, global_type]) for point in cur_data.driveway.polygon], axis=0)
-            cur_polyline_dir = get_polyline_dir(cur_polyline[:, 0:3])
-            cur_polyline = np.concatenate((cur_polyline[:, 0:3], cur_polyline_dir, cur_polyline[:, 3:]), axis=-1)
-
-            map_infos['driveway'].append(cur_info)
 
         elif cur_data.speed_bump.ByteSize() > 0:
             global_type = polyline_type['TYPE_SPEED_BUMP']
@@ -237,7 +228,7 @@ def get_infos_from_protos(data_path, output_path=None, num_workers=8):
     return all_infos
 
 
-def create_infos_from_protos(raw_data_path, output_path, num_workers=16):
+def create_infos_from_protos(raw_data_path, output_path, num_workers=1):
     train_infos = get_infos_from_protos(
         data_path=os.path.join(raw_data_path, 'training'),
         output_path=os.path.join(output_path, 'processed_scenarios_training'),
@@ -262,6 +253,5 @@ def create_infos_from_protos(raw_data_path, output_path, num_workers=16):
 if __name__ == '__main__':
     create_infos_from_protos(
         raw_data_path=sys.argv[1],
-        output_path=sys.argv[2],
-        num_workers=int(sys.argv[3])
+        output_path=sys.argv[2]
     )
