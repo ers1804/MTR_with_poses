@@ -12,6 +12,8 @@ import multiprocessing
 import glob
 from tqdm import tqdm
 from waymo_open_dataset.protos import scenario_pb2
+from waymo_open_dataset import dataset_pb2 as open_dataset
+from waymo_open_dataset.utils import frame_utils
 from waymo_types import object_type, lane_type, road_line_type, road_edge_type, signal_state, polyline_type
 
     
@@ -167,18 +169,20 @@ def decode_dynamic_map_states_from_proto(dynamic_map_states):
     return dynamic_map_infos
 
 
-def process_waymo_data_with_scenario_proto(data_file, output_path=None):
+def process_waymo_data_with_waymo_frame(data_file, output_path=None):
     dataset = tf.data.TFRecordDataset(data_file, compression_type='')
     ret_infos = []
     for cnt, data in enumerate(dataset):
         info = {}
-        scenario = scenario_pb2.Scenario()
-        scenario.ParseFromString(bytearray(data.numpy()))
+        frame = open_dataset.Frame()
+        frame.ParseFromString(bytearray(data.numpy()))
 
-        info['scenario_id'] = scenario.scenario_id
-        info['timestamps_seconds'] = list(scenario.timestamps_seconds)  # list of int of shape (91)
-        info['current_time_index'] = scenario.current_time_index  # int, 10
-        info['sdc_track_index'] = scenario.sdc_track_index  # int
+        info['context_name'] = frame.context.name # WOMD: Scenario-ID
+        info['timestamps_micros'] = frame.timestamp_micros  # single timestamp since only one frame
+        info['current_time_index'] = frame.timestamp_micros  # int, 10
+
+        #info['sdc_track_index'] = scenario.sdc_track_index  # int
+        
         info['objects_of_interest'] = list(scenario.objects_of_interest)  # list, could be empty list
 
         info['tracks_to_predict'] = {
@@ -214,10 +218,10 @@ def get_infos_from_protos(data_path, output_path=None, num_workers=8):
         os.makedirs(output_path, exist_ok=True)
 
     func = partial(
-        process_waymo_data_with_scenario_proto, output_path=output_path
+        process_waymo_data_with_waymo_frame, output_path=output_path
     )
 
-    src_files = glob.glob(os.path.join(data_path, '*.tfrecord*'))
+    src_files = glob.glob(os.path.join(data_path, '*.tfrecord'))
     src_files.sort()
 
     # func(src_files[0])
