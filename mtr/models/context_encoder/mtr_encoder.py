@@ -34,6 +34,17 @@ class MTREncoder(nn.Module):
             num_pre_layers=self.model_cfg.NUM_LAYER_IN_PRE_MLP_MAP,
             out_channels=self.model_cfg.D_MODEL
         )
+        if self.model_cfg.USE_POSES:
+            pose_encoder = []
+            for _ in range(self.model_cfg.NUM_LAYERS_POSES):
+                pose_encoder.append(self.build_transformer_encoder_layer(
+                    d_model=self.model_cfg.D_MODEL_POSES,
+                    nhead=self.model_cfg.NUM_HEADS_POSES,
+                    dropout=self.model_cfg.get('DROPOUT_POSES', 0.1),
+                    normalize_before=False,
+                    use_local_attn=self.model_cfg.get('USE_LOCAL_ATTN', False)
+                ))
+            self.pose_encoder = nn.ModuleList(pose_encoder)
 
         # build transformer encoder layers
         self.use_local_attn = self.model_cfg.get('USE_LOCAL_ATTN', False)
