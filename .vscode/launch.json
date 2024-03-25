@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        
         {
             "name": "data_preprocess.py",
             "type": "python",
@@ -31,6 +32,17 @@
                      "/home/erik/gitprojects/MTR/data/waymo_perception",
                      "2",
                     ],
+        },
+
+        {
+            "name": "extract_lidar_data.py",
+            "type": "python",
+            "program": "extract_lidar_data.py",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "/home/erik/gitprojects/MTR/mtr/datasets/waymo",
+            "python": "/home/erik/venv/waymo_dataset_310/bin/python",
         },
     ]
 }
