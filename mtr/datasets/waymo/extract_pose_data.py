@@ -48,18 +48,22 @@ if __name__ == '__main__':
 
             scenario_id = scenario_data['scenario_id']
             object_ids, object_types, trajs = scenario_data['track_infos']['object_id'], scenario_data['track_infos']['object_type'], scenario_data['track_infos']['trajs']
+            pose_data_scenario = torch.zeros(len(object_ids), 11, model.num_joints, 3)
+            pose_data_mask = np.zeros(len(object_ids), 11)
             for i, object_id, object_type in enumerate(zip(object_ids, object_types)):
                 pose_data = torch.zeros(11, model.num_joints, 3)
-                for j in range(11):
-                    if object_type == 'TYPE_VEHICLE':
-                        continue
-                    elif object_type == 'TYPE_CYCLIST' or object_type == 'TYPE_PEDESTRIAN':
+                if object_type == 'TYPE_CYCLIST' or object_type == 'TYPE_PEDESTRIAN':
+                    for j in range(11):
                         lidar_file_path = os.path.join(path_to_lidar_snippets, scenario_id, object_id + "_" + str(j) + ".npy")
                         if os.path.exists(lidar_file_path):
                             lidar_data = np.load(lidar_file_path)
                             lidar_data = torch.from_numpy(lidar_data).unsqueeze(0).permute(0, 2, 1).to('cuda')
                             pose, _ = model(lidar_data)
                             pose_data[j] = pose.detach().cpu()[0, :, :]
+                            pose_data_mask[i, j] = 1
                 scenario_dict[object_id] = pose_data
-            with open(os.path.join(path_to_lidar_snippets, scenario_id, 'pose_data.pkl'), 'wb') as f:
-                pickle.dump(scenario_dict, f)
+                pose_data_scenario[i] = pose_data
+            save_path = os.path.join(path_to_lidar_snippets, scenario_id, 'pose_data.npy')
+            np.save(save_path, pose_data_scenario.numpy())
+            save_path = os.path.join(path_to_lidar_snippets, scenario_id, 'pose_data_mask.npy')
+            np.save(save_path, pose_data_mask)
