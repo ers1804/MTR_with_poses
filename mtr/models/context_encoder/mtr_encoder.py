@@ -13,6 +13,7 @@ from mtr.models.utils.transformer import transformer_encoder_layer, position_enc
 from mtr.models.utils import polyline_encoder
 from mtr.utils import common_utils
 from mtr.ops.knn import knn_utils
+from mtr.models.context_encoder import pointnet
 
 
 class MTREncoder(nn.Module):
@@ -35,16 +36,18 @@ class MTREncoder(nn.Module):
             out_channels=self.model_cfg.D_MODEL
         )
         if self.model_cfg.USE_POSES:
-            pose_encoder = []
-            for _ in range(self.model_cfg.NUM_LAYERS_POSES):
-                pose_encoder.append(self.build_transformer_encoder_layer(
-                    d_model=self.model_cfg.D_MODEL_POSES,
-                    nhead=self.model_cfg.NUM_HEADS_POSES,
-                    dropout=self.model_cfg.get('DROPOUT_POSES', 0.1),
-                    normalize_before=False,
-                    use_local_attn=self.model_cfg.get('USE_LOCAL_ATTN', False)
-                ))
-            self.pose_encoder = nn.ModuleList(pose_encoder)
+            self.pose_encoder = self.build_pose_encoder()
+            if self.model_cfg.FEATURE_FUSER.TYPE == 'MLP':
+                self.feature_fuser = nn.Sequential(
+                    nn.Linear(self.model_cfg.D_MODEL + self.model_cfg.POSE_ENCODER.D_MODEL_POSES, self.model_cfg.D_MODEL),
+                    nn.ReLU()
+                )
+            # Value: position features, Key: position features, Query: pose features
+            elif self.model_cfg.FEATURE_FUSER.TYPE == 'ATTENTION':
+                self.feature_fuser = nn.MultiheadAttention(
+                    embed_dim=self.model_cfg.D_MODEL,
+                    num_heads=self.model_cfg.FEATURE_FUSER.NUM_HEADS_FUSER
+                )
 
         # build transformer encoder layers
         self.use_local_attn = self.model_cfg.get('USE_LOCAL_ATTN', False)
@@ -60,6 +63,40 @@ class MTREncoder(nn.Module):
 
         self.self_attn_layers = nn.ModuleList(self_attn_layers)
         self.num_out_channels = self.model_cfg.D_MODEL
+
+
+    def build_pose_encoder(self,):
+        if self.model_cfg.POSE_ENCODER.TYPE == 'MLP':
+            hidden_dims = self.model_cfg.POSE_ENCODER.HIDDEN_DIMS
+            module_list = list()
+            module_list.append(
+                nn.Sequential(
+                    nn.Linear(self.model_cfg.POSE_ENCODER.NUM_JOINTS*3, hidden_dims[0]),
+                    nn.ReLU()
+                )
+            )
+            for i, hidden_dim in enumerate(hidden_dims[:-1]):
+                module_list.append(nn.Sequential(
+                    nn.Linear(hidden_dim, hidden_dims[i+1]),
+                    nn.ReLU()
+                ))
+            pose_encoder = nn.Sequential(*module_list)
+        elif self.model_cfg.POSE_ENCODER.TYPE == 'PointNet':
+            pose_encoder = pointnet.PointNetEncoder(hidden_dims=self.model_cfg.POSE_ENCODER.HIDDEN_DIMS, hidden_dims_conv=self.model_cfg.POSE_ENCODER.HIDDEN_DIMS_CONV, hidden_dims_fc=self.model_cfg.POSE_ENCODER.HIDDEN_DIMS_FC)
+        elif self.model_cfg.POSE_ENCODER.TYPE == 'Transformer':
+            pose_encoder = []
+            for _ in range(self.model_cfg.POSE_ENCODER.NUM_LAYERS_POSES):
+                pose_encoder.append(self.build_transformer_encoder_layer(
+                    d_model=self.model_cfg.POSE_ENCODER.D_MODEL_POSES,
+                    nhead=self.model_cfg.POSE_ENCODER.NUM_HEADS_POSES,
+                    dropout=self.model_cfg.POSE_ENCODER.get('DROPOUT_POSES', 0.1),
+                    normalize_before=False,
+                    use_local_attn=self.model_cfg.get('USE_LOCAL_ATTN', False)
+                ))
+            pose_encoder = nn.ModuleList(pose_encoder) 
+        pose_encoder = None
+        return pose_encoder
+
 
     def build_polyline_encoder(self, in_channels, hidden_dim, num_layers, num_pre_layers=1, out_channels=None):
         ret_polyline_encoder = polyline_encoder.PointNetPolylineEncoder(
@@ -209,6 +246,6 @@ class MTREncoder(nn.Module):
         batch_dict['obj_mask'] = obj_valid_mask
         batch_dict['map_mask'] = map_valid_mask
         batch_dict['obj_pos'] = obj_trajs_last_pos
-        batch_dict['map_pos'] = map_polylines_center
+        batch_dict['map_pos'] = map_polylines_center  
 
         return batch_dict

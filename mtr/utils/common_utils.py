@@ -52,7 +52,7 @@ def rotate_points_along_z(points, angle):
 
 
 def merge_batch_by_padding_2nd_dim(tensor_list, return_pad_mask=False):
-    assert len(tensor_list[0].shape) in [3, 4]
+    assert len(tensor_list[0].shape) in [3, 4, 5]
     only_3d_tensor = False
     if len(tensor_list[0].shape) == 3:
         tensor_list = [x.unsqueeze(dim=-1) for x in tensor_list]
@@ -76,6 +76,41 @@ def merge_batch_by_padding_2nd_dim(tensor_list, return_pad_mask=False):
         ret_mask_list.append(new_mask_tensor.bool())
 
     ret_tensor = torch.cat(ret_tensor_list, dim=0)  # (num_stacked_samples, num_feat0_maxt, num_feat1, num_feat2)
+    ret_mask = torch.cat(ret_mask_list, dim=0)
+
+    if only_3d_tensor:
+        ret_tensor = ret_tensor.squeeze(dim=-1)
+
+    if return_pad_mask:
+        return ret_tensor, ret_mask
+    return ret_tensor
+
+
+def merge_batch_by_padding_2nd_dim_poses(tensor_list, return_pad_mask=False):
+    assert len(tensor_list[0].shape) in [3, 4, 5]
+    only_3d_tensor = False
+    if len(tensor_list[0].shape) == 3:
+        tensor_list = [x.unsqueeze(dim=-1) for x in tensor_list]
+        only_3d_tensor = True
+    maxt_feat0 = max([x.shape[1] for x in tensor_list])
+
+    _, _, num_timesteps, num_joints, num_coordinates = tensor_list[0].shape
+
+    ret_tensor_list = []
+    ret_mask_list = []
+    for k in range(len(tensor_list)):
+        cur_tensor = tensor_list[k]
+        assert cur_tensor.shape[2] == num_timesteps and cur_tensor.shape[3] == num_joints and cur_tensor.shape[4] == num_coordinates
+
+        new_tensor = cur_tensor.new_zeros(cur_tensor.shape[0], maxt_feat0, num_timesteps, num_joints, num_coordinates)
+        new_tensor[:, :cur_tensor.shape[1], :, :, :] = cur_tensor
+        ret_tensor_list.append(new_tensor)
+
+        new_mask_tensor = cur_tensor.new_zeros(cur_tensor.shape[0], maxt_feat0)
+        new_mask_tensor[:, :cur_tensor.shape[1]] = 1
+        ret_mask_list.append(new_mask_tensor.bool())
+
+    ret_tensor = torch.cat(ret_tensor_list, dim=0)  # (num_stacked_samples, num_feat0_maxt, num_timesteps, num_joints, num_coordinates)
     ret_mask = torch.cat(ret_mask_list, dim=0)
 
     if only_3d_tensor:
