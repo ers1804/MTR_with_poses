@@ -86,57 +86,60 @@ def parse_lidar_data(scenario, lidar_path, lidar_save_path):
       scenario_dict = pickle.load(f)
   scenario_id = scenario_dict['scenario_id']
   lidar_file = os.path.join(lidar_path, scenario_id + '.tfrecord')
-  dataset = tf.data.TFRecordDataset(lidar_file, compression_type='')
-  data = next(iter(dataset))
-  lidar_scenario = scenario_pb2.Scenario.FromString(data.numpy())
-  frame_points_xyz = dict()
-  frame_points_feature = dict()
-  frame_i = 0
+  if os.path.exists(lidar_file):
+    dataset = tf.data.TFRecordDataset(lidar_file, compression_type='')
+    data = next(iter(dataset))
+    lidar_scenario = scenario_pb2.Scenario.FromString(data.numpy())
+    frame_points_xyz = dict()
+    frame_points_feature = dict()
+    frame_i = 0
 
-  for frame_lasers in lidar_scenario.compressed_frame_laser_data:
-    points_xyz_list = []
-    points_feature_list = []
-    # frame_pose = np.reshape(np.array(
-    #     lidar_scenario.compressed_frame_laser_data[frame_i].pose.transform),
-    #     (4, 4))
-    frame_pose = np.eye(4)
-    for laser in frame_lasers.lasers:
-      if laser.name == dataset_pb2.LaserName.TOP:
-        c = _get_laser_calib(frame_lasers, laser.name)
-        (points_xyz, points_feature,
-        points_xyz_return2,
-        points_feature_return2) = womd_lidar_utils.extract_top_lidar_points(
-            laser, frame_pose, c)
-      else:
-        c = _get_laser_calib(frame_lasers, laser.name)
-        (points_xyz, points_feature,
-        points_xyz_return2,
-        points_feature_return2) = womd_lidar_utils.extract_side_lidar_points(
-            laser, c)
-      points_xyz_list.append(points_xyz.numpy())
-      points_xyz_list.append(points_xyz_return2.numpy())
-      points_feature_list.append(points_feature.numpy())
-      points_feature_list.append(points_feature_return2.numpy())
-    frame_points_xyz[frame_i] = np.concatenate(points_xyz_list, axis=0)
-    frame_points_feature[frame_i] = np.concatenate(points_feature_list, axis=0)
-    frame_i += 1
-  
-  track_infos = scenario_dict['track_infos']
-  for i in range(track_infos['trajs'].shape[0]):
-    # Lidar is available for 11 timesteps which is the first second and the current timestep
-    obj_id = track_infos['object_id'][i]
-    for j in range(11):
-      valid = track_infos['trajs'][i, j, -1]
-      if valid:
-        center = track_infos['trajs'][i, j, :3]
-        l_w_h = track_infos['trajs'][i, j, 3:6]
-        orientation = track_infos['trajs'][i, j, 6]
-        snippet = get_pc_snippet(frame_points_xyz[j], generate_3d_bbox_corners(center, l_w_h, orientation))
-        lidar_scenario_folder = os.path.join(lidar_save_path, scenario_id)
-        if not os.path.exists(lidar_scenario_folder):
-          os.makedirs(lidar_scenario_folder)
-        lidar_snippet_path = os.path.join(lidar_scenario_folder, str(obj_id)+'_'+str(j)+'.npy')
-        np.save(lidar_snippet_path, snippet)
+    for frame_lasers in lidar_scenario.compressed_frame_laser_data:
+      points_xyz_list = []
+      points_feature_list = []
+      # frame_pose = np.reshape(np.array(
+      #     lidar_scenario.compressed_frame_laser_data[frame_i].pose.transform),
+      #     (4, 4))
+      frame_pose = np.eye(4)
+      for laser in frame_lasers.lasers:
+        if laser.name == dataset_pb2.LaserName.TOP:
+          c = _get_laser_calib(frame_lasers, laser.name)
+          (points_xyz, points_feature,
+          points_xyz_return2,
+          points_feature_return2) = womd_lidar_utils.extract_top_lidar_points(
+              laser, frame_pose, c)
+        else:
+          c = _get_laser_calib(frame_lasers, laser.name)
+          (points_xyz, points_feature,
+          points_xyz_return2,
+          points_feature_return2) = womd_lidar_utils.extract_side_lidar_points(
+              laser, c)
+        points_xyz_list.append(points_xyz.numpy())
+        points_xyz_list.append(points_xyz_return2.numpy())
+        points_feature_list.append(points_feature.numpy())
+        points_feature_list.append(points_feature_return2.numpy())
+      frame_points_xyz[frame_i] = np.concatenate(points_xyz_list, axis=0)
+      frame_points_feature[frame_i] = np.concatenate(points_feature_list, axis=0)
+      frame_i += 1
+    
+    track_infos = scenario_dict['track_infos']
+    for i in range(track_infos['trajs'].shape[0]):
+      # Lidar is available for 11 timesteps which is the first second and the current timestep
+      obj_id = track_infos['object_id'][i]
+      for j in range(11):
+        valid = track_infos['trajs'][i, j, -1]
+        if valid:
+          center = track_infos['trajs'][i, j, :3]
+          l_w_h = track_infos['trajs'][i, j, 3:6]
+          orientation = track_infos['trajs'][i, j, 6]
+          snippet = get_pc_snippet(frame_points_xyz[j], generate_3d_bbox_corners(center, l_w_h, orientation))
+          lidar_scenario_folder = os.path.join(lidar_save_path, scenario_id)
+          if not os.path.exists(lidar_scenario_folder):
+            os.makedirs(lidar_scenario_folder)
+          lidar_snippet_path = os.path.join(lidar_scenario_folder, str(obj_id)+'_'+str(j)+'.npy')
+          np.save(lidar_snippet_path, snippet)
+  else:
+     print(f'Missing lidar file for scenario {scenario_id}')
   return True
 
 if __name__ == '__main__':
@@ -151,9 +154,9 @@ if __name__ == '__main__':
         os.makedirs(lidar_save_path)
 
     num_workers = 16
-    # for lidar, scenarios in zip([lidar_path_training, lidar_path_validation], [scenario_list_training, scenario_list_validation]):
-    func = partial(parse_lidar_data, lidar_save_path=lidar_save_path, lidar_path=lidar_path_training)
+    for lidar, scenarios in zip([lidar_path_training, lidar_path_validation], [scenario_list_training, scenario_list_validation]):
+      func = partial(parse_lidar_data, lidar_save_path=lidar_save_path, lidar_path=lidar)
 
-    with multiprocessing.Pool(num_workers) as p:
-        data_infos = list(tqdm(p.imap(func, scenario_list_training), total=len(scenario_list_training)))
+      with multiprocessing.Pool(num_workers) as p:
+          data_infos = list(tqdm(p.imap(func, scenarios), total=len(scenarios)))
     #parse_lidar_data(scenario_list_training, lidar_path_training, lidar_save_path)
