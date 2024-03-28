@@ -21,6 +21,8 @@ class MTREncoder(nn.Module):
         super().__init__()
         self.model_cfg = config
 
+        self.use_poses = self.model_cfg.get('USE_POSES', False)
+
         # build polyline encoders
         self.agent_polyline_encoder = self.build_polyline_encoder(
             in_channels=self.model_cfg.NUM_INPUT_ATTR_AGENT + 1,
@@ -46,7 +48,8 @@ class MTREncoder(nn.Module):
             elif self.model_cfg.FEATURE_FUSER.TYPE == 'ATTENTION':
                 self.feature_fuser = nn.MultiheadAttention(
                     embed_dim=self.model_cfg.D_MODEL,
-                    num_heads=self.model_cfg.FEATURE_FUSER.NUM_HEADS_FUSER
+                    num_heads=self.model_cfg.FEATURE_FUSER.NUM_HEADS_FUSER,
+                    batch_first=True
                 )
 
         # build transformer encoder layers
@@ -199,7 +202,16 @@ class MTREncoder(nn.Module):
         """
         input_dict = batch_dict['input_dict']
         obj_trajs, obj_trajs_mask = input_dict['obj_trajs'].cuda(), input_dict['obj_trajs_mask'].cuda() 
-        map_polylines, map_polylines_mask = input_dict['map_polylines'].cuda(), input_dict['map_polylines_mask'].cuda() 
+        map_polylines, map_polylines_mask = input_dict['map_polylines'].cuda(), input_dict['map_polylines_mask'].cuda()
+
+        if self.use_poses:
+            obj_poses = input_dict['pose_data'].cuda()
+            obj_poses_mask = input_dict['pose_mask'].cuda()
+            # Apply pose encoder
+            num_center_objects, num_objects, num_timestamps, _, _ = obj_poses.shape
+            obj_poses = obj_poses.view(num_center_objects, num_objects, num_timestamps, -1)
+            obj_poses_feature = self.pose_encoder(obj_poses)
+
 
         obj_trajs_last_pos = input_dict['obj_trajs_last_pos'].cuda() 
         map_polylines_center = input_dict['map_polylines_center'].cuda() 
@@ -214,6 +226,14 @@ class MTREncoder(nn.Module):
         obj_trajs_in = torch.cat((obj_trajs, obj_trajs_mask[:, :, :, None].type_as(obj_trajs)), dim=-1)
         obj_polylines_feature = self.agent_polyline_encoder(obj_trajs_in, obj_trajs_mask)  # (num_center_objects, num_objects, C)
         map_polylines_feature = self.map_polyline_encoder(map_polylines, map_polylines_mask)  # (num_center_objects, num_polylines, C)
+
+        # fuse pose features with object features
+        if self.use_poses:
+            if self.model_cfg.FEATURE_FUSER.TYPE == 'MLP':
+                obj_polylines_feature = self.feature_fuser(torch.cat((obj_polylines_feature, obj_poses_feature), dim=-1))
+            elif self.model_cfg.FEATURE_FUSER.TYPE == 'ATTENTION':
+                obj_polylines_feature = self.feature_fuser(value=obj_polylines_feature, key=obj_polylines_feature, query=obj_poses_feature)
+
 
         # apply self-attn
         obj_valid_mask = (obj_trajs_mask.sum(dim=-1) > 0)  # (num_center_objects, num_objects)

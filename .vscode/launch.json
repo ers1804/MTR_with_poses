@@ -44,5 +44,16 @@
             "cwd": "/home/erik/gitprojects/MTR/mtr/datasets/waymo",
             "python": "/home/erik/venv/waymo_dataset_310/bin/python",
         },
+
+        {
+            "name": "extract_pose_data.py",
+            "type": "python",
+            "program": "extract_pose_data.py",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "/home/erik/gitprojects/MTR/mtr/datasets/waymo",
+            "python": "/home/erik/venv/waymo_dataset_310/bin/python",
+        },
     ]
 }
