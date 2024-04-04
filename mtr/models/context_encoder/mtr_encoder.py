@@ -37,8 +37,10 @@ class MTREncoder(nn.Module):
             num_pre_layers=self.model_cfg.NUM_LAYER_IN_PRE_MLP_MAP,
             out_channels=self.model_cfg.D_MODEL
         )
-        if self.model_cfg.USE_POSES:
+        if self.use_poses:
             self.pose_encoder = self.build_pose_encoder()
+            if self.model_cfg.POSE_ENCODER.TYPE != 'PointNet':
+                self.pose_sequencer = nn.GRU(self.model_cfg.POSE_ENCODER.D_MODEL_POSES, self.model_cfg.POSE_ENCODER.D_MODEL_POSES, batch_first=True)
             if self.model_cfg.FEATURE_FUSER.TYPE == 'MLP':
                 self.feature_fuser = nn.Sequential(
                     nn.Linear(self.model_cfg.D_MODEL + self.model_cfg.POSE_ENCODER.D_MODEL_POSES, self.model_cfg.D_MODEL),
@@ -87,17 +89,21 @@ class MTREncoder(nn.Module):
         elif self.model_cfg.POSE_ENCODER.TYPE == 'PointNet':
             pose_encoder = pointnet.PointNetEncoder(hidden_dims=self.model_cfg.POSE_ENCODER.HIDDEN_DIMS, hidden_dims_conv=self.model_cfg.POSE_ENCODER.HIDDEN_DIMS_CONV, hidden_dims_fc=self.model_cfg.POSE_ENCODER.HIDDEN_DIMS_FC)
         elif self.model_cfg.POSE_ENCODER.TYPE == 'Transformer':
-            pose_encoder = []
-            for _ in range(self.model_cfg.POSE_ENCODER.NUM_LAYERS_POSES):
-                pose_encoder.append(self.build_transformer_encoder_layer(
-                    d_model=self.model_cfg.POSE_ENCODER.D_MODEL_POSES,
-                    nhead=self.model_cfg.POSE_ENCODER.NUM_HEADS_POSES,
-                    dropout=self.model_cfg.POSE_ENCODER.get('DROPOUT_POSES', 0.1),
-                    normalize_before=False,
-                    use_local_attn=self.model_cfg.get('USE_LOCAL_ATTN', False)
-                ))
-            pose_encoder = nn.ModuleList(pose_encoder) 
-        pose_encoder = None
+            self.pre_pose_encoder = nn.Sequential(
+                nn.Linear(self.model_cfg.POSE_ENCODER.NUM_JOINTS*3, self.model_cfg.POSE_ENCODER.D_MODEL_POSES),
+                nn.ReLU())
+            pose_encoder = nn.MultiheadAttention(self.model_cfg.POSE_ENCODER.D_MODEL_POSES, self.model_cfg.POSE_ENCODER.NUM_HEADS_POSES, batch_first=True)
+            
+            # pose_encoder = []
+            # for _ in range(self.model_cfg.POSE_ENCODER.NUM_LAYERS_POSES):
+            #     pose_encoder.append(self.build_transformer_encoder_layer(
+            #         d_model=self.model_cfg.POSE_ENCODER.D_MODEL_POSES,
+            #         nhead=self.model_cfg.POSE_ENCODER.NUM_HEADS_POSES,
+            #         dropout=self.model_cfg.POSE_ENCODER.get('DROPOUT_POSES', 0.1),
+            #         normalize_before=False,
+            #         use_local_attn=self.model_cfg.get('USE_LOCAL_ATTN', False)
+            #     ))
+            # pose_encoder = nn.ModuleList(pose_encoder) 
         return pose_encoder
 
 
@@ -209,8 +215,22 @@ class MTREncoder(nn.Module):
             obj_poses_mask = input_dict['pose_mask'].cuda()
             # Apply pose encoder
             num_center_objects, num_objects, num_timestamps, _, _ = obj_poses.shape
-            obj_poses = obj_poses.view(num_center_objects, num_objects, num_timestamps, -1)
-            obj_poses_feature = self.pose_encoder(obj_poses)
+            if self.model_cfg.POSE_ENCODER.TYPE == 'PointNet':
+                obj_poses = obj_poses.view(num_center_objects, num_objects, -1, 3).permute(0, 1, 3, 2).view(num_center_objects*num_objects, 3, -1)
+            else:
+                obj_poses = obj_poses.view(num_center_objects*num_objects, num_timestamps, -1)
+            if self.model_cfg.POSE_ENCODER.TYPE == 'Transformer':
+                obj_poses_feature = self.pre_pose_encoder(obj_poses)
+                obj_poses_feature, _ = self.pose_encoder(obj_poses_feature, obj_poses_feature, obj_poses_feature)
+            else:
+                obj_poses_feature = self.pose_encoder(obj_poses)
+            if self.model_cfg.POSE_ENCODER.TYPE == 'PointNet':
+                obj_poses_feature = obj_poses_feature[0].view(num_center_objects, num_objects, -1)
+            else:
+                obj_poses_feature = obj_poses_feature.view(-1, num_timestamps, self.model_cfg.POSE_ENCODER.D_MODEL_POSES)
+                _, obj_poses_feature = self.pose_sequencer(obj_poses_feature)
+                obj_poses_feature = obj_poses_feature.permute(1, 0, 2).view(num_center_objects, num_objects, -1)
+
 
 
         obj_trajs_last_pos = input_dict['obj_trajs_last_pos'].cuda() 
@@ -230,9 +250,11 @@ class MTREncoder(nn.Module):
         # fuse pose features with object features
         if self.use_poses:
             if self.model_cfg.FEATURE_FUSER.TYPE == 'MLP':
+                # obj_polylines_feature: shape [38, 122, 256]
+                # obj_poses_feature: shape [38, 122, 11, 256]
                 obj_polylines_feature = self.feature_fuser(torch.cat((obj_polylines_feature, obj_poses_feature), dim=-1))
             elif self.model_cfg.FEATURE_FUSER.TYPE == 'ATTENTION':
-                obj_polylines_feature = self.feature_fuser(value=obj_polylines_feature, key=obj_polylines_feature, query=obj_poses_feature)
+                obj_polylines_feature, _ = self.feature_fuser(value=obj_polylines_feature, key=obj_polylines_feature, query=obj_poses_feature)
 
 
         # apply self-attn

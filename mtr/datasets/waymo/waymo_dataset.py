@@ -398,6 +398,7 @@ class WaymoDataset(DatasetTemplate):
         timestamps = torch.from_numpy(timestamps)
 
         pose_data = torch.from_numpy(pose_data).float()
+        pose_mask = torch.from_numpy(pose_mask)
 
         # transform coordinates to the centered objects
         obj_trajs = self.transform_trajs_to_center_coords(

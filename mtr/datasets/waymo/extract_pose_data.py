@@ -47,6 +47,8 @@ if __name__ == '__main__':
                 scenario_data = pickle.load(f)
 
             scenario_id = scenario_data['scenario_id']
+            if not os.path.exists(os.path.join(path_to_lidar_snippets, str(scenario_id))):
+                os.makedirs(os.path.join(path_to_lidar_snippets, str(scenario_id)))
             object_ids, object_types, trajs = scenario_data['track_infos']['object_id'], scenario_data['track_infos']['object_type'], scenario_data['track_infos']['trajs']
             #curr_time_index = scenario_data['current_time_index']
             pose_data_scenario = torch.zeros((len(object_ids), 11, model.num_joints, 3), dtype=torch.float32)

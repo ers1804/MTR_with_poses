@@ -13,8 +13,14 @@ import glob
 from tqdm import tqdm
 from waymo_open_dataset.protos import scenario_pb2
 from waymo_open_dataset import dataset_pb2 as open_dataset
-from waymo_open_dataset.utils import frame_utils
+from waymo_open_dataset.utils import frame_utils, transform_utils, range_image_utils
 from waymo_types import object_type, lane_type, road_line_type, road_edge_type, signal_state, polyline_type
+
+# Imports for new dataset structure (Waymo V2)
+import dask.dataframe as dd
+from waymo_open_dataset import v2
+
+tf.compat.v1.enable_eager_execution()
 
     
 def decode_tracks_from_proto(tracks):
@@ -170,46 +176,53 @@ def decode_dynamic_map_states_from_proto(dynamic_map_states):
 
 
 def process_waymo_data_with_waymo_frame(data_file, output_path=None):
-    dataset = tf.data.TFRecordDataset(data_file, compression_type='')
-    ret_infos = []
-    for cnt, data in enumerate(dataset):
+    # Use v2 of the dataset
+    # But map data has to be loaded from v1 format
+    for record_file in data_file:
+        dataset = tf.data.TFRecordDataset(record_file, compression_type='')
+        ret_infos = []
         info = {}
-        frame = open_dataset.Frame()
-        frame.ParseFromString(bytearray(data.numpy()))
+        timestamps_micros = []
 
-        info['context_name'] = frame.context.name # WOMD: Scenario-ID
-        info['timestamps_micros'] = frame.timestamp_micros  # single timestamp since only one frame
-        info['current_time_index'] = frame.timestamp_micros  # int, 10
+        for cnt, data in enumerate(dataset):
+            frame = open_dataset.Frame()
+            frame.ParseFromString(bytearray(data.numpy()))
 
-        #info['sdc_track_index'] = scenario.sdc_track_index  # int
-        
-        info['objects_of_interest'] = list(scenario.objects_of_interest)  # list, could be empty list
+            #info['context_name'] = frame.context.name # WOMD: Scenario-ID
 
-        info['tracks_to_predict'] = {
-            'track_index': [cur_pred.track_index for cur_pred in scenario.tracks_to_predict],
-            'difficulty': [cur_pred.difficulty for cur_pred in scenario.tracks_to_predict]
-        }  # for training: suggestion of objects to train on, for val/test: need to be predicted
+            #info['timestamps_micros'] = frame.timestamp_micros  # single timestamp since only one frame
+            timestamps_micros.append(frame.timestamp_micros)
+            #info['current_time_index'] = frame.timestamp_micros  # int, 10
 
-        track_infos = decode_tracks_from_proto(scenario.tracks)
-        info['tracks_to_predict']['object_type'] = [track_infos['object_type'][cur_idx] for cur_idx in info['tracks_to_predict']['track_index']]
+            #info['sdc_track_index'] = scenario.sdc_track_index  # int
+            
+            info['objects_of_interest'] = list(scenario.objects_of_interest)  # list, could be empty list
 
-        # decode map related data
-        map_infos = decode_map_features_from_proto(scenario.map_features)
-        dynamic_map_infos = decode_dynamic_map_states_from_proto(scenario.dynamic_map_states)
+            info['tracks_to_predict'] = {
+                'track_index': [cur_pred.track_index for cur_pred in scenario.tracks_to_predict],
+                'difficulty': [cur_pred.difficulty for cur_pred in scenario.tracks_to_predict]
+            }  # for training: suggestion of objects to train on, for val/test: need to be predicted
 
-        save_infos = {
-            'track_infos': track_infos,
-            'dynamic_map_infos': dynamic_map_infos,
-            'map_infos': map_infos
-        }
-        save_infos.update(info)
+            track_infos = decode_tracks_from_proto(scenario.tracks)
+            info['tracks_to_predict']['object_type'] = [track_infos['object_type'][cur_idx] for cur_idx in info['tracks_to_predict']['track_index']]
 
-        output_file = os.path.join(output_path, f'sample_{scenario.scenario_id}.pkl')
-        with open(output_file, 'wb') as f:
-            pickle.dump(save_infos, f)
+            # decode map related data
+            map_infos = decode_map_features_from_proto(scenario.map_features)
+            dynamic_map_infos = decode_dynamic_map_states_from_proto(scenario.dynamic_map_states)
 
-        ret_infos.append(info)
-    return ret_infos
+            save_infos = {
+                'track_infos': track_infos,
+                'dynamic_map_infos': dynamic_map_infos,
+                'map_infos': map_infos
+            }
+            save_infos.update(info)
+
+            output_file = os.path.join(output_path, f'sample_{scenario.scenario_id}.pkl')
+            with open(output_file, 'wb') as f:
+                pickle.dump(save_infos, f)
+
+            ret_infos.append(info)
+        return ret_infos
 
 
 def get_infos_from_protos(data_path, output_path=None, num_workers=8):
