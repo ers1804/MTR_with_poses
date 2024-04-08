@@ -53,8 +53,12 @@ if __name__ == '__main__':
             #curr_time_index = scenario_data['current_time_index']
             pose_data_scenario = torch.zeros((len(object_ids), 11, model.num_joints, 3), dtype=torch.float32)
             pose_data_mask = np.zeros((len(object_ids), 11))
+            # TODO: Check feature dimensions of output
+            pose_features_scenario = torch.zeros((len(object_ids), 11, model.num_joints, 3), dtype=torch.float32)
             for i, (object_id, object_type) in enumerate(zip(object_ids, object_types)):
                 pose_data = torch.zeros((11, model.num_joints, 3), dtype=torch.float32)
+                # TODO: Check feature dimensions of output
+                pose_features = torch.zeros((11, ), dtype=torch.float32)
                 if object_type == 'TYPE_CYCLIST' or object_type == 'TYPE_PEDESTRIAN':
                     for j in range(11):
                         curr_position = trajs[i, j, :3]
@@ -76,12 +80,16 @@ if __name__ == '__main__':
                                     double_points = lidar_data[indices]
                                     lidar_data = np.concatenate([lidar_data, double_points])
                                 lidar_data = torch.from_numpy(lidar_data).unsqueeze(0).permute(0, 2, 1).type(torch.float32).to('cuda')
-                                pose, _ = model(lidar_data)
+                                pose, features = model(lidar_data)
                                 pose_data[j] = pose.detach().cpu()[0, :, :]
+                                pose_features[j] = features.detach().cpu()[0, :, :]
                                 pose_data_mask[i, j] = 1
                 scenario_dict[object_id] = pose_data
                 pose_data_scenario[i] = pose_data
+                pose_features_scenario[i] = pose_features
             save_path = os.path.join(path_to_lidar_snippets, str(scenario_id), 'pose_data.npy')
             np.save(save_path, pose_data_scenario.numpy())
             save_path = os.path.join(path_to_lidar_snippets, str(scenario_id), 'pose_data_mask.npy')
             np.save(save_path, pose_data_mask)
+            save_path = os.path.join(path_to_lidar_snippets, str(scenario_id), 'pose_features.npy')
+            np.save(save_path, pose_features_scenario.numpy())
