@@ -176,7 +176,20 @@ def decode_dynamic_map_states_from_proto(dynamic_map_states):
 
 
 def process_waymo_data_with_waymo_frame(data_file, output_path=None):
+    # Save variables
+    ret_infos = []
+    info = {}
     # Use v2 of the dataset
+    base_name = os.path.basename(data_file)
+    scenario_id = os.path.splitext(base_name)[0]
+    # Read parquet file
+    lidar_box_df = dd.read_parquet(data_file)
+    # Sort it so one row corresponds to one object across all frames in scenario
+    # Probably better to have one frame per row and then collect everything first, then divide into 91 frames
+    lidar_box_df = (lidar_box_df.groupby(['key.segment_context_name', 'key.laser_object_id']).agg(list).reset_index())
+    # Iterate over objects
+    for _, row in lidar_box_df.iterrows():
+        lidar_box = v2.LiDARBoxComponent.from_dict(row)
     # But map data has to be loaded from v1 format
     for record_file in data_file:
         dataset = tf.data.TFRecordDataset(record_file, compression_type='')
@@ -234,7 +247,9 @@ def get_infos_from_protos(data_path, output_path=None, num_workers=8):
         process_waymo_data_with_waymo_frame, output_path=output_path
     )
 
-    src_files = glob.glob(os.path.join(data_path, '*.tfrecord'))
+    sensor_component = 'lidar_box'
+    sensor_path = os.path.join(data_path, sensor_component)
+    src_files = glob.glob(os.path.join(sensor_path, '*.parquet'))
     src_files.sort()
 
     # func(src_files[0])
