@@ -40,10 +40,12 @@ def get_pc_snippet(points, corners):
     corners: [8,3] array of 3D coordinates
     """
     # Create a mask for the bounding box using the corners of the 3D bbox
+    points = points.astype(np.float32)
+    corners = corners.astype(np.float32)
     min_bound = np.min(corners, axis=0)
     max_bound = np.max(corners, axis=0)
     #print(min_bound, max_bound)
-    mask = np.logical_and(np.logical_and(points[:, 0] >= min_bound[0], points[:, 0] <= max_bound[0]), np.logical_and(points[:, 1] >= min_bound[1], points[:, 1] <= max_bound[1]), np.logical_and(points[:, 2] >= min_bound[2], points[:, 2] <= max_bound[2]))
+    mask = np.all(np.concatenate((np.logical_and(points[:, 0] >= min_bound[0], points[:, 0] <= max_bound[0])[:, np.newaxis], np.logical_and(points[:, 1] >= min_bound[1], points[:, 1] <= max_bound[1])[:, np.newaxis], np.logical_and(points[:, 2] >= min_bound[2], points[:, 2] <= max_bound[2])[:, np.newaxis]), axis=1), axis=1)
 
     return points[mask, :]
 
