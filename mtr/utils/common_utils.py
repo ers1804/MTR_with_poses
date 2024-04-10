@@ -195,9 +195,12 @@ def init_dist_slurm(tcp_port, local_rank, backend='nccl'):
 
     """
     proc_id = int(os.environ['SLURM_PROCID'])
+    print('proc_id:', proc_id)
     ntasks = int(os.environ['SLURM_NTASKS'])
     node_list = os.environ['SLURM_NODELIST']
+    print('node_list:', node_list)
     num_gpus = torch.cuda.device_count()
+    print('num_gpus:', num_gpus)
     torch.cuda.set_device(proc_id % num_gpus)
     addr = subprocess.getoutput('scontrol show hostname {} | head -n1'.format(node_list))
     os.environ['MASTER_PORT'] = str(tcp_port)
