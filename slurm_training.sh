@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=create_venv
+#SBATCH --job-name=train_mtr
 #SBATCH --output=/home/slurm/shared_folder/erik/mtr_training_%j.txt
 #SBATCH --ntasks=1
 #SBATCH --mem=128G
@@ -29,7 +29,7 @@ echo $PORT
 
 cd /home/slurm/shared_folder/erik/MTR/tools
 
-torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher slurm --cfg_file /home/slurm/shared_folder/erik/MTR/tools/cfgs/mtr+100_percent_data.yaml --batch_size=8 --epochs=120 --extra_tag=MTR_wo_poses
+torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher slurm --cfg_file /home/slurm/shared_folder/erik/MTR/tools/cfgs/waymo/mtr+100_percent_data.yaml --batch_size=8 --epochs=120 --extra_tag=MTR_wo_poses --tcp_port=$PORT
 
 # Deactivate the virtual environment at the end
 deactivate
