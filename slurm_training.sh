@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 #SBATCH --job-name=train_mtr
 #SBATCH --output=/home/slurm/shared_folder/erik/mtr_training_%j.txt
 #SBATCH --nodes=1
@@ -6,6 +6,9 @@
 #SBATCH --mem=128G
 #SBATCH -D /home/slurm
 #SBATCH --gres=gpu:rtx4090:4
+#SBATCH --export=NONE
+
+unset SLURM_EXPORT_ENV
 
 # Set up a variable for the virtual environment directory
 VENV_DIR="/home/slurm/venvs/mtr_pose"
@@ -28,9 +31,9 @@ do
 done
 echo $PORT
 
-cd /home/slurm/shared_folder/erik/MTR/tools
+cd /home/slurm/working_dir/MTR/tools
 
-torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/slurm/shared_folder/erik/MTR/tools/cfgs/waymo/mtr+100_percent_data.yaml --batch_size=40 --epochs=120 --extra_tag=MTR_wo_poses --tcp_port=$PORT --workers=4
+torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/slurm/working_dir/MTR/tools/cfgs/waymo/mtr+100_percent_data.yaml --batch_size=28 --epochs=120 --extra_tag=MTR_wo_poses --tcp_port=$PORT --workers=8
 
 # Deactivate the virtual environment at the end
 deactivate

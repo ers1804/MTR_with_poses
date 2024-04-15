@@ -54,11 +54,11 @@ if __name__ == '__main__':
             pose_data_scenario = torch.zeros((len(object_ids), 11, model.num_joints, 3), dtype=torch.float32)
             pose_data_mask = np.zeros((len(object_ids), 11))
             # TODO: Check feature dimensions of output
-            pose_features_scenario = torch.zeros((len(object_ids), 11, model.num_joints, 3), dtype=torch.float32)
+            pose_features_scenario = torch.zeros((len(object_ids), 11, 64, 64), dtype=torch.float32)
             for i, (object_id, object_type) in enumerate(zip(object_ids, object_types)):
                 pose_data = torch.zeros((11, model.num_joints, 3), dtype=torch.float32)
                 # TODO: Check feature dimensions of output
-                pose_features = torch.zeros((11, ), dtype=torch.float32)
+                pose_features = torch.zeros((11, 64, 64), dtype=torch.float32)
                 if object_type == 'TYPE_CYCLIST' or object_type == 'TYPE_PEDESTRIAN':
                     for j in range(11):
                         curr_position = trajs[i, j, :3]
