@@ -33,7 +33,7 @@ echo $PORT
 
 cd /home/slurm/working_dir/MTR/tools
 
-torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/slurm/working_dir/MTR/tools/cfgs/waymo/mtr+100_percent_data.yaml --batch_size=28 --epochs=120 --extra_tag=MTR_wo_poses --tcp_port=$PORT --workers=8
+torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/slurm/working_dir/MTR/tools/cfgs/waymo/mtr+100_percent_data.yaml --batch_size=28 --epochs=120 --extra_tag=MTR_wo_poses_new --tcp_port=$PORT --workers=2
 
 # Deactivate the virtual environment at the end
 deactivate

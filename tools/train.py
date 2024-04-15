@@ -144,7 +144,7 @@ def main():
     logger.info('**********************Start logging**********************')
     gpu_list = os.environ['CUDA_VISIBLE_DEVICES'] if 'CUDA_VISIBLE_DEVICES' in os.environ.keys() else 'ALL'
     logger.info('CUDA_VISIBLE_DEVICES=%s' % gpu_list)
-    logger.info('slurmprocid: %d' % int(os.environ['SLURM_PROCID']))
+    #logger.info('slurmprocid: %d' % int(os.environ['SLURM_PROCID']))
 
     if dist_train:
         logger.info('total_batch_size: %d' % (total_gpus * args.batch_size))
