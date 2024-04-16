@@ -182,14 +182,27 @@ def process_waymo_data_with_waymo_frame(data_file, output_path=None):
     # Use v2 of the dataset
     base_name = os.path.basename(data_file)
     scenario_id = os.path.splitext(base_name)[0]
-    # Read parquet file
+    # Read parquet files
     lidar_box_df = dd.read_parquet(data_file)
-    # Sort it so one row corresponds to one object across all frames in scenario
-    # Probably better to have one frame per row and then collect everything first, then divide into 91 frames
-    lidar_box_df = (lidar_box_df.groupby(['key.segment_context_name', 'key.laser_object_id']).agg(list).reset_index())
+    cam_box_df = dd.read_parquet(data_file.replace('lidar_box', 'camera_box'))
+    association_df = dd.read_parquet(data_file.replace('lidar_box', 'camera_to_lidar_box_association'))
+    cam_img_df = dd.read_parquet(data_file.replace('lidar_box', 'camera_image'))
+    lidar_df = dd.read_parquet(data_file.replace('lidar_box', 'lidar'))
+
+    # Merge the dataframes such that we have all available objects per frame (one frame is one row)
+    cam_box_w_association_df = v2.merge(cam_box_df, association_df, left_nullable=True, right_nullable=True)
+    cam_box_w_association_lidar_box_df = v2.merge(cam_box_w_association_df, lidar_box_df, left_nullable=True, right_nullable=True)
+    full_w_cam_img_df = v2.merge(cam_box_w_association_lidar_box_df, cam_img_df, right_nullable=True)
+    full_df = v2.merge(full_w_cam_img_df, lidar_df, right_nullable=True)
+
+    #lidar_box_df = (lidar_box_df.groupby(['key.segment_context_name', 'key.laser_object_id']).agg(list).reset_index())
     # Iterate over objects
-    for _, row in lidar_box_df.iterrows():
+    for _, row in full_df.iterrows():
         lidar_box = v2.LiDARBoxComponent.from_dict(row)
+        cam_box = v2.CameraBoxComponent.from_dict(row)
+        cam_img = v2.CameraImageComponent.from_dict(row)
+        lidar = v2.LiDARComponent.from_dict(row)
+        association = v2.CameraToLiDARBoxAssociationComponent.from_dict(row)
     # But map data has to be loaded from v1 format
     for record_file in data_file:
         dataset = tf.data.TFRecordDataset(record_file, compression_type='')
