@@ -105,7 +105,7 @@
                     "--batch_size=1",
                     "--eval_batch_size=20",
                     "--epochs=500",
-                    "--extra_tag=Poses_MLP_MLP_Overfit",
+                    "--extra_tag=Poses_MLP_Attention_Overfit",
                     "--single_overfit=1",
                     "--not_eval_with_train",             
         ]

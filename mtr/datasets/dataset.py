@@ -76,6 +76,9 @@ class DatasetTemplate(torch_data.Dataset):
             elif key in ['pose_data']:
                 val_list = [torch.from_numpy(x) for x in val_list]
                 input_dict[key] = common_utils.merge_batch_by_padding_2nd_dim_poses(val_list)
+            elif key in ['pose_features']:
+                val_list = [torch.from_numpy(x) for x in val_list]
+                input_dict[key] = common_utils.merge_batch_by_padding_2nd_dim_poses(val_list)
             elif key in ['scenario_id', 'obj_types', 'obj_ids', 'center_objects_type', 'center_objects_id']:
                 input_dict[key] = np.concatenate(val_list, axis=0)
             else:

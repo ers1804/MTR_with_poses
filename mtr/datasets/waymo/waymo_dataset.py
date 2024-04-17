@@ -90,6 +90,7 @@ class WaymoDataset(DatasetTemplate):
             pose_data = np.load(pose_path)
             mask_path = os.path.join(self.pose_dir, str(scene_id), 'pose_data_mask.npy')
             pose_mask = np.load(mask_path)
+            pose_features = np.load(os.path.join(self.pose_dir, str(scene_id), 'pose_features.npy'))
 
         sdc_track_index = info['sdc_track_index']
         current_time_index = info['current_time_index']
@@ -115,10 +116,10 @@ class WaymoDataset(DatasetTemplate):
         if self.use_poses:
             (obj_trajs_data, obj_trajs_mask, obj_trajs_pos, obj_trajs_last_pos, obj_trajs_future_state, obj_trajs_future_mask, center_gt_trajs,
                 center_gt_trajs_mask, center_gt_final_valid_idx,
-                track_index_to_predict_new, sdc_track_index_new, obj_types, obj_ids, obj_pose_data, obj_pose_mask) = self.create_agent_data_for_center_objects(
+                track_index_to_predict_new, sdc_track_index_new, obj_types, obj_ids, obj_pose_data, obj_pose_mask, obj_pose_features) = self.create_agent_data_for_center_objects(
                 center_objects=center_objects, obj_trajs_past=obj_trajs_past, obj_trajs_future=obj_trajs_future,
                 track_index_to_predict=track_index_to_predict, sdc_track_index=sdc_track_index,
-                timestamps=timestamps, obj_types=obj_types, obj_ids=obj_ids, pose_data=pose_data, pose_mask=pose_mask
+                timestamps=timestamps, obj_types=obj_types, obj_ids=obj_ids, pose_data=pose_data, pose_mask=pose_mask, pose_features=pose_features
             )
         else:
             (obj_trajs_data, obj_trajs_mask, obj_trajs_pos, obj_trajs_last_pos, obj_trajs_future_state, obj_trajs_future_mask, center_gt_trajs,
@@ -153,6 +154,7 @@ class WaymoDataset(DatasetTemplate):
         if self.use_poses:
             ret_dict['pose_data'] = obj_pose_data
             ret_dict['pose_mask'] = obj_pose_mask
+            ret_dict['pose_features'] = obj_pose_features
 
         if not self.dataset_cfg.get('WITHOUT_HDMAP', False):
             if info['map_infos']['all_polylines'].__len__() == 0:
@@ -172,7 +174,7 @@ class WaymoDataset(DatasetTemplate):
 
     def create_agent_data_for_center_objects(
             self, center_objects, obj_trajs_past, obj_trajs_future, track_index_to_predict, sdc_track_index, timestamps,
-            obj_types, obj_ids, pose_data=None, pose_mask=None
+            obj_types, obj_ids, pose_data=None, pose_mask=None, pose_features=None
         ):
         if not self.use_poses:
             obj_trajs_data, obj_trajs_mask, obj_trajs_future_state, obj_trajs_future_mask = self.generate_centered_trajs_for_agents(
@@ -181,10 +183,10 @@ class WaymoDataset(DatasetTemplate):
                 sdc_index=sdc_track_index, timestamps=timestamps, obj_trajs_future=obj_trajs_future
             )
         else:
-            obj_trajs_data, obj_trajs_mask, obj_trajs_future_state, obj_trajs_future_mask, obj_pose_data, obj_pose_mask = self.generate_centered_trajs_for_agents_with_poses(
+            obj_trajs_data, obj_trajs_mask, obj_trajs_future_state, obj_trajs_future_mask, obj_pose_data, obj_pose_mask, obj_pose_features = self.generate_centered_trajs_for_agents_with_poses(
                 center_objects=center_objects, obj_trajs_past=obj_trajs_past,
                 obj_types=obj_types, center_indices=track_index_to_predict,
-                sdc_index=sdc_track_index, timestamps=timestamps, obj_trajs_future=obj_trajs_future, pose_data=pose_data, pose_mask=pose_mask
+                sdc_index=sdc_track_index, timestamps=timestamps, obj_trajs_future=obj_trajs_future, pose_data=pose_data, pose_mask=pose_mask, pose_features=pose_features
             )
 
         # generate the labels of track_objects for training
@@ -230,7 +232,7 @@ class WaymoDataset(DatasetTemplate):
         if self.use_poses:
             return (obj_trajs_data, obj_trajs_mask > 0, obj_trajs_pos, obj_trajs_last_pos,
                 obj_trajs_future_state, obj_trajs_future_mask, center_gt_trajs, center_gt_trajs_mask, center_gt_final_valid_idx,
-                track_index_to_predict_new, sdc_track_index_new, obj_types, obj_ids, obj_pose_data, obj_pose_mask)
+                track_index_to_predict_new, sdc_track_index_new, obj_types, obj_ids, obj_pose_data, obj_pose_mask, obj_pose_features)
         else:
             return (obj_trajs_data, obj_trajs_mask > 0, obj_trajs_pos, obj_trajs_last_pos,
                 obj_trajs_future_state, obj_trajs_future_mask, center_gt_trajs, center_gt_trajs_mask, center_gt_final_valid_idx,
@@ -369,7 +371,7 @@ class WaymoDataset(DatasetTemplate):
         return ret_obj_trajs.numpy(), ret_obj_valid_mask.numpy(), ret_obj_trajs_future.numpy(), ret_obj_valid_mask_future.numpy()
 
 
-    def generate_centered_trajs_for_agents_with_poses(self, center_objects, obj_trajs_past, obj_types, center_indices, sdc_index, timestamps, obj_trajs_future, pose_data, pose_mask):
+    def generate_centered_trajs_for_agents_with_poses(self, center_objects, obj_trajs_past, obj_types, center_indices, sdc_index, timestamps, obj_trajs_future, pose_data, pose_mask, pose_features):
         """[summary]
 
         Args:
@@ -398,6 +400,7 @@ class WaymoDataset(DatasetTemplate):
         timestamps = torch.from_numpy(timestamps)
 
         pose_data = torch.from_numpy(pose_data).float()
+        pose_features = torch.from_numpy(pose_features).float()
         pose_mask = torch.from_numpy(pose_mask)
 
         # transform coordinates to the centered objects
@@ -412,11 +415,13 @@ class WaymoDataset(DatasetTemplate):
         center_xyz = center_objects[:, 0:3]
         center_heading = center_objects[:, 6]
         num_objects, num_timestamps, num_joints, num_coordinates = pose_data.shape
+        _, _, num_features1, num_features2 = pose_features.shape
         num_center_objects = center_xyz.shape[0]
         assert center_xyz.shape[0] == center_heading.shape[0]
         assert center_xyz.shape[1] in [3, 2]
 
         obj_pose_data = pose_data.clone().view(1, num_objects, num_timestamps, num_joints, num_coordinates).repeat(num_center_objects, 1, 1, 1, 1)
+        obj_pose_features = pose_features.clone().view(1, num_objects, num_timestamps, num_features1, num_features2).repeat(num_center_objects, 1, 1, 1, 1)
         obj_pose_mask = pose_mask.clone().view(1, num_objects, num_timestamps).repeat(num_center_objects, 1, 1)
         obj_pose_data[:, :, :, :, 0:center_xyz.shape[1]] -= center_xyz[:, None, None, None, :]
         obj_pose_data[:, :, :, :, 0:2] = common_utils.rotate_points_along_z(
@@ -472,7 +477,7 @@ class WaymoDataset(DatasetTemplate):
         ret_obj_valid_mask_future = obj_trajs_future[:, :, :, -1]  # (num_center_obejcts, num_objects, num_timestamps_future)  # TODO: CHECK THIS, 20220322
         ret_obj_trajs_future[ret_obj_valid_mask_future == 0] = 0
 
-        return ret_obj_trajs.numpy(), ret_obj_valid_mask.numpy(), ret_obj_trajs_future.numpy(), ret_obj_valid_mask_future.numpy(), obj_pose_data.numpy(), obj_pose_mask.numpy()
+        return ret_obj_trajs.numpy(), ret_obj_valid_mask.numpy(), ret_obj_trajs_future.numpy(), ret_obj_valid_mask_future.numpy(), obj_pose_data.numpy(), obj_pose_mask.numpy(), obj_pose_features.numpy()
 
 
     @staticmethod
