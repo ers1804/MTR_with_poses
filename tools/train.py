@@ -29,6 +29,7 @@ def parse_config():
     parser.add_argument('--cfg_file', type=str, default=None, help='specify the config for training')
 
     parser.add_argument('--batch_size', type=int, default=None, required=False, help='batch size for training')
+    parser.add_argument('--eval_batch_size', type=int, default=None, required=False, help='batch size for evaluation if different')
     parser.add_argument('--epochs', type=int, default=None, required=False, help='number of epochs to train for')
     parser.add_argument('--workers', type=int, default=8, help='number of workers for dataloader')
     parser.add_argument('--extra_tag', type=str, default='default', help='extra tag for this experiment')
@@ -53,6 +54,7 @@ def parse_config():
     parser.add_argument('--ckpt_save_time_interval', type=int, default=300, help='in terms of seconds')
 
     parser.add_argument('--add_worker_init_fn', action='store_true', default=False, help='')
+    parser.add_argument('--single_overfit', type=int, default=0, help='Number of samples of training set used for overfitting')
     args = parser.parse_args()
 
     cfg_from_yaml_file(args.cfg_file, cfg)
@@ -164,6 +166,7 @@ def main():
         merge_all_iters_to_one_epoch=args.merge_all_iters_to_one_epoch,
         total_epochs=args.epochs,
         add_worker_init_fn=args.add_worker_init_fn,
+        single_overfit=args.single_overfit,
     )
 
     model = model_utils.MotionTransformer(config=cfg.MODEL)
@@ -218,7 +221,7 @@ def main():
 
     test_set, test_loader, sampler = build_dataloader(
         dataset_cfg=cfg.DATA_CONFIG,
-        batch_size=args.batch_size,
+        batch_size=args.batch_size if args.single_overfit == 0 else args.eval_batch_size,
         dist=dist_train, workers=args.workers, logger=logger, training=False
     )
 

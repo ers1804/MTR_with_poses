@@ -234,9 +234,9 @@ def merge_results_dist(result_part, size, tmpdir):
     rank, world_size = get_dist_info()
     os.makedirs(tmpdir, exist_ok=True)
 
-    dist.monitored_barrier()
+    dist.barrier()
     pickle.dump(result_part, open(os.path.join(tmpdir, 'result_part_{}.pkl'.format(rank)), 'wb'))
-    dist.monitored_barrier()
+    dist.barrier()
 
     if rank != 0:
         return None

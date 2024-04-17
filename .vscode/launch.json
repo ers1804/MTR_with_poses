@@ -7,7 +7,7 @@
         
         {
             "name": "data_preprocess.py",
-            "type": "python",
+            "type": "debugpy",
             "program": "data_preprocess.py",
             "request": "launch",
             "console": "integratedTerminal",
@@ -21,7 +21,7 @@
         },
         {
             "name": "data_preprocess_perception.py",
-            "type": "python",
+            "type": "debugpy",
             "program": "data_preprocess_perception.py",
             "request": "launch",
             "console": "integratedTerminal",
@@ -36,7 +36,7 @@
 
         {
             "name": "extract_lidar_data.py",
-            "type": "python",
+            "type": "debugpy",
             "program": "extract_lidar_data.py",
             "request": "launch",
             "console": "integratedTerminal",
@@ -47,7 +47,7 @@
 
         {
             "name": "extract_pose_data.py",
-            "type": "python",
+            "type": "debugpy",
             "program": "extract_pose_data.py",
             "request": "launch",
             "console": "integratedTerminal",
@@ -58,7 +58,7 @@
 
         {
             "name": "train.py with poses",
-            "type": "python",
+            "type": "debugpy",
             "program": "/home/erik/venv/mtr_pose/bin/torchrun",
             "request": "launch",
             "console": "integratedTerminal",
@@ -68,14 +68,14 @@
                     "train.py",
                     "--launcher", "pytorch",
                     "--cfg_file", "cfgs/waymo/mtr+100_percent_data_with_poses.yaml",
-                    "--batch_size=8",
+                    "--batch_size=1",
                     "--epochs=50",
                     "--extra_tag=Poses_Encoder_MLP_Fuser_MLP",             
         ]
         },
         {
             "name": "train.py without poses",
-            "type": "python",
+            "type": "debugpy",
             "program": "/home/erik/venv/mtr_pose/bin/torchrun",
             "request": "launch",
             "console": "integratedTerminal",
@@ -88,6 +88,26 @@
                     "--batch_size=8",
                     "--epochs=50",
                     "--extra_tag=MTR",             
+        ]
+        },
+        {
+            "name": "train.py with poses overfit",
+            "type": "debugpy",
+            "program": "/home/erik/venv/mtr_pose/bin/torchrun",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "/home/erik/gitprojects/MTR/tools",
+            "args": ["--nproc_per_node=1",
+                    "train.py",
+                    "--launcher", "pytorch",
+                    "--cfg_file", "cfgs/waymo/mtr+100_percent_data_with_poses.yaml",
+                    "--batch_size=1",
+                    "--eval_batch_size=20",
+                    "--epochs=500",
+                    "--extra_tag=Poses_MLP_MLP_Overfit",
+                    "--single_overfit=1",
+                    "--not_eval_with_train",             
         ]
         },
     ]

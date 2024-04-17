@@ -57,7 +57,7 @@ MODEL:
         USE_LOCAL_ATTN: True
 
         POSE_ENCODER:
-            TYPE: Transformer # MLP, PointNet, or Transformer
+            TYPE: MLP # MLP, PointNet, or Transformer
             D_MODEL_POSES: 256
             NUM_LAYERS_POSES: 3
             NUM_HEADS_POSES: 4
@@ -67,7 +67,7 @@ MODEL:
             HIDDEN_DIMS: [64, 128, 256]
             NUM_JOINTS: 13
         FEATURE_FUSER:
-            TYPE: Attention # Attention or MLP
+            TYPE: MLP # Attention or MLP
             NUM_HEADS_FUSER: 1
 
     MOTION_DECODER:
