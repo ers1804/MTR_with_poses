@@ -197,12 +197,49 @@ def process_waymo_data_with_waymo_frame(data_file, output_path=None):
 
     #lidar_box_df = (lidar_box_df.groupby(['key.segment_context_name', 'key.laser_object_id']).agg(list).reset_index())
     # Iterate over objects
+    unique_laser_object_ids = list()
+    unique_camera_object_ids = list()
+    object_infos = dict()
+    object_infos['lidar'] = dict()
+    object_infos['camera'] = dict()
     for _, row in full_df.iterrows():
         lidar_box = v2.LiDARBoxComponent.from_dict(row)
         cam_box = v2.CameraBoxComponent.from_dict(row)
         cam_img = v2.CameraImageComponent.from_dict(row)
         lidar = v2.LiDARComponent.from_dict(row)
         association = v2.CameraToLiDARBoxAssociationComponent.from_dict(row)
+        for lidar_obj_id, cam_obj_id, timestamp, lidar_center, lidar_size, lidar_speed, lidar_heading, lidar_obj_type, cam_center, cam_size, cam_obj_type in zip(association.key.laser_object_id, association.key.camera_object_id, lidar_box.key.frame_timestamp_micros, lidar_box.box.center, lidar_box.box.size, lidar_box.box.speed, lidar_box.box.heading, lidar_box.type, cam_box.box.center, cam_box.box.size, cam_box.type):
+            if lidar_obj_id not in unique_laser_object_ids and lidar_obj_id is not None:
+                unique_laser_object_ids.append(lidar_obj_id)
+                if lidar_obj_id is not None and cam_obj_id is not None:
+                    object_infos['lidar'][lidar_obj_id] = dict()
+                    object_infos['lidar'][lidar_obj_id]['timestamps'] = list()
+                    object_infos['lidar'][lidar_obj_id]['positions'] = list()
+                    object_infos['lidar'][lidar_obj_id]['sizes'] = list()
+                    object_infos['lidar'][lidar_obj_id]['speeds'] = list()
+                    object_infos['lidar'][lidar_obj_id]['headings'] = list()
+                    object_infos['lidar'][lidar_obj_id]['object_type'] = lidar_obj_type
+                    object_infos['lidar'][lidar_obj_id]['camera_object_id'] = cam_obj_id
+                    object_infos['lidar'][lidar_obj_id]['camera_centers'] = list()
+                    object_infos['lidar'][lidar_obj_id]['camera_sizes'] = list()
+            if cam_obj_id not in unique_camera_object_ids and cam_obj_id is not None:
+                unique_camera_object_ids.append(cam_obj_id)
+                if lidar_obj_id is None and cam_obj_id is not None:
+                    object_infos['camera'][cam_obj_id] = dict()
+                    object_infos['camera'][cam_obj_id]['timestamps'] = list()
+                    object_infos['camera'][cam_obj_id]['positions'] = list()
+                    object_infos['camera'][cam_obj_id]['sizes'] = list()
+                    object_infos['camera'][cam_obj_id]['object_type'] = cam_obj_type
+            if lidar_obj_id is not None and cam_obj_id is not None:
+                # Both lidar and camera object are available
+                object_infos['lidar'][lidar_obj_id]['time_stamps'].append(timestamp)
+                object_infos['lidar'][lidar_obj_id]['positions'].append(lidar_center)
+                object_infos['lidar'][lidar_obj_id]['sizes'].append(lidar_size)
+                object_infos['lidar'][lidar_obj_id]['speeds'].append(lidar_speed)
+                object_infos['lidar'][lidar_obj_id]['headings'].append(lidar_heading)
+                object_infos['lidar'][lidar_obj_id]['camera_centers'].append(cam_center)
+                object_infos['lidar'][lidar_obj_id]['camera_sizes'].append(cam_size)
+
     # But map data has to be loaded from v1 format
     for record_file in data_file:
         dataset = tf.data.TFRecordDataset(record_file, compression_type='')

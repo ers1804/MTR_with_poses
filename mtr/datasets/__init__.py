@@ -18,7 +18,7 @@ __all__ = {
 
 
 def build_dataloader(dataset_cfg, batch_size, dist, workers=4,
-                     logger=None, training=True, merge_all_iters_to_one_epoch=False, total_epochs=0, add_worker_init_fn=False, single_overfit=0):
+                     logger=None, training=True, merge_all_iters_to_one_epoch=False, total_epochs=0, add_worker_init_fn=False, single_overfit=0, scenario_id=None):
     
     def worker_init_fn_(worker_id):
         torch_seed = torch.initial_seed()
@@ -28,7 +28,8 @@ def build_dataloader(dataset_cfg, batch_size, dist, workers=4,
     dataset = __all__[dataset_cfg.DATASET](
         dataset_cfg=dataset_cfg,
         training=training,
-        logger=logger, 
+        logger=logger,
+        scenario_id=scenario_id 
     )
 
     if merge_all_iters_to_one_epoch:

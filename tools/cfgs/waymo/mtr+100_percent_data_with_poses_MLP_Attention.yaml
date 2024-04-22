@@ -1,6 +1,6 @@
 DATA_CONFIG:
     USE_POSES: True
-    POSE_DIR: '/home/erik/raid/datasets/womd/poses'
+    POSE_DIR: '/home/erik/raid/datasets/womd/lidar_snippets'
     DATASET: WaymoDataset
     OBJECT_TYPE: &object_type ['TYPE_VEHICLE', 'TYPE_PEDESTRIAN', 'TYPE_CYCLIST']
     
@@ -57,7 +57,7 @@ MODEL:
         USE_LOCAL_ATTN: True
 
         POSE_ENCODER:
-            TYPE: MLP # MLP, PointNet, Transformer, or Features
+            TYPE: MLP # MLP, PointNet, or Transformer
             D_MODEL_POSES: 256
             NUM_LAYERS_POSES: 3
             NUM_HEADS_POSES: 4
@@ -67,8 +67,8 @@ MODEL:
             HIDDEN_DIMS: [64, 128, 256]
             NUM_JOINTS: 13
         FEATURE_FUSER:
-            TYPE: MLP # Attention or MLP
-            NUM_HEADS_FUSER: 1
+            TYPE: Attention # Attention or MLP
+            NUM_HEADS_FUSER: 4
 
     MOTION_DECODER:
         NAME: MTRDecoder

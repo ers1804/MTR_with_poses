@@ -268,7 +268,7 @@ def main():
 
     test_set, test_loader, sampler = build_dataloader(
         dataset_cfg=cfg.DATA_CONFIG,
-        batch_size=args.batch_size,
+        batch_size=args.batch_size if args.single_overfit == 0 else args.eval_batch_size,
         dist=dist_train, workers=args.workers, logger=logger, training=False
     )
 

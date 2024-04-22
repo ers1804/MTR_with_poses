@@ -11,11 +11,12 @@ import mtr.utils.common_utils as common_utils
 
 
 class DatasetTemplate(torch_data.Dataset):
-    def __init__(self, dataset_cfg=None, training=True, logger=None):
+    def __init__(self, dataset_cfg=None, training=True, logger=None, scenario_id=None):
         super().__init__()
         self.dataset_cfg = dataset_cfg
         self.training = training
         self.logger = logger
+        self.scenario_id = scenario_id
 
     @property
     def mode(self):
