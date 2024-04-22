@@ -86,10 +86,13 @@ def get_viewport(all_states, all_states_mask):
     return center_y, center_x, width
 
 
-def vis_all_agents_smooth(scenario, pred_future_states, scenario_id):
+def vis_all_agents_smooth(batch_dict, pred_future_states, scenario_id):
     # Extract data for corresponding scenario
+    curr_pos = batch_dict['center_objects_world'][:, :2]
+    # Do we have to load the trajectories from before the preparsing??
     past_traj = None # [num_agents, num_past_steps, 2]
     fut_traj = None # [num_agents, num_modes, num_future_steps, 2]
+    gt_traj = None # [num_agents, num_future_steps, 2]
     pred_future_states = None # [num_agents, num_future_steps, 2]
     map_data = None # ??
     mask_past = None
@@ -122,6 +125,9 @@ def vis_all_agents_smooth(scenario, pred_future_states, scenario_id):
 
     # Plot future trajectories
     ax.plot(fut_traj[:, :, curr_timestep:, 0].T, fut_traj[:, :, curr_timestep:, 1].T, c=color_map, alpha=0.5)
+
+    # Plot ground truth trajectories
+    ax.plot(gt_traj[:, curr_timestep:, 0].T, gt_traj[:, curr_timestep:, 1].T, 'k--', alpha=0.5)
 
     # Set Title
     ax.set_title('Scenario: {}'.format(scenario_id))
@@ -209,7 +215,7 @@ def vis_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sav
     )
 
     # Visualize result
-    img = vis_all_agents_smooth(scenario, pred_future_states, scenario_id)
+    img = vis_all_agents_smooth(batch_dict, pred_dicts, batch_dict['scenario_id'])
     pil_img = Image.fromarray(img)
     pil_img.save(result_dir / 'vis.png')
 

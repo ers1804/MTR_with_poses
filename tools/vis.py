@@ -73,7 +73,7 @@ def eval_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id
 
     logger.info(f'*************** LOAD MODEL (epoch={epoch}, iter={it}) for EVALUATION *****************')
     # start evaluation
-    eval_utils.eval_one_epoch(
+    vis_utils.vis_one_epoch(
         cfg, model, test_loader, epoch_id, logger, dist_test=dist_test,
         result_dir=eval_output_dir, save_to_file=args.save_to_file
     )
