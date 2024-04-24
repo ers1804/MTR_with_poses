@@ -10,6 +10,8 @@ import uuid
 import numpy as np
 import torch
 import tqdm
+import glob
+import os
 
 from mtr.utils import common_utils
 
@@ -90,12 +92,26 @@ def vis_all_agents_smooth(batch_dict, pred_future_states, scenario_id):
     # Extract data for corresponding scenario
     curr_pos = batch_dict['center_objects_world'][:, :2]
     # Do we have to load the trajectories from before the preparsing??
-    past_traj = None # [num_agents, num_past_steps, 2]
-    fut_traj = None # [num_agents, num_modes, num_future_steps, 2]
-    gt_traj = None # [num_agents, num_future_steps, 2]
-    pred_future_states = None # [num_agents, num_future_steps, 2]
-    map_data = None # ??
+    # obj_trajs_pos: (num_center_objects, num_objects, num_timestamps, 3)
+    # center_objects_world: (num_center_objects, 10)  [cx, cy, cz, dx, dy, dz, heading, vel_x, vel_y, valid]
+    # center_gt_trajs (num_center_objects, num_future_timestamps, 4): [x, y, vx, vy]
+    # map_polylines (num_center_objects, num_polylines, num_points_each_polyline, 9): [x, y, z, dir_x, dir_y, dir_z, global_type, pre_x, pre_y]
+    past_traj = batch_dict['obj_trajs_pos'][0, :, :, :2] + curr_pos[0, :] # [num_agents, num_past_steps, 2]
+    gt_traj = batch_dict['center_gt_trajs'][0, :, :2] + curr_pos[0, :] # [num_agents, num_future_steps, 2]
+    fut_traj = pred_future_states[0]['pred_trajs'] + curr_pos # [num_agents, num_modes, num_future_steps, 2]
+    map_data = batch_dict['map_polylines'][0, :, :, :2] + curr_pos[0, :]
     mask_past = None
+
+    # Get paths to point clouds and poses
+    # obj_types: (num_objects)
+    # obj_ids: (num_objects)
+    pc_sequence = list()
+    pose_indices = list()
+    for i, (id, type) in enumerate(zip(batch_dict['obj_ids'], batch_dict['obj_types'])):
+        if type == 'TYPE_PEDESTRIAN' or type == 'TYPE_CYCLIST':
+            pc_list = sorted(glob.glob(os.path.join('/home/erik/raid/datasets/womd/lidar_snippets', 'scenario_id', str(id) + '_*.npy')))
+            pc_sequence.append(pc_list)
+            pose_indices.append(i)
 
     curr_timestep = 10
 
@@ -118,16 +134,16 @@ def vis_all_agents_smooth(batch_dict, pred_future_states, scenario_id):
     ax.plot(rg_plts[0], rg_plts[1], 'k.', alpha=1, ms=2)
 
     # Plot current position
-    ax.scatter(past_traj[:, curr_timestep, 0], past_traj[:, curr_timestep, 1], c=color_map, s=10)
+    ax.scatter(curr_pos[:, 0], curr_pos[:, 1], c=color_map, s=10)
 
     # Plot past trajectories
-    ax.plot(past_traj[:, :curr_timestep+1, 0].T, past_traj[:, :curr_timestep+1, 1].T, c=color_map, alpha=0.5)
+    ax.plot(past_traj[:, :, 0].T, past_traj[:, :, 1].T, c=color_map, alpha=0.5)
 
     # Plot future trajectories
-    ax.plot(fut_traj[:, :, curr_timestep:, 0].T, fut_traj[:, :, curr_timestep:, 1].T, c=color_map, alpha=0.5)
+    ax.plot(fut_traj[:, :, :, 0].T, fut_traj[:, :, :, 1].T, c=color_map, alpha=0.5)
 
     # Plot ground truth trajectories
-    ax.plot(gt_traj[:, curr_timestep:, 0].T, gt_traj[:, curr_timestep:, 1].T, 'k--', alpha=0.5)
+    ax.plot(gt_traj[:, :, 0].T, gt_traj[:, :, 1].T, 'k--', alpha=0.5)
 
     # Set Title
     ax.set_title('Scenario: {}'.format(scenario_id))

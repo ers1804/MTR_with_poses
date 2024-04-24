@@ -12,3 +12,4 @@ for scenario in tqdm.tqdm(scenario_lists):
         os.makedirs(os.path.join(destination_dir, scenario))
     for file in file_names:
         shutil.copy(os.path.join(path_to_womd, 'lidar_snippets', scenario, file), os.path.join(destination_dir, scenario, file))
+        os.remove(os.path.join(path_to_womd, 'lidar_snippets', scenario, file))
