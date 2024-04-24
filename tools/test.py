@@ -11,6 +11,7 @@ import os
 import re
 import time
 from pathlib import Path
+import pickle
 
 import numpy as np
 import torch
@@ -44,6 +45,12 @@ def parse_config():
     parser.add_argument('--eval_all', action='store_true', default=False, help='whether to evaluate all checkpoints')
     parser.add_argument('--ckpt_dir', type=str, default=None, help='specify a ckpt directory to be evaluated if needed')
     parser.add_argument('--save_to_file', action='store_true', default=False, help='')
+    parser.add_argument('--eval_vru', action='store_true', default=False, help='whether to evaluate on VRU specific subset of dataset')
+    parser.add_argument('--ped_dist_vehicle', type=float, default=2.0, help='distance threshold between pedestrian and vehicle')
+    parser.add_argument('--cyc_dist_vehicle', type=float, default=2.0, help='distance threshold between cyclist and vehicle')
+    parser.add_argument('--ped_dist_edge', type=float, default=2.0, help='distance threshold between pedestrian and edge')
+    parser.add_argument('--cyc_turn', type=float, default=0.5, help='turning threshold for cyclist')
+    parser.add_argument('--cluster_info', type=str, default="../mtr/datasets/waymo/vru_infos_val.pkl", help='path to cluster info file')
 
     args = parser.parse_args()
 
@@ -197,10 +204,29 @@ def main():
 
     ckpt_dir = args.ckpt_dir if args.ckpt_dir is not None else output_dir / 'ckpt'
 
+    if args.eval_vru:
+        scenario_ids = list()
+        vru_infos_val = pickle.load(open(args.cluster_info, "rb"))
+        for key in vru_infos_val.keys():
+            if vru_infos_val[key]['pedestrians']:
+                if key not in scenario_ids and vru_infos_val[key]['distances']['TYPE_PEDESTRIAN'] < args.ped_dist_vehicle:
+                    scenario_ids.append(key)
+                if key not in scenario_ids and vru_infos_val[key]['crosswalk']:
+                    if vru_infos_val[key]['vru_on_crosswalk']:
+                        scenario_ids.append(key)
+                if key not in scenario_ids and vru_infos_val[key]['distance_to_road_edge'] < args.ped_dist_edge:
+                    scenario_ids.append(key)
+            if vru_infos_val[key]['cyclists']:
+                if key not in scenario_ids and vru_infos_val[key]['distances']['TYPE_CYCLIST'] < args.cyc_dist_vehicle:
+                    scenario_ids.append(key)
+                if key not in scenario_ids and vru_infos_val[key]['cyclist_turn'] > args.cyc_turn:
+                    scenario_ids.append(key)
+                
+
     test_set, test_loader, sampler = build_dataloader(
         dataset_cfg=cfg.DATA_CONFIG,
         batch_size=args.batch_size,
-        dist=dist_test, workers=args.workers, logger=logger, training=False
+        dist=dist_test, workers=args.workers, logger=logger, training=False, scenario_id=scenario_ids if args.eval_vru else None
     )
     model = model_utils.MotionTransformer(config=cfg.MODEL)
     with torch.no_grad():

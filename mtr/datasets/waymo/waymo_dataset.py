@@ -38,7 +38,7 @@ class WaymoDataset(DatasetTemplate):
 
         # If scenario id is provided only use the infos of the single scenario
         if self.scenario_id is not None:
-            infos = [info for info in infos if info['scenario_id'] == self.scenario_id]
+            infos = [info for info in infos if info['scenario_id'] in self.scenario_id]
 
         self.logger.info(f'Total scenes before filters: {len(infos)}')
 
