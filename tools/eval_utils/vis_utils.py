@@ -158,7 +158,7 @@ def vis_all_agents_smooth(batch_dict, pred_future_states, scenario_id):
     image = fig_canvas_image(fig)
     plt.close(fig)
 
-    return image
+    return image, pc_sequence, pose_indices
 
 
 def vis_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, save_to_file=False, result_dir=None, logger_iter_interval=50):
@@ -231,9 +231,17 @@ def vis_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sav
     )
 
     # Visualize result
-    img = vis_all_agents_smooth(batch_dict, pred_dicts, batch_dict['scenario_id'])
+    img, pc_sequence, pose_indices = vis_all_agents_smooth(batch_dict, pred_dicts, batch_dict['scenario_id'])
     pil_img = Image.fromarray(img)
-    pil_img.save(result_dir / 'vis.png')
+    pil_img.save(result_dir / str(batch_dict['scenario_id']) + '_vis.png')
+    with open(result_dir / str(batch_dict['scenario_id']) + '_pc_sequence.txt', 'w') as f:
+        for pc_list in pc_sequence:
+            f.write(pc_list)
+            f.write('\n')
+    with open(result_dir / str(batch_dict['scenario_id']) + '_pose_indices.txt', 'w') as f:
+        for pose_idx in pose_indices:
+            f.write(pose_idx)
+            f.write('\n')
 
 
     logger.info(result_str)
