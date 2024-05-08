@@ -47,7 +47,8 @@ def parse_config():
     parser.add_argument('--save_to_file', action='store_true', default=False, help='')
     
     # Vis Arguments
-    parser.add_argument('scenario_id', type=str, default=None, required=True, help='ID of the scenario to be visualised.')
+    parser.add_argument('--scenario_id', nargs='+', default=None, required=True, help='ID of the scenario to be visualised.')
+    parser.add_argument('--agent_ids', nargs='+', default=None, help='ID of the agent to be visualised.')
 
     args = parser.parse_args()
 
@@ -63,7 +64,7 @@ def parse_config():
     return args, cfg
 
 
-def eval_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id, dist_test=False):
+def vis_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id, dist_test=False):
     # load checkpoint
     if args.ckpt is not None: 
         it, epoch = model.load_params_from_file(filename=args.ckpt, logger=logger, to_cpu=dist_test)
@@ -75,7 +76,7 @@ def eval_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id
     # start evaluation
     vis_utils.vis_one_epoch(
         cfg, model, test_loader, epoch_id, logger, dist_test=dist_test,
-        result_dir=eval_output_dir, save_to_file=args.save_to_file
+        result_dir=eval_output_dir, save_to_file=args.save_to_file, agent_ids=args.agent_ids
     )
 
 
@@ -211,7 +212,7 @@ def main():
         # if args.eval_all:
         #     repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir, dist_test=dist_test)
         # else:
-        eval_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id, dist_test=dist_test)
+        vis_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id, dist_test=dist_test)
 
 
 if __name__ == '__main__':

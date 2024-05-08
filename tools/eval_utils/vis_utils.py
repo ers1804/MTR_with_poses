@@ -8,6 +8,7 @@ import time
 import uuid
 
 import numpy as np
+np.random.seed(0)
 import torch
 import tqdm
 import glob
@@ -88,80 +89,249 @@ def get_viewport(all_states, all_states_mask):
     return center_y, center_x, width
 
 
-def vis_all_agents_smooth(batch_dict, pred_future_states, scenario_id):
-    # Extract data for corresponding scenario
-    curr_pos = batch_dict['center_objects_world'][:, :2]
-    # Do we have to load the trajectories from before the preparsing??
-    # obj_trajs_pos: (num_center_objects, num_objects, num_timestamps, 3)
-    # center_objects_world: (num_center_objects, 10)  [cx, cy, cz, dx, dy, dz, heading, vel_x, vel_y, valid]
-    # center_gt_trajs (num_center_objects, num_future_timestamps, 4): [x, y, vx, vy]
-    # map_polylines (num_center_objects, num_polylines, num_points_each_polyline, 9): [x, y, z, dir_x, dir_y, dir_z, global_type, pre_x, pre_y]
-    past_traj = batch_dict['obj_trajs_pos'][0, :, :, :2] + curr_pos[0, :] # [num_agents, num_past_steps, 2]
-    gt_traj = batch_dict['center_gt_trajs'][0, :, :2] + curr_pos[0, :] # [num_agents, num_future_steps, 2]
-    fut_traj = pred_future_states[0]['pred_trajs'] + curr_pos # [num_agents, num_modes, num_future_steps, 2]
-    map_data = batch_dict['map_polylines'][0, :, :, :2] + curr_pos[0, :]
-    mask_past = None
+def vis_all_agents_smooth(batch_dict, pred_future_states, scenario_id, timestamp=None, agent_id=None):
+    if agent_id is None:
+        # Extract data for corresponding scenario
+        curr_pos = batch_dict['center_objects_world'][:, :2]
+        angles = batch_dict['center_objects_world'][:, 6]
+        past_trajs_obj = batch_dict['obj_trajs_pos'][0, :, :, :2] + curr_pos[0, :]
+        future_trajs_obj = batch_dict['obj_trajs_future_state'][0, :, :, :2] + curr_pos[0, :]
+        future_trajs_obj_mask = batch_dict['obj_trajs_future_mask'][0, :, :]
+        # Do we have to load the trajectories from before the preparsing??
+        # obj_trajs_pos: (num_center_objects, num_objects, num_timestamps, 3)
+        # center_objects_world: (num_center_objects, 10)  [cx, cy, cz, dx, dy, dz, heading, vel_x, vel_y, valid]
+        # center_gt_trajs (num_center_objects, num_future_timestamps, 4): [x, y, vx, vy]
+        # map_polylines (num_center_objects, num_polylines, num_points_each_polyline, 9): [x, y, z, dir_x, dir_y, dir_z, global_type, pre_x, pre_y]
+        #past_traj = batch_dict['obj_trajs_pos'][0, :, :, :2] + curr_pos[0, :] # [num_agents, num_past_steps, 2]
+        #gt_traj = batch_dict['center_gt_trajs'][0, :, :2] + curr_pos[0, :] # [num_agents, num_future_steps, 2]
+        gt_traj = np.concatenate([pred['gt_trajs'][np.newaxis, :, :2] for pred in pred_future_states[0]], axis=0) # num_center_objects, 91, 2
+        gt_trajs_src = batch_dict['center_gt_trajs_src']
+        past_traj = gt_traj[:, :11, :] # num_center_objects, 11, 2
+        fut_traj = np.concatenate([pred['pred_trajs'][np.newaxis, :, :, :] for pred in pred_future_states[0]], axis=0) # num_center_objects, num_modes, 80, 2
+        pred_scores = np.array([pred['pred_scores'] for pred in pred_future_states[0]]) # num_center_objects, num_modes
+        obj_ids = [pred['object_id'] for pred in pred_future_states[0]]
+        #fut_traj = pred_future_states[0]['pred_trajs'] + curr_pos # [num_agents, num_modes, num_future_steps, 2]
+        map_data = batch_dict['map_polylines'][0, :, :, :2]
+        num_polylines, num_points, _ = map_data.shape
+        map_data = common_utils.rotate_points_along_z(map_data[None, :, :, :].view(1, -1, 2), angle=angles[0].view(1,)).view(num_polylines, num_points, -1)
+        map_centers = batch_dict['map_polylines_center'][0, :, :2][:, None, :].repeat(1, map_data.shape[1], 1)
+        map_data = map_data + curr_pos[0, :]
+        map_mask = batch_dict['map_polylines_mask'][0, :, :]
+        
 
-    # Get paths to point clouds and poses
-    # obj_types: (num_objects)
-    # obj_ids: (num_objects)
-    pc_sequence = list()
-    pose_indices = list()
-    for i, (id, type) in enumerate(zip(batch_dict['obj_ids'], batch_dict['obj_types'])):
+        # Get paths to point clouds and poses
+        # obj_types: (num_objects)
+        # obj_ids: (num_objects)
+        pc_sequence = list()
+        pose_indices = list()
+        for i, (id, type) in enumerate(zip(batch_dict['obj_ids'], batch_dict['obj_types'])):
+            if type == 'TYPE_PEDESTRIAN' or type == 'TYPE_CYCLIST':
+                pc_list = sorted(glob.glob(os.path.join('/home/erik/raid/datasets/womd/lidar_snippets', 'scenario_id', str(id) + '_*.npy')))
+                pc_sequence.append(pc_list)
+                pose_indices.append(i)
+
+        curr_timestep = 10
+
+        # Get infos from data
+        num_agents, num_past_steps, _ = past_traj.shape
+        _, num_modes, num_future_steps, _ = fut_traj.shape
+
+        color_map = get_colormap(num_agents)
+
+        # Get complete trajectories (past and future modes)
+        past_traj_w_modes = np.repeat(past_traj[:, np.newaxis, :, :], num_modes, axis=1)
+        all_traj = np.concatenate([past_traj_w_modes, fut_traj], axis=2)
+
+        # Get viewport (size of map), assume every timestep is valid
+        mask = gt_trajs_src[:, :, -1].bool()
+        center_y, center_x, width = get_viewport(gt_trajs_src[:, :, :2].numpy(), mask.numpy())
+        # width += 50
+        # center_x = 2400
+        # center_y = 750
+        # width = 500
+        #map_data = map_data + np.array([center_x, center_y])
+
+        # Plot the scene incl. past and future trajectories
+        fig, ax = create_figure_and_axes(size_pixels=1000)
+        #rg_plts = map_data[:, :2].reshape(-1, 2).T
+        for i in range(map_data.shape[0]):
+            ax.plot(map_data[i, map_mask[i], 0], map_data[i, map_mask[i], 1], 'k.', alpha=1, ms=2, c='grey')
+
+        # Plot current position
+        if timestamp is None:
+            ax.scatter(curr_pos[:, 0], curr_pos[:, 1], c=color_map, s=40)
+            for i, pos in enumerate(curr_pos):
+                plt.annotate(str(obj_ids[i]), (pos[0], pos[1]), textcoords="offset points", xytext=(0, 10), ha='center')
+        else:
+            plot_pos = gt_traj[:, 11:, :]
+            ax.scatter(plot_pos[:, timestamp, 0], plot_pos[:, timestamp, 1], c=color_map, s=30)
+            for i in range(plot_pos.shape[0]):
+                plt.annotate(str(obj_ids[i]), (plot_pos[i, timestamp, 0], plot_pos[i, timestamp, 1]), textcoords="offset points", xytext=(0, 10), ha='center')
+
+        # Plot current position of objects
+        #ax.scatter(past_trajs_obj[:, 10, 0], past_trajs_obj[:, 10, 1], c='red', s=5)
+
+        # Plot past trajectories
+        # for i in range(num_agents):
+        #     ax.plot(past_traj[i, :, 0].T, past_traj[i, :, 1].T, c=color_map[i], alpha=0.5, linewidth=3.0)
+        mask = gt_trajs_src[:, :11, -1].bool()
+        for i in range(num_agents):
+            ax.plot(gt_trajs_src[:, :11, :][i, mask[i], 0].numpy().T, gt_trajs_src[:, :11, :][i, mask[i], 1].numpy().T, 'k--', c='green', alpha=0.5)
+
+        # Plot past trajectories of objects
+        # for i in range(past_trajs_obj.shape[0]):
+        #     ax.plot(past_trajs_obj[i, :, 0].T, past_trajs_obj[i, :, 1].T, 'r--', c='red', alpha=0.5)
+
+        # Plot future trajectories
+        indices_ml_mode = np.argmax(pred_scores, axis=1)
+        pred_weights = pred_scores / np.max(pred_scores, axis=1)[:, np.newaxis]
+        for i in range(num_agents):
+            for t in range(num_modes):
+                ax.plot(fut_traj[i, t, :, 0].T, fut_traj[i, t, :, 1].T, c=color_map[i], alpha=pred_weights[i, t], linewidth=3.0)
+        # for i in range(num_agents):
+        #     ax.plot(fut_traj[i, :, :, 0].T, fut_traj[i, :, :, 1].T, c=color_map[i], alpha=0.5, linewidth=3.0)
+        
+        # Plot future trajectories of objects
+        # for i in range(future_trajs_obj.shape[0]):
+        #     ax.plot(future_trajs_obj[i, future_trajs_obj_mask[i]==1, 0].T, future_trajs_obj[i, future_trajs_obj_mask[i]==1, 1].T, 'r--', c='red', alpha=0.5)
+
+        # Plot ground truth trajectories
+        gt_mask = batch_dict['center_gt_trajs_mask']
+        gt_traj = gt_traj[:, 11:, :]
+        for i in range(num_agents):
+            ax.plot(gt_traj[i, gt_mask[i]==1, 0].T, gt_traj[i, gt_mask[i]==1, 1].T, 'k--',c='green', alpha=0.5)
+
+        # Set Title
+        ax.set_title('Scenario: {}'.format(scenario_id[0]))
+
+        size = max(10, width * 1.0)
+        ax.axis([
+        -size / 2 + center_x, size / 2 + center_x, -size / 2 + center_y,
+        size / 2 + center_y
+        ])
+        ax.set_aspect('equal')
+
+        image = fig_canvas_image(fig)
+        plt.close(fig)
+        return image, pc_sequence, pose_indices
+    else:
+        # Extract data for corresponding scenario
+        obj_ids = [pred['object_id'] for pred in pred_future_states[0]]
+        index = obj_ids.index(int(agent_id))
+        curr_pos = batch_dict['center_objects_world'][index, :2]
+        angles = batch_dict['center_objects_world'][index, 6]
+        #past_trajs_obj = batch_dict['obj_trajs_pos'][0, :, :, :2] + curr_pos[0, :]
+        #future_trajs_obj = batch_dict['obj_trajs_future_state'][0, :, :, :2] + curr_pos[0, :]
+        #future_trajs_obj_mask = batch_dict['obj_trajs_future_mask'][0, :, :]
+
+        gt_traj = np.concatenate([pred['gt_trajs'][np.newaxis, :, :2] for pred in pred_future_states[0]], axis=0)[index, :, :] # num_center_objects, 91, 2
+        gt_trajs_src = batch_dict['center_gt_trajs_src'][index, :, :]
+        past_traj = gt_traj[:11, :] # num_center_objects, 11, 2
+        fut_traj = np.concatenate([pred['pred_trajs'][np.newaxis, :, :, :] for pred in pred_future_states[0]], axis=0)[index, :, :, :] # num_center_objects, num_modes, 80, 2
+        pred_scores = np.array([pred['pred_scores'] for pred in pred_future_states[0]])[index, :] # num_center_objects, num_modes
+        #fut_traj = pred_future_states[0]['pred_trajs'] + curr_pos # [num_agents, num_modes, num_future_steps, 2]
+        map_data = batch_dict['map_polylines'][index, :, :, :2]
+        num_polylines, num_points, _ = map_data.shape
+        map_data = common_utils.rotate_points_along_z(map_data[None, :, :, :].view(1, -1, 2), angle=angles.view(1,)).view(num_polylines, num_points, -1)
+        map_centers = batch_dict['map_polylines_center'][index, :, :2][:, None, :].repeat(1, map_data.shape[1], 1)
+        map_data = map_data + curr_pos
+        map_mask = batch_dict['map_polylines_mask'][index, :, :]
+        
+
+        # Get paths to point clouds and poses
+        # obj_types: (num_objects)
+        # obj_ids: (num_objects)
+        pc_sequence = list()
+        pose_indices = list()
+        id = agent_id
+        type = batch_dict['obj_types'][index]
         if type == 'TYPE_PEDESTRIAN' or type == 'TYPE_CYCLIST':
             pc_list = sorted(glob.glob(os.path.join('/home/erik/raid/datasets/womd/lidar_snippets', 'scenario_id', str(id) + '_*.npy')))
             pc_sequence.append(pc_list)
-            pose_indices.append(i)
+            pose_indices.append(index)
 
-    curr_timestep = 10
+        # Get infos from data
+        num_past_steps, _ = past_traj.shape
+        num_modes, num_future_steps, _ = fut_traj.shape
 
-    # Get infos from data
-    num_agents, num_past_steps, _ = past_traj.shape
-    _, num_modes, num_future_steps, _ = fut_traj.shape
+        #color_map = get_colormap(num_agents)
 
-    color_map = get_colormap(num_agents)
+        # Get complete trajectories (past and future modes)
+        past_traj_w_modes = np.repeat(past_traj[np.newaxis, :, :], num_modes, axis=0)
+        all_traj = np.concatenate([past_traj_w_modes, fut_traj], axis=1)
 
-    # Get complete trajectories (past and future modes)
-    past_traj_w_modes = np.repeat(past_traj[:, np.newaxis, :, :], num_modes, axis=1)
-    all_traj = np.concatenate([past_traj_w_modes, fut_traj], axis=2)
+        # Get viewport (size of map), assume every timestep is valid
+        mask = gt_trajs_src[:, -1].bool()
+        center_y, center_x, width = get_viewport(gt_trajs_src[:, :2].numpy(), mask.numpy())
+        width += 25
+        # width += 50
+        # center_x = 2400
+        # center_y = 750
+        # width = 500
+        #map_data = map_data + np.array([center_x, center_y])
 
-    # Get viewport (size of map), assume every timestep is valid
-    center_y, center_x, width = get_viewport(all_traj, np.ones_like(all_traj[..., 0]))
+        # Plot the scene incl. past and future trajectories
+        fig, ax = create_figure_and_axes(size_pixels=1000)
+        #rg_plts = map_data[:, :2].reshape(-1, 2).T
+        ax.plot(map_data[:, :, 0][map_mask], map_data[:, :, 1][map_mask], 'k.', alpha=1, ms=2, c='grey')
 
-    # Plot the scene incl. past and future trajectories
-    fig, ax = create_figure_and_axes(size_pixels=1000)
-    rg_plts = map_data[:, :2].T
-    ax.plot(rg_plts[0], rg_plts[1], 'k.', alpha=1, ms=2)
+        # Plot current position
+        if timestamp is None:
+            ax.scatter(curr_pos[0], curr_pos[1], c='blue', s=40)
+            plt.annotate(str(obj_ids[index]), (curr_pos[0], curr_pos[1]), textcoords="offset points", xytext=(0, 10), ha='center')
+        else:
+            plot_pos = gt_traj[11:, :]
+            ax.scatter(plot_pos[timestamp, 0], plot_pos[timestamp, 1], c='blue', s=30)
 
-    # Plot current position
-    ax.scatter(curr_pos[:, 0], curr_pos[:, 1], c=color_map, s=10)
+            plt.annotate(str(obj_ids[index]), (plot_pos[timestamp, 0], plot_pos[timestamp, 1]), textcoords="offset points", xytext=(0, 10), ha='center')
 
-    # Plot past trajectories
-    ax.plot(past_traj[:, :, 0].T, past_traj[:, :, 1].T, c=color_map, alpha=0.5)
+        # Plot current position of objects
+        #ax.scatter(past_trajs_obj[:, 10, 0], past_trajs_obj[:, 10, 1], c='red', s=5)
 
-    # Plot future trajectories
-    ax.plot(fut_traj[:, :, :, 0].T, fut_traj[:, :, :, 1].T, c=color_map, alpha=0.5)
+        # Plot past trajectories
+        # for i in range(num_agents):
+        #     ax.plot(past_traj[i, :, 0].T, past_traj[i, :, 1].T, c=color_map[i], alpha=0.5, linewidth=3.0)
+        mask = gt_trajs_src[:11, -1].bool()
+        ax.plot(gt_trajs_src[:11, :][mask, 0].numpy().T, gt_trajs_src[:11, :][mask, 1].numpy().T, 'k--', c='green', alpha=0.5)
 
-    # Plot ground truth trajectories
-    ax.plot(gt_traj[:, :, 0].T, gt_traj[:, :, 1].T, 'k--', alpha=0.5)
+        # Plot past trajectories of objects
+        # for i in range(past_trajs_obj.shape[0]):
+        #     ax.plot(past_trajs_obj[i, :, 0].T, past_trajs_obj[i, :, 1].T, 'r--', c='red', alpha=0.5)
 
-    # Set Title
-    ax.set_title('Scenario: {}'.format(scenario_id))
+        # Plot future trajectories
+        #indices_ml_mode = np.argmax(pred_scores, axis=1)
+        pred_weights = pred_scores / np.max(pred_scores)
+        for t in range(num_modes):
+            ax.plot(fut_traj[t, :, 0].T, fut_traj[t, :, 1].T, c='blue', alpha=pred_weights[t], linewidth=3.0)
+        # for i in range(num_agents):
+        #     ax.plot(fut_traj[i, :, :, 0].T, fut_traj[i, :, :, 1].T, c=color_map[i], alpha=0.5, linewidth=3.0)
+        
+        # Plot future trajectories of objects
+        # for i in range(future_trajs_obj.shape[0]):
+        #     ax.plot(future_trajs_obj[i, future_trajs_obj_mask[i]==1, 0].T, future_trajs_obj[i, future_trajs_obj_mask[i]==1, 1].T, 'r--', c='red', alpha=0.5)
 
-    size = max(10, width * 1.0)
-    ax.axis([
-      -size / 2 + center_x, size / 2 + center_x, -size / 2 + center_y,
-      size / 2 + center_y
-    ])
-    ax.set_aspect('equal')
+        # Plot ground truth trajectories
+        gt_mask = batch_dict['center_gt_trajs_mask'][index]
+        gt_traj = gt_traj[11:, :]
+        # for i in range(num_agents):
+        ax.plot(gt_traj[gt_mask==1, 0].T, gt_traj[gt_mask==1, 1].T, 'k--', c='green', alpha=0.5)
 
-    image = fig_canvas_image(fig)
-    plt.close(fig)
+        # Set Title
+        ax.set_title('Scenario: {}'.format(scenario_id[0]))
 
-    return image, pc_sequence, pose_indices
+        size = max(10, width * 1.0)
+        ax.axis([
+        -size / 2 + center_x, size / 2 + center_x, -size / 2 + center_y,
+        size / 2 + center_y
+        ])
+        ax.set_aspect('equal')
+
+        image = fig_canvas_image(fig)
+        plt.close(fig)
+        return image, pc_sequence, pose_indices
 
 
-def vis_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, save_to_file=False, result_dir=None, logger_iter_interval=50):
+def vis_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, save_to_file=False, result_dir=None, logger_iter_interval=50, agent_ids=None):
     result_dir.mkdir(parents=True, exist_ok=True)
 
     final_output_dir = result_dir / 'final_result' / 'data'
@@ -230,18 +400,44 @@ def vis_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sav
         output_path=final_output_dir, 
     )
 
-    # Visualize result
-    img, pc_sequence, pose_indices = vis_all_agents_smooth(batch_dict, pred_dicts, batch_dict['scenario_id'])
-    pil_img = Image.fromarray(img)
-    pil_img.save(result_dir / str(batch_dict['scenario_id']) + '_vis.png')
-    with open(result_dir / str(batch_dict['scenario_id']) + '_pc_sequence.txt', 'w') as f:
-        for pc_list in pc_sequence:
-            f.write(pc_list)
-            f.write('\n')
-    with open(result_dir / str(batch_dict['scenario_id']) + '_pose_indices.txt', 'w') as f:
-        for pose_idx in pose_indices:
-            f.write(pose_idx)
-            f.write('\n')
+    # Visualize results
+    if agent_ids is None:
+        img, pc_sequence, pose_indices = vis_all_agents_smooth(batch_dict['input_dict'], pred_dicts, batch_dict['input_dict']['scenario_id'], timestamp=None, agent_id=None)
+        pil_img = Image.fromarray(img)
+        pil_img.save(result_dir / (str(batch_dict['input_dict']['scenario_id'][0]) + '_vis_0.png'))
+        with open(result_dir / (str(batch_dict['input_dict']['scenario_id'][0]) + '_pc_sequence.txt'), 'w') as f:
+                for pc_list in pc_sequence:
+                    for pc in pc_list:
+                        f.write(pc)
+                        f.write('\n')
+        with open(result_dir / (str(batch_dict['input_dict']['scenario_id'][0]) + '_pose_indices.txt'), 'w') as f:
+            for pose_idx in pose_indices:
+                f.write(str(pose_idx))
+                f.write('\n')
+        timestamps = [29, 59, 79]
+        for timestamp in timestamps:
+            img, pc_sequence, pose_indices = vis_all_agents_smooth(batch_dict['input_dict'], pred_dicts, batch_dict['input_dict']['scenario_id'], timestamp=timestamp)
+            pil_img = Image.fromarray(img)
+            pil_img.save(result_dir / (str(batch_dict['input_dict']['scenario_id'][0]) + '_vis_' + str(timestamp) + '.png'))
+    else:
+        for agent_id in agent_ids:
+            img, pc_sequence, pose_indices = vis_all_agents_smooth(batch_dict['input_dict'], pred_dicts, batch_dict['input_dict']['scenario_id'], timestamp=None, agent_id=agent_id)
+            pil_img = Image.fromarray(img)
+            pil_img.save(result_dir / (str(batch_dict['input_dict']['scenario_id'][0]) + '_' + str(agent_id) + '_vis_0.png'))
+            with open(result_dir / (str(batch_dict['input_dict']['scenario_id'][0]) + '_' + str(agent_id) + '_pc_sequence.txt'), 'w') as f:
+                    for pc_list in pc_sequence:
+                        for pc in pc_list:
+                            f.write(pc)
+                            f.write('\n')
+            with open(result_dir / (str(batch_dict['input_dict']['scenario_id'][0]) + '_' + str(agent_id) + '_pose_indices.txt'), 'w') as f:
+                for pose_idx in pose_indices:
+                    f.write(str(pose_idx))
+                    f.write('\n')
+            timestamps = [29, 59, 79]
+            for timestamp in timestamps:
+                img, pc_sequence, pose_indices = vis_all_agents_smooth(batch_dict['input_dict'], pred_dicts, batch_dict['input_dict']['scenario_id'], timestamp=timestamp, agent_id=agent_id)
+                pil_img = Image.fromarray(img)
+                pil_img.save(result_dir / (str(batch_dict['input_dict']['scenario_id'][0]) + '_' + str(agent_id) + '_vis_' + str(timestamp) + '.png'))
 
 
     logger.info(result_str)

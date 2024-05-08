@@ -146,17 +146,17 @@ def parse_lidar_data(scenario, lidar_path, lidar_save_path):
 
 if __name__ == '__main__':
     path_to_womd = '/home/erik/raid/datasets/womd'
-    lidar_path_training = os.path.join(path_to_womd, 'v_1_2_1/uncompressed/lidar_and_camera/training')
-    lidar_path_validation = os.path.join(path_to_womd, 'v_1_2_1/uncompressed/lidar_and_camera/validation')
-    scenario_list_training = glob.glob(os.path.join(path_to_womd, 'processed_scenarios_training', '*.pkl'))
-    scenario_list_validation = glob.glob(os.path.join(path_to_womd, 'processed_scenarios_validation', '*.pkl'))
+    #lidar_path_training = os.path.join(path_to_womd, 'v_1_2_1/uncompressed/lidar_and_camera/training')
+    lidar_path_validation = os.path.join('/home/erik/NAS/publicdatasets/waymo_motion', 'v_1_2_1/uncompressed/lidar_and_camera/validation')
+    #scenario_list_training = glob.glob(os.path.join(path_to_womd, 'processed_scenarios_training', '*.pkl'))
+    scenario_list_validation = glob.glob(os.path.join(path_to_womd, 'processed_scenarios_validation_interactive', '*.pkl'))
     lidar_save_path = os.path.join(path_to_womd, 'lidar_snippets')
 
     if not os.path.exists(lidar_save_path):
         os.makedirs(lidar_save_path)
 
     num_workers = 16
-    for lidar, scenarios in zip([lidar_path_training, lidar_path_validation], [scenario_list_training, scenario_list_validation]):
+    for lidar, scenarios in zip([lidar_path_validation], [scenario_list_validation]):
       func = partial(parse_lidar_data, lidar_save_path=lidar_save_path, lidar_path=lidar)
 
       with multiprocessing.Pool(num_workers) as p:
