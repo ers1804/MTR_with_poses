@@ -231,8 +231,8 @@
                     "--ckpt=/home/erik/gitprojects/MTR/output/waymo/mtr+100_percent_data/MTR_wo_poses_8a100/ckpt/checkpoint_epoch_30.pth",
                     "--ckpt_dir=/home/erik/gitprojects/MTR/output/waymo/mtr+100_percent_data/MTR_wo_poses_8a100/ckpt",
                     "--save_to_file",
-                    "--scenario_id", "bf600888a4845af5",
-                    "--agent_ids", "3200",             
+                    "--scenario_id", "1f70481472b7def",
+                    "--agent_ids", "1554",             
         ]
         },
         {
@@ -253,8 +253,8 @@
                     "--ckpt=/home/erik/gitprojects/MTR/output/waymo/mtr+100_percent_data_with_poses_MLP_Attention/MTR_MLP_Attention_8a100/ckpt/checkpoint_epoch_30.pth",
                     "--ckpt_dir=/home/erik/gitprojects/MTR/output/waymo/mtr+100_percent_data_with_poses_MLP_Attention/MTR_MLP_Attention_8a100/ckpt",
                     "--save_to_file",
-                    "--scenario_id", "bf600888a4845af5",
-                    "--agent_ids", "3200",             
+                    "--scenario_id", "1f70481472b7def",
+                    "--agent_ids", "1554",             
         ]
         },
         {
