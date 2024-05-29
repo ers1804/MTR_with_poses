@@ -57,6 +57,17 @@
         },
 
         {
+            "name": "extract_pose_data_kl.py",
+            "type": "debugpy",
+            "program": "extract_pose_data_kl.py",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "/home/erik/gitprojects/MTR/mtr/datasets/waymo",
+            "python": "/home/erik/venv/waymo_dataset_310/bin/python",
+        },
+
+        {
             "name": "train.py with poses",
             "type": "debugpy",
             "program": "/home/erik/venv/mtr_pose/bin/torchrun",
@@ -221,6 +232,7 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "cwd": "/home/erik/gitprojects/MTR/tools",
+            "python": "/home/erik/venv/mtr_pose/bin/python",
             "args": ["--nproc_per_node=1",
                     "vis.py",
                     "--launcher", "pytorch",
@@ -231,8 +243,8 @@
                     "--ckpt=/home/erik/gitprojects/MTR/output/waymo/mtr+100_percent_data/MTR_wo_poses_8a100/ckpt/checkpoint_epoch_30.pth",
                     "--ckpt_dir=/home/erik/gitprojects/MTR/output/waymo/mtr+100_percent_data/MTR_wo_poses_8a100/ckpt",
                     "--save_to_file",
-                    "--scenario_id", "1f70481472b7def",
-                    "--agent_ids", "1554",             
+                    "--scenario_id", "72fb1eabaf94928f",
+                    "--agent_ids", "6019",            
         ]
         },
         {
@@ -243,6 +255,7 @@
             "console": "integratedTerminal",
             "justMyCode": false,
             "cwd": "/home/erik/gitprojects/MTR/tools",
+            "python": "/home/erik/venv/mtr_pose/bin/python",
             "args": ["--nproc_per_node=1",
                     "vis.py",
                     "--launcher", "pytorch",
@@ -253,8 +266,8 @@
                     "--ckpt=/home/erik/gitprojects/MTR/output/waymo/mtr+100_percent_data_with_poses_MLP_Attention/MTR_MLP_Attention_8a100/ckpt/checkpoint_epoch_30.pth",
                     "--ckpt_dir=/home/erik/gitprojects/MTR/output/waymo/mtr+100_percent_data_with_poses_MLP_Attention/MTR_MLP_Attention_8a100/ckpt",
                     "--save_to_file",
-                    "--scenario_id", "1f70481472b7def",
-                    "--agent_ids", "1554",             
+                    "--scenario_id", "72fb1eabaf94928f",
+                    "--agent_ids", "6019",             
         ]
         },
         {

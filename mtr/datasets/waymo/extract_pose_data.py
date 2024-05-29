@@ -32,11 +32,11 @@ if gpus:
 
 
 def calc_kl_divergence(point_cloud, keypoint):
-    kde_lidar = KernelDensity(kernel='gaussian', bandwidth=0.5).fit(point_cloud)
+    kde_lidar = KernelDensity(kernel='gaussian', bandwidth=0.5).fit(point_cloud.squeeze().permute(1,0).numpy())
     #print("density lidar done")
 
     # Fit KDE for skeleton keypoints
-    kde_skeleton = KernelDensity(kernel='gaussian', bandwidth=0.5).fit(keypoint)
+    kde_skeleton = KernelDensity(kernel='gaussian', bandwidth=0.5).fit(keypoint.numpy())
     #print("density skeleton done")
 
     # Evaluate the PDFs on a grid
@@ -80,6 +80,8 @@ if __name__ == '__main__':
             scenario_id = scenario_data['scenario_id']
             if not os.path.exists(os.path.join(path_to_lidar_snippets, str(scenario_id))):
                 os.makedirs(os.path.join(path_to_lidar_snippets, str(scenario_id)))
+            if not os.path.exists(os.path.join(path_to_poses, str(scenario_id))):
+                os.makedirs(os.path.join(path_to_poses, str(scenario_id)))
             object_ids, object_types, trajs = scenario_data['track_infos']['object_id'], scenario_data['track_infos']['object_type'], scenario_data['track_infos']['trajs']
             #curr_time_index = scenario_data['current_time_index']
             pose_data_scenario = torch.zeros((len(object_ids), 11, model.num_joints, 3), dtype=torch.float32)
@@ -113,7 +115,7 @@ if __name__ == '__main__':
                                 point_cloud = torch.from_numpy(lidar_data).unsqueeze(0).permute(0, 2, 1).type(torch.float32).to('cuda')
                                 pose, features = model(point_cloud)
                                 # Check for Mahalanobis/KL Divergence Distance
-                                kl_divergence = calc_kl_divergence(point_cloud, pose.detach().cpu().numpy()[0, :, :])
+                                kl_divergence = calc_kl_divergence(point_cloud.detach().cpu(), pose.detach().cpu()[0, :, :])
                                 if kl_divergence < 0.1:
                                     pose_data[j] = pose.detach().cpu()[0, :, :]
                                     pose_features[j] = features.detach().cpu()[0, :, :]

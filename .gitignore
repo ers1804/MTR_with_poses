@@ -14,3 +14,4 @@ mtr/datasets/waymo/MTR_MLP_Attention_8a100_single.json
 mtr/datasets/waymo/MTR_MLP_Attention_8a100_single.txt
 mtr/datasets/waymo/MTR_wo_poses_8a100_single.json
 mtr/datasets/waymo/MTR_wo_poses_8a100_single.txt
+mtr/datasets/waymo/vru_infos_val_adapted_dynamics.pkl
