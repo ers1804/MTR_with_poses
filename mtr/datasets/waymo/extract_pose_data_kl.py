@@ -53,7 +53,7 @@ def calc_kl_divergence(point_cloud, keypoint):
 
 
 def parse_pose_data_kl(scenario, path_to_womd='/home/erik/raid/datasets/womd', path_to_lidar_snippets='/home/erik/raid/datasets/womd/lidar_snippets', path_to_poses='/home/erik/raid/datasets/womd/poses'):
-    path_to_poses_kl = '/home/erik/raid/datasets/womd/poses_kl'
+    path_to_poses_kl = '/home/erik/raid/datasets/womd/poses_kl_07'
     with open(scenario, 'rb') as f:
         scenario_data = pickle.load(f)
 
@@ -89,11 +89,11 @@ def parse_pose_data_kl(scenario, path_to_womd='/home/erik/raid/datasets/womd', p
                         lidar_data = np.load(lidar_file_path)
                         lidar_data = lidar_data - curr_position
                         kl_divergence = calc_kl_divergence(lidar_data, curr_pose)
-                        if kl_divergence > 0.1:
+                        if kl_divergence > 0.07:
                             pose_data[i, j, :, :] = 0
         else:
             continue
-    path_to_poses_kl = '/home/erik/raid/datasets/womd/poses_kl'
+    path_to_poses_kl = '/home/erik/raid/datasets/womd/poses_kl_07'
     save_path = os.path.join(path_to_poses_kl, str(scenario_id), 'pose_data.npy')
     np.save(save_path, pose_data)
     return True

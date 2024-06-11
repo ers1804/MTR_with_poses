@@ -116,7 +116,7 @@
                     "--batch_size=1",
                     "--eval_batch_size=20",
                     "--epochs=1000",
-                    "--extra_tag=Poses_PointNet_MLP_Overfit_1000",
+                    "--extra_tag=Poses_PointNet_MLP_Overfit_1000_test",
                     "--single_overfit=1",
                     "--not_eval_with_train",             
         ]

@@ -172,6 +172,8 @@ def main():
     model = model_utils.MotionTransformer(config=cfg.MODEL)
     if not args.without_sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Total number of parameters: {total_params}")
     model.cuda()
 
     optimizer = build_optimizer(model, cfg.OPTIMIZATION)
