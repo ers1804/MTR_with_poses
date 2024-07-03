@@ -240,7 +240,7 @@ class JEPAEncoder(nn.Module):
         if target == False:
             obj_trajs, obj_trajs_mask = input_dict['obj_trajs'].cuda(), input_dict['obj_trajs_mask'].cuda()
         else:
-            obj_trajs, obj_trajs_mask = input_dict['jepa_obj_trajs_future_state'][...,:2].cuda(), input_dict['obj_trajs_future_mask'].cuda()
+            obj_trajs, obj_trajs_mask = input_dict['jepa_obj_trajs_future_state'].cuda(), input_dict['obj_trajs_future_mask'].cuda()
         map_polylines, map_polylines_mask = input_dict['map_polylines'].cuda(), input_dict['map_polylines_mask'].cuda()
 
         if self.use_poses:

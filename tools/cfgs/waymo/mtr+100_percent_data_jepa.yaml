@@ -36,7 +36,7 @@ MODEL:
         NAME: JEPAEncoder
 
         NUM_OF_ATTN_NEIGHBORS: 16
-        NUM_INPUT_ATTR_AGENT: 29
+        NUM_INPUT_ATTR_AGENT: 109 #29
         NUM_INPUT_ATTR_MAP: 9
         
         NUM_CHANNEL_IN_MLP_AGENT: 256
@@ -51,7 +51,23 @@ MODEL:
         DROPOUT_OF_ATTN: 0.1 
 
         USE_LOCAL_ATTN: True
-        ema:
-        - 0.996
-        - 1.0
-        ipe_scale: 1.0
+
+OPTIMIZATION:
+    BATCH_SIZE_PER_GPU: 10
+    NUM_EPOCHS: 30
+
+    OPTIMIZER: AdamW
+    LR: 0.0001
+    WEIGHT_DECAY: 0.01
+
+    SCHEDULER: lambdaLR
+    DECAY_STEP_LIST: [22, 24, 26, 28]
+    LR_DECAY: 0.5
+    LR_CLIP: 0.000001
+
+    GRAD_NORM_CLIP: 1000.0
+    ema:
+    - 0.996
+    - 1.0
+    ipe_scale: 1.0
+    JEPA: True

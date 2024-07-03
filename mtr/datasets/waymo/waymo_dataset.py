@@ -218,10 +218,11 @@ class WaymoDataset(DatasetTemplate):
                     obj_types=obj_types, center_indices=track_index_to_predict,
                     sdc_index=sdc_track_index, timestamps=timestamps, obj_trajs_future=obj_trajs_future, fut_timestamps=fut_timestamps
                 )
-            obj_trajs_data, obj_trajs_mask, obj_trajs_future_state, obj_trajs_future_mask = self.generate_centered_trajs_for_agents(
-                center_objects=center_objects, obj_trajs_past=obj_trajs_past,
-                obj_types=obj_types, center_indices=track_index_to_predict,
-                sdc_index=sdc_track_index, timestamps=timestamps, obj_trajs_future=obj_trajs_future
+            else:
+                obj_trajs_data, obj_trajs_mask, obj_trajs_future_state, obj_trajs_future_mask = self.generate_centered_trajs_for_agents(
+                    center_objects=center_objects, obj_trajs_past=obj_trajs_past,
+                    obj_types=obj_types, center_indices=track_index_to_predict,
+                    sdc_index=sdc_track_index, timestamps=timestamps, obj_trajs_future=obj_trajs_future
             )
         else:
             if self.use_pose_features:
@@ -291,7 +292,7 @@ class WaymoDataset(DatasetTemplate):
         else:
             if self.jepa:
                 return (obj_trajs_data, obj_trajs_mask > 0, obj_trajs_pos, obj_trajs_last_pos,
-                    obj_trajs_future_state, obj_trajs_future_mask, center_gt_trajs, center_gt_trajs_mask, center_gt_final_valid_idx,
+                    obj_trajs_future_state, obj_trajs_future_mask > 0, center_gt_trajs, center_gt_trajs_mask, center_gt_final_valid_idx,
                     track_index_to_predict_new, sdc_track_index_new, obj_types, obj_ids, jepa_obj_trajs_future_state)
             else:
                 return (obj_trajs_data, obj_trajs_mask > 0, obj_trajs_pos, obj_trajs_last_pos,
@@ -457,6 +458,7 @@ class WaymoDataset(DatasetTemplate):
         center_objects = torch.from_numpy(center_objects).float()
         obj_trajs_past = torch.from_numpy(obj_trajs_past).float()
         timestamps = torch.from_numpy(timestamps)
+        fut_timestamps = torch.from_numpy(fut_timestamps)
 
         # transform coordinates to the centered objects
         obj_trajs = self.transform_trajs_to_center_coords(
@@ -474,7 +476,7 @@ class WaymoDataset(DatasetTemplate):
         object_onehot_mask[torch.arange(num_center_objects), center_indices, :, 3] = 1
         object_onehot_mask[:, sdc_index, :, 4] = 1
 
-        object_time_embedding = torch.zeros((num_center_objects, num_objects, num_timestamps, num_timestamps + 1))
+        object_time_embedding = torch.zeros((num_center_objects, num_objects, num_timestamps, num_timestamps + num_future_timestamps + 1))
         object_time_embedding[:, :, torch.arange(num_timestamps), torch.arange(num_timestamps)] = 1
         object_time_embedding[:, :, torch.arange(num_timestamps), -1] = timestamps
 
@@ -516,8 +518,8 @@ class WaymoDataset(DatasetTemplate):
         fut_object_onehot_mask[torch.arange(num_center_objects), center_indices, :, 3] = 1
         fut_object_onehot_mask[:, -1, :, 4] = 1
 
-        fut_object_time_embedding = torch.zeros((num_center_objects, num_objects, num_future_timestamps, num_future_timestamps + 1))
-        fut_object_time_embedding[:, :, torch.arange(num_future_timestamps), torch.arange(num_future_timestamps)] = 1
+        fut_object_time_embedding = torch.zeros((num_center_objects, num_objects, num_future_timestamps, num_timestamps + num_future_timestamps + 1))
+        fut_object_time_embedding[:, :, torch.arange(num_future_timestamps), torch.arange(num_timestamps, num_timestamps + num_future_timestamps)] = 1
         fut_object_time_embedding[:, :, torch.arange(num_future_timestamps), -1] = fut_timestamps
 
         fut_object_heading_embedding = torch.zeros((num_center_objects, num_objects, num_future_timestamps, 2))
