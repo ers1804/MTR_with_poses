@@ -4,10 +4,11 @@
 # All Rights Reserved
 
 
-from .mtr_encoder import MTREncoder
+from .mtr_encoder import MTREncoder, JEPAEncoder
 
 __all__ = {
     'MTREncoder': MTREncoder,
+    'JEPAEncoder': JEPAEncoder,
 }
 
 

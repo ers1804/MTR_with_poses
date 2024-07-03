@@ -51,3 +51,7 @@ MODEL:
         DROPOUT_OF_ATTN: 0.1 
 
         USE_LOCAL_ATTN: True
+        ema:
+        - 0.996
+        - 1.0
+        ipe_scale: 1.0

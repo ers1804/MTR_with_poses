@@ -19,6 +19,7 @@ class JepaModel(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.model_cfg = config
+        self.jepa = True
 
         self.context_encoder = build_context_encoder(self.model_cfg.CONTEXT_ENCODER)
         # self.motion_decoder = build_motion_decoder(
@@ -26,6 +27,8 @@ class JepaModel(nn.Module):
         #     config=self.model_cfg.MOTION_DECODER
         # )
         self.target_encoder = build_context_encoder(self.model_cfg.CONTEXT_ENCODER)
+        for p in self.target_encoder.parameters():
+            p.requires_grad = False
         hidden_dim = self.model_cfg.CONTEXT_ENCODER.D_MODEL
         self.dense_prediction = common_layers.build_mlps(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim], ret_before_act=True)
 
@@ -35,7 +38,8 @@ class JepaModel(nn.Module):
         predicted_obj_features = self.dense_prediction(batch_dict['obj_feature'])
         batch_dict['predicted_obj_features'] = predicted_obj_features
         batch_dict_target = copy.deepcopy(batch_dict)
-        batch_dict_target = self.target_encoder(batch_dict_target, target=True)
+        with torch.no_grad():
+            batch_dict_target = self.target_encoder(batch_dict_target, target=True)
         if self.training:
             loss = self.context_encoder.get_jepa_loss(predicted_obj_features, batch_dict_target['obj_feature'])
             tb_dict = {}

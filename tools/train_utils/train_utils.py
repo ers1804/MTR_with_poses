@@ -13,7 +13,7 @@ from torch.nn.utils import clip_grad_norm_
 
 def train_one_epoch(model, optimizer, train_loader, accumulated_iter, optim_cfg,
                     rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, leave_pbar=False, scheduler=None, show_grad_curve=False,
-                    logger=None, logger_iter_interval=50, cur_epoch=None, total_epochs=None, ckpt_save_dir=None, ckpt_save_time_interval=300):
+                    logger=None, logger_iter_interval=50, cur_epoch=None, total_epochs=None, ckpt_save_dir=None, ckpt_save_time_interval=300, momentum_scheduler=None):
     if total_it_each_epoch == len(train_loader):
         dataloader_iter = iter(train_loader)
 
@@ -66,6 +66,13 @@ def train_one_epoch(model, optimizer, train_loader, accumulated_iter, optim_cfg,
                 scheduler.step()
             except:
                 scheduler.step()
+        
+        # JEPA specific update of the target_encoder params
+        if model.jepa:
+            with torch.no_grad():
+                m = next(momentum_scheduler)
+                for param_q, param_k in zip(model.context_encoder.parameters(), model.target_encoder.parameters()):
+                    param_k.data.mul_(m).add_((1.-m) * param_q.detach().data)
 
         accumulated_iter += 1
         disp_dict.update({'loss': loss.item(), 'lr': cur_lr})
@@ -138,6 +145,13 @@ def train_model(model, optimizer, train_loader, optim_cfg,
             assert hasattr(train_loader.dataset, 'merge_all_iters_to_one_epoch')
             train_loader.dataset.merge_all_iters_to_one_epoch(merge=True, epochs=total_epochs)
             total_it_each_epoch = len(train_loader) // max(total_epochs, 1)
+        
+        # -- momentum schedule
+        if model.jepa:
+            ipe = len(train_loader)
+            momentum_scheduler = (model.cfg.ema[0] + i*(model.cfg.ema[1]-model.cfg.ema[0])/(ipe*total_epochs*model.cfg.ipe_scale)for i in range(int(ipe*total_epochs*model.cfg.ipe_scale)+1))
+        else:
+            momentum_scheduler = None
 
         dataloader_iter = iter(train_loader)
         for cur_epoch in tbar:
@@ -158,7 +172,7 @@ def train_model(model, optimizer, train_loader, optim_cfg,
                 dataloader_iter=dataloader_iter,
                 scheduler=scheduler, cur_epoch=cur_epoch, total_epochs=total_epochs,
                 logger=logger, logger_iter_interval=logger_iter_interval,
-                ckpt_save_dir=ckpt_save_dir, ckpt_save_time_interval=ckpt_save_time_interval
+                ckpt_save_dir=ckpt_save_dir, ckpt_save_time_interval=ckpt_save_time_interval, momentum_scheduler=momentum_scheduler
             )
 
             # save trained model
