@@ -169,7 +169,10 @@ def main():
         single_overfit=args.single_overfit,
     )
 
-    model = model_utils.MotionTransformer(config=cfg.MODEL)
+    if cfg.DATA_CONFIG.get('JEPA', False):
+        model = model_utils.JepaModel(config=cfg.MODEL)
+    else:
+        model = model_utils.MotionTransformer(config=cfg.MODEL)
     if not args.without_sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     total_params = sum(p.numel() for p in model.parameters())

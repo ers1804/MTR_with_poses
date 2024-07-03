@@ -102,6 +102,23 @@
         ]
         },
         {
+            "name": "train.py without poses with JEPA",
+            "type": "debugpy",
+            "program": "/home/erik/venv/mtr_pose/bin/torchrun",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "/home/erik/gitprojects/MTR/tools",
+            "args": ["--nproc_per_node=1",
+                    "train.py",
+                    "--launcher", "pytorch",
+                    "--cfg_file", "cfgs/waymo/mtr+100_percent_data_jepa.yaml",
+                    "--batch_size=8",
+                    "--epochs=50",
+                    "--extra_tag=MTR-JEPA",             
+        ]
+        },
+        {
             "name": "train.py with poses overfit",
             "type": "debugpy",
             "program": "/home/erik/venv/mtr_pose/bin/torchrun",

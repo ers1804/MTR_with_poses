@@ -24,6 +24,7 @@ class WaymoDataset(DatasetTemplate):
         self.infos = self.get_all_infos(self.data_root / self.dataset_cfg.INFO_FILE[self.mode])
         self.logger.info(f'Total scenes after filters: {len(self.infos)}')
 
+        self.jepa = self.dataset_cfg.get('JEPA', False)
         self.use_poses = self.dataset_cfg.get('USE_POSES', False)
         self.use_pose_features = self.dataset_cfg.get('USE_POSE_FEATURES', False)
         self.pose_dir = self.dataset_cfg.get('POSE_DIR', None)
@@ -105,6 +106,10 @@ class WaymoDataset(DatasetTemplate):
         sdc_track_index = info['sdc_track_index']
         current_time_index = info['current_time_index']
         timestamps = np.array(info['timestamps_seconds'][:current_time_index + 1], dtype=np.float32)
+        if self.jepa:
+            fut_timestamps = np.array(info['timestamps_seconds'][current_time_index + 1:], dtype=np.float32)
+        else:
+            fut_timestamps = None
 
         track_infos = info['track_infos']
 
@@ -140,13 +145,22 @@ class WaymoDataset(DatasetTemplate):
                     track_index_to_predict=track_index_to_predict, sdc_track_index=sdc_track_index,
                     timestamps=timestamps, obj_types=obj_types, obj_ids=obj_ids, pose_data=pose_data, pose_mask=pose_mask)
         else:
-            (obj_trajs_data, obj_trajs_mask, obj_trajs_pos, obj_trajs_last_pos, obj_trajs_future_state, obj_trajs_future_mask, center_gt_trajs,
-                center_gt_trajs_mask, center_gt_final_valid_idx,
-                track_index_to_predict_new, sdc_track_index_new, obj_types, obj_ids) = self.create_agent_data_for_center_objects(
-                center_objects=center_objects, obj_trajs_past=obj_trajs_past, obj_trajs_future=obj_trajs_future,
-                track_index_to_predict=track_index_to_predict, sdc_track_index=sdc_track_index,
-                timestamps=timestamps, obj_types=obj_types, obj_ids=obj_ids
-            )
+            if self.jepa:
+                (obj_trajs_data, obj_trajs_mask, obj_trajs_pos, obj_trajs_last_pos, obj_trajs_future_state, obj_trajs_future_mask, center_gt_trajs,
+                    center_gt_trajs_mask, center_gt_final_valid_idx,
+                    track_index_to_predict_new, sdc_track_index_new, obj_types, obj_ids, jepa_obj_trajs_future_state) = self.create_agent_data_for_center_objects(
+                    center_objects=center_objects, obj_trajs_past=obj_trajs_past, obj_trajs_future=obj_trajs_future,
+                    track_index_to_predict=track_index_to_predict, sdc_track_index=sdc_track_index,
+                    timestamps=timestamps, obj_types=obj_types, obj_ids=obj_ids, fut_timestamps=fut_timestamps
+                )
+            else:
+                (obj_trajs_data, obj_trajs_mask, obj_trajs_pos, obj_trajs_last_pos, obj_trajs_future_state, obj_trajs_future_mask, center_gt_trajs,
+                    center_gt_trajs_mask, center_gt_final_valid_idx,
+                    track_index_to_predict_new, sdc_track_index_new, obj_types, obj_ids) = self.create_agent_data_for_center_objects(
+                    center_objects=center_objects, obj_trajs_past=obj_trajs_past, obj_trajs_future=obj_trajs_future,
+                    track_index_to_predict=track_index_to_predict, sdc_track_index=sdc_track_index,
+                    timestamps=timestamps, obj_types=obj_types, obj_ids=obj_ids, fut_timestamps=fut_timestamps
+                )
         
         ret_dict = {
             'scenario_id': np.array([scene_id] * len(track_index_to_predict)),
@@ -169,6 +183,8 @@ class WaymoDataset(DatasetTemplate):
             'center_gt_final_valid_idx': center_gt_final_valid_idx,
             'center_gt_trajs_src': obj_trajs_full[track_index_to_predict]
         }
+        if self.jepa:
+            ret_dict['jepa_obj_trajs_future_state'] = jepa_obj_trajs_future_state
         if self.use_poses:
             ret_dict['pose_data'] = obj_pose_data
             ret_dict['pose_mask'] = obj_pose_mask
@@ -193,9 +209,15 @@ class WaymoDataset(DatasetTemplate):
 
     def create_agent_data_for_center_objects(
             self, center_objects, obj_trajs_past, obj_trajs_future, track_index_to_predict, sdc_track_index, timestamps,
-            obj_types, obj_ids, pose_data=None, pose_mask=None, pose_features=None
+            obj_types, obj_ids, pose_data=None, pose_mask=None, pose_features=None, fut_timestamps=None
         ):
         if not self.use_poses:
+            if self.jepa:
+                obj_trajs_data, obj_trajs_mask, obj_trajs_future_state, obj_trajs_future_mask, jepa_obj_trajs_future_state = self.generate_centered_trajs_for_agents_jepa(
+                    center_objects=center_objects, obj_trajs_past=obj_trajs_past,
+                    obj_types=obj_types, center_indices=track_index_to_predict,
+                    sdc_index=sdc_track_index, timestamps=timestamps, obj_trajs_future=obj_trajs_future, fut_timestamps=fut_timestamps
+                )
             obj_trajs_data, obj_trajs_mask, obj_trajs_future_state, obj_trajs_future_mask = self.generate_centered_trajs_for_agents(
                 center_objects=center_objects, obj_trajs_past=obj_trajs_past,
                 obj_types=obj_types, center_indices=track_index_to_predict,
@@ -231,6 +253,8 @@ class WaymoDataset(DatasetTemplate):
             obj_pose_mask = obj_pose_mask[:, valid_past_mask]
             obj_pose_data = obj_pose_data[:, valid_past_mask]
         obj_trajs_future_state = obj_trajs_future_state[:, valid_past_mask]  # (num_center_objects, num_objects (filtered), num_timestamps_future, 4):  [x, y, vx, vy]
+        if self.jepa:
+            jepa_obj_trajs_future_state = jepa_obj_trajs_future_state[:, valid_past_mask]
         obj_trajs_future_mask = obj_trajs_future_mask[:, valid_past_mask]  # (num_center_objects, num_objects, num_timestamps_future):
         obj_types = obj_types[valid_past_mask]
         obj_ids = obj_ids[valid_past_mask]
@@ -265,9 +289,14 @@ class WaymoDataset(DatasetTemplate):
                     obj_trajs_future_state, obj_trajs_future_mask, center_gt_trajs, center_gt_trajs_mask, center_gt_final_valid_idx,
                     track_index_to_predict_new, sdc_track_index_new, obj_types, obj_ids, obj_pose_data, obj_pose_mask)
         else:
-            return (obj_trajs_data, obj_trajs_mask > 0, obj_trajs_pos, obj_trajs_last_pos,
-                obj_trajs_future_state, obj_trajs_future_mask, center_gt_trajs, center_gt_trajs_mask, center_gt_final_valid_idx,
-                track_index_to_predict_new, sdc_track_index_new, obj_types, obj_ids)
+            if self.jepa:
+                return (obj_trajs_data, obj_trajs_mask > 0, obj_trajs_pos, obj_trajs_last_pos,
+                    obj_trajs_future_state, obj_trajs_future_mask, center_gt_trajs, center_gt_trajs_mask, center_gt_final_valid_idx,
+                    track_index_to_predict_new, sdc_track_index_new, obj_types, obj_ids, jepa_obj_trajs_future_state)
+            else:
+                return (obj_trajs_data, obj_trajs_mask > 0, obj_trajs_pos, obj_trajs_last_pos,
+                    obj_trajs_future_state, obj_trajs_future_mask, center_gt_trajs, center_gt_trajs_mask, center_gt_final_valid_idx,
+                    track_index_to_predict_new, sdc_track_index_new, obj_types, obj_ids)
 
     def get_interested_agents(self, track_index_to_predict, obj_trajs_full, current_time_index, obj_types, scene_id):
         center_objects_list = []
@@ -400,6 +429,122 @@ class WaymoDataset(DatasetTemplate):
         ret_obj_trajs_future[ret_obj_valid_mask_future == 0] = 0
 
         return ret_obj_trajs.numpy(), ret_obj_valid_mask.numpy(), ret_obj_trajs_future.numpy(), ret_obj_valid_mask_future.numpy()
+    
+    
+    def generate_centered_trajs_for_agents_jepa(self, center_objects, obj_trajs_past, obj_types, center_indices, sdc_index, timestamps, obj_trajs_future, fut_timestamps):
+        """[summary]
+
+        Args:
+            center_objects (num_center_objects, 10): [cx, cy, cz, dx, dy, dz, heading, vel_x, vel_y, valid]
+            obj_trajs_past (num_objects, num_timestamps, 10): [cx, cy, cz, dx, dy, dz, heading, vel_x, vel_y, valid]
+            obj_types (num_objects):
+            center_indices (num_center_objects): the index of center objects in obj_trajs_past
+            centered_valid_time_indices (num_center_objects), the last valid time index of center objects
+            timestamps ([type]): [description]
+            obj_trajs_future (num_objects, num_future_timestamps, 10): [cx, cy, cz, dx, dy, dz, heading, vel_x, vel_y, valid]
+        Returns:
+            ret_obj_trajs (num_center_objects, num_objects, num_timestamps, num_attrs):
+            ret_obj_valid_mask (num_center_objects, num_objects, num_timestamps):
+            ret_obj_trajs_future (num_center_objects, num_objects, num_timestamps_future, 4):  [x, y, vx, vy]
+            ret_obj_valid_mask_future (num_center_objects, num_objects, num_timestamps_future):
+        """
+        assert obj_trajs_past.shape[-1] == 10
+        assert center_objects.shape[-1] == 10
+        num_center_objects = center_objects.shape[0]
+        num_objects, num_timestamps, box_dim = obj_trajs_past.shape
+        _, num_future_timestamps, _ = obj_trajs_future.shape
+        # transform to cpu torch tensor
+        center_objects = torch.from_numpy(center_objects).float()
+        obj_trajs_past = torch.from_numpy(obj_trajs_past).float()
+        timestamps = torch.from_numpy(timestamps)
+
+        # transform coordinates to the centered objects
+        obj_trajs = self.transform_trajs_to_center_coords(
+            obj_trajs=obj_trajs_past,
+            center_xyz=center_objects[:, 0:3],
+            center_heading=center_objects[:, 6],
+            heading_index=6, rot_vel_index=[7, 8]
+        )
+
+        ## generate the attributes for each object
+        object_onehot_mask = torch.zeros((num_center_objects, num_objects, num_timestamps, 5))
+        object_onehot_mask[:, obj_types == 'TYPE_VEHICLE', :, 0] = 1
+        object_onehot_mask[:, obj_types == 'TYPE_PEDESTRIAN', :, 1] = 1  # TODO: CHECK THIS TYPO
+        object_onehot_mask[:, obj_types == 'TYPE_CYCLIST', :, 2] = 1
+        object_onehot_mask[torch.arange(num_center_objects), center_indices, :, 3] = 1
+        object_onehot_mask[:, sdc_index, :, 4] = 1
+
+        object_time_embedding = torch.zeros((num_center_objects, num_objects, num_timestamps, num_timestamps + 1))
+        object_time_embedding[:, :, torch.arange(num_timestamps), torch.arange(num_timestamps)] = 1
+        object_time_embedding[:, :, torch.arange(num_timestamps), -1] = timestamps
+
+        object_heading_embedding = torch.zeros((num_center_objects, num_objects, num_timestamps, 2))
+        object_heading_embedding[:, :, :, 0] = np.sin(obj_trajs[:, :, :, 6])
+        object_heading_embedding[:, :, :, 1] = np.cos(obj_trajs[:, :, :, 6])
+
+        vel = obj_trajs[:, :, :, 7:9]  # (num_centered_objects, num_objects, num_timestamps, 2)
+        vel_pre = torch.roll(vel, shifts=1, dims=2)
+        acce = (vel - vel_pre) / 0.1  # (num_centered_objects, num_objects, num_timestamps, 2)
+        acce[:, :, 0, :] = acce[:, :, 1, :]
+
+        ret_obj_trajs = torch.cat((
+            obj_trajs[:, :, :, 0:6], 
+            object_onehot_mask,
+            object_time_embedding, 
+            object_heading_embedding,
+            obj_trajs[:, :, :, 7:9], 
+            acce,
+        ), dim=-1)
+
+        ret_obj_valid_mask = obj_trajs[:, :, :, -1]  # (num_center_obejcts, num_objects, num_timestamps)  # TODO: CHECK THIS, 20220322
+        ret_obj_trajs[ret_obj_valid_mask == 0] = 0
+
+        ##  generate label for future trajectories
+        obj_trajs_future = torch.from_numpy(obj_trajs_future).float()
+        obj_trajs_future = self.transform_trajs_to_center_coords(
+            obj_trajs=obj_trajs_future,
+            center_xyz=center_objects[:, 0:3],
+            center_heading=center_objects[:, 6],
+            heading_index=6, rot_vel_index=[7, 8]
+        )
+
+        ## generate the attributes for each object
+        fut_object_onehot_mask = torch.zeros((num_center_objects, num_objects, num_future_timestamps, 5))
+        fut_object_onehot_mask[:, obj_types == 'TYPE_VEHICLE', :, 0] = 1
+        fut_object_onehot_mask[:, obj_types == 'TYPE_PEDESTRIAN', :, 1] = 1  # TODO: CHECK THIS TYPO
+        fut_object_onehot_mask[:, obj_types == 'TYPE_CYCLIST', :, 2] = 1
+        fut_object_onehot_mask[torch.arange(num_center_objects), center_indices, :, 3] = 1
+        fut_object_onehot_mask[:, -1, :, 4] = 1
+
+        fut_object_time_embedding = torch.zeros((num_center_objects, num_objects, num_future_timestamps, num_future_timestamps + 1))
+        fut_object_time_embedding[:, :, torch.arange(num_future_timestamps), torch.arange(num_future_timestamps)] = 1
+        fut_object_time_embedding[:, :, torch.arange(num_future_timestamps), -1] = fut_timestamps
+
+        fut_object_heading_embedding = torch.zeros((num_center_objects, num_objects, num_future_timestamps, 2))
+        fut_object_heading_embedding[:, :, :, 0] = np.sin(obj_trajs_future[:, :, :, 6])
+        fut_object_heading_embedding[:, :, :, 1] = np.cos(obj_trajs_future[:, :, :, 6])
+
+        fut_vel = obj_trajs_future[:, :, :, 7:9]  # (num_centered_objects, num_objects, num_timestamps, 2)
+        fut_vel_pre = torch.roll(fut_vel, shifts=1, dims=2)
+        fut_acce = (fut_vel - fut_vel_pre) / 0.1  # (num_centered_objects, num_objects, num_timestamps, 2)
+        fut_acce[:, :, 0, :] = fut_acce[:, :, 1, :]
+
+        ret_obj_trajs_future_encodings = torch.cat((
+            obj_trajs_future[:, :, :, 0:6], 
+            fut_object_onehot_mask,
+            fut_object_time_embedding, 
+            fut_object_heading_embedding,
+            obj_trajs_future[:, :, :, 7:9], 
+            fut_acce,
+        ), dim=-1)
+
+        ret_obj_trajs_future = obj_trajs_future[:, :, :, [0, 1, 7, 8]]  # (x, y, vx, vy)
+        ret_obj_valid_mask_future = obj_trajs_future[:, :, :, -1]  # (num_center_obejcts, num_objects, num_timestamps_future)  # TODO: CHECK THIS, 20220322
+        ret_obj_trajs_future[ret_obj_valid_mask_future == 0] = 0
+
+        ret_obj_trajs_future_encodings[ret_obj_valid_mask_future == 0] = 0
+
+        return ret_obj_trajs.numpy(), ret_obj_valid_mask.numpy(), ret_obj_trajs_future.numpy(), ret_obj_valid_mask_future.numpy(), ret_obj_trajs_future_encodings.numpy()
 
 
     def generate_centered_trajs_for_agents_with_poses(self, center_objects, obj_trajs_past, obj_types, center_indices, sdc_index, timestamps, obj_trajs_future, pose_data, pose_mask):
