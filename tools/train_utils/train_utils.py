@@ -13,7 +13,7 @@ from torch.nn.utils import clip_grad_norm_
 
 def train_one_epoch(model, optimizer, train_loader, accumulated_iter, optim_cfg,
                     rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, leave_pbar=False, scheduler=None, show_grad_curve=False,
-                    logger=None, logger_iter_interval=50, cur_epoch=None, total_epochs=None, ckpt_save_dir=None, ckpt_save_time_interval=300, momentum_scheduler=None):
+                    logger=None, logger_iter_interval=50, cur_epoch=None, total_epochs=None, ckpt_save_dir=None, ckpt_save_time_interval=300, momentum_scheduler=None, scaler=None):
     if total_it_each_epoch == len(train_loader):
         dataloader_iter = iter(train_loader)
 
@@ -51,11 +51,15 @@ def train_one_epoch(model, optimizer, train_loader, accumulated_iter, optim_cfg,
 
         loss, tb_dict, disp_dict = model(batch)
 
-        loss.backward()
-
-        total_norm = clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
-
-        optimizer.step()
+        if scaler is not None:
+            scaler.scale(loss).backward()
+            total_norm = clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            loss.backward()
+            total_norm = clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
+            optimizer.step()
 
         if optimizer_2 is not None:
             optimizer_2.step()
@@ -137,7 +141,7 @@ def train_model(model, optimizer, train_loader, optim_cfg,
                 start_epoch, total_epochs, start_iter, rank, ckpt_save_dir, train_sampler=None,
                 ckpt_save_interval=1, max_ckpt_save_num=50, merge_all_iters_to_one_epoch=False, tb_log=None,
                 scheduler=None, test_loader=None, logger=None, eval_output_dir=None, cfg=None, dist_train=False,
-                logger_iter_interval=50, ckpt_save_time_interval=300):
+                logger_iter_interval=50, ckpt_save_time_interval=300, scaler=None):
     accumulated_iter = start_iter
     with tqdm.trange(start_epoch, total_epochs, desc='epochs', dynamic_ncols=True, leave=(rank == 0)) as tbar:
         total_it_each_epoch = len(train_loader)
@@ -172,7 +176,7 @@ def train_model(model, optimizer, train_loader, optim_cfg,
                 dataloader_iter=dataloader_iter,
                 scheduler=scheduler, cur_epoch=cur_epoch, total_epochs=total_epochs,
                 logger=logger, logger_iter_interval=logger_iter_interval,
-                ckpt_save_dir=ckpt_save_dir, ckpt_save_time_interval=ckpt_save_time_interval, momentum_scheduler=momentum_scheduler
+                ckpt_save_dir=ckpt_save_dir, ckpt_save_time_interval=ckpt_save_time_interval, momentum_scheduler=momentum_scheduler, scaler=scaler
             )
 
             # save trained model

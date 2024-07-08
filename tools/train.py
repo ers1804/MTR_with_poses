@@ -109,6 +109,10 @@ def build_scheduler(optimizer, dataloader, opt_cfg, total_epochs, total_iters_ea
     return scheduler
 
 
+def build_scaler():
+    return torch.cuda.amp.GradScaler()
+
+
 def main():
     args, cfg = parse_config()
     if args.launcher == 'none':
@@ -180,6 +184,10 @@ def main():
     model.cuda()
 
     optimizer = build_optimizer(model, cfg.OPTIMIZATION)
+    if cfg.OPTIMIZATION.get('use_scaler', False):
+        scaler = build_scaler()
+    else:
+        scaler = None
 
     # load checkpoint if it is possible
     start_epoch = it = 0
@@ -219,7 +227,7 @@ def main():
     model.train()  # before wrap to DistributedDataParallel to support to fix some parameters
 
     if dist_train:
-        model = nn.parallel.DistributedDataParallel(model, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()], find_unused_parameters=True)
+        model = nn.parallel.DistributedDataParallel(model, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()], find_unused_parameters=False)
     logger.info(model)
     num_total_params = sum([x.numel() for x in model.parameters()])
     logger.info(f'Total number of parameters: {num_total_params}')
@@ -256,7 +264,8 @@ def main():
         eval_output_dir=eval_output_dir,
         test_loader=test_loader if not args.not_eval_with_train else None,
         cfg=cfg, dist_train=dist_train, logger_iter_interval=args.logger_iter_interval,
-        ckpt_save_time_interval=args.ckpt_save_time_interval
+        ckpt_save_time_interval=args.ckpt_save_time_interval,
+        scaler=scaler,
     )
 
     logger.info('**********************End training %s/%s(%s)**********************\n\n\n'

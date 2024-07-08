@@ -15,6 +15,16 @@ from mtr.models.utils import common_layers
 import copy
 
 
+def deepcopy_batch_dict(batch_dict):
+    new_batch_dict = {}
+    for key, value in batch_dict.items():
+        if isinstance(value, torch.Tensor):
+            new_batch_dict[key] = value.clone()
+        else:
+            new_batch_dict[key] = copy.deepcopy(value)
+    return new_batch_dict
+
+
 class JepaModel(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -26,7 +36,7 @@ class JepaModel(nn.Module):
         #     in_channels=self.context_encoder.num_out_channels,
         #     config=self.model_cfg.MOTION_DECODER
         # )
-        self.target_encoder = build_context_encoder(self.model_cfg.CONTEXT_ENCODER)
+        self.target_encoder = copy.deepcopy(self.context_encoder)
         for p in self.target_encoder.parameters():
             p.requires_grad = False
         hidden_dim = self.model_cfg.CONTEXT_ENCODER.D_MODEL
@@ -35,13 +45,20 @@ class JepaModel(nn.Module):
     def forward(self, batch_dict):
         batch_dict = self.context_encoder(batch_dict)
         # batch_dict = self.motion_decoder(batch_dict)
-        predicted_obj_features = self.dense_prediction(batch_dict['obj_feature'])
+        if self.context_encoder.attn_pooling:
+            predicted_obj_features = self.dense_prediction(batch_dict['pooled_attn'])
+        else:
+            predicted_obj_features = self.dense_prediction(batch_dict['center_objects_feature'])
         batch_dict['predicted_obj_features'] = predicted_obj_features
-        batch_dict_target = copy.copy(batch_dict)
+        #batch_dict_target = deepcopy_batch_dict(batch_dict)
         with torch.no_grad():
-            batch_dict_target = self.target_encoder(batch_dict_target, target=True)
+            target_encoding = self.target_encoder(batch_dict, target=True)
         if self.training:
-            loss = self.context_encoder.get_jepa_loss(predicted_obj_features, batch_dict_target['obj_feature'])
+            loss = self.context_encoder.get_jepa_loss(predicted_obj_features,
+                                                    target_encoding,
+                                                    mse_coeff=self.model_cfg.CONTEXT_ENCODER.mse_coeff,
+                                                    std_coeff=self.model_cfg.CONTEXT_ENCODER.std_coeff,
+                                                    cov_coeff=self.model_cfg.CONTEXT_ENCODER.cov_coeff)
             tb_dict = {}
             disp_dict = {}
             tb_dict.update({'loss': loss.item()})

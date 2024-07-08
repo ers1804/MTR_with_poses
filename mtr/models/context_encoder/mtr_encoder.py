@@ -11,6 +11,7 @@ import torch.nn as nn
 
 from mtr.models.utils.transformer import transformer_encoder_layer, position_encoding_utils
 from mtr.models.utils import polyline_encoder
+from mtr.models.utils import attention_pooling
 from mtr.utils import common_utils
 from mtr.ops.knn import knn_utils
 from mtr.models.context_encoder import pointnet
@@ -23,6 +24,8 @@ class JEPAEncoder(nn.Module):
         self.model_cfg = config
 
         self.use_poses = self.model_cfg.get('USE_POSES', False)
+
+        self.attn_pooling = self.model_cfg.get('USE_ATTN_POOL', False)
 
         # build polyline encoders
         self.agent_polyline_encoder = self.build_polyline_encoder(
@@ -38,6 +41,8 @@ class JEPAEncoder(nn.Module):
             num_pre_layers=self.model_cfg.NUM_LAYER_IN_PRE_MLP_MAP,
             out_channels=self.model_cfg.D_MODEL
         )
+        if self.attn_pooling:
+            self.attention_pooling = self.build_attention_pooling(self.model_cfg.D_MODEL)
         if self.use_poses:
             self.pose_encoder = self.build_pose_encoder()
             if self.model_cfg.POSE_ENCODER.TYPE != 'PointNet':
@@ -112,6 +117,10 @@ class JEPAEncoder(nn.Module):
             #     ))
             # pose_encoder = nn.ModuleList(pose_encoder) 
         return pose_encoder
+
+
+    def build_attention_pooling(self, d_model):
+        return attention_pooling.AttentionPooling(feature_dim=d_model)
 
 
     def build_polyline_encoder(self, in_channels, hidden_dim, num_layers, num_pre_layers=1, out_channels=None):
@@ -208,7 +217,8 @@ class JEPAEncoder(nn.Module):
         return ret_full_feature
     
 
-    def get_jepa_loss(self, output_encoder, output_target_encoder):
+    def get_jepa_loss(self, output_encoder, output_target_encoder, mse_coeff=25.0, std_coeff=25.0, cov_coeff=1.0):
+        num_center_objects, d_model = output_encoder.shape
         class AllReduce(torch.autograd.Function):
 
             @staticmethod
@@ -225,8 +235,31 @@ class JEPAEncoder(nn.Module):
             @staticmethod
             def backward(ctx, grads):
                 return grads
-        loss = torch.nn.functional.smooth_l1_loss(output_encoder, output_target_encoder)
-        loss = AllReduce.apply(loss)
+        # MSE loss
+        mse_loss = torch.nn.functional.smooth_l1_loss(output_encoder, output_target_encoder)
+        mse_loss = AllReduce.apply(mse_loss)
+
+        # Variance loss
+        # Turn encoded features into [num_center_objects, d_model]
+        output_encoder = output_encoder - torch.mean(output_encoder, dim=0)
+        output_target_encoder = output_target_encoder - torch.mean(output_target_encoder, dim=0)
+        std_encoder = torch.sqrt(output_encoder.var(dim=0) + 0.0001)
+        std_target_encoder = torch.sqrt(output_target_encoder.var(dim=0) + 0.0001)
+        std_loss = torch.mean(torch.nn.functional.relu(1 - std_encoder)) / 2 + torch.mean(torch.nn.functional.relu(1 - std_target_encoder)) / 2
+        std_loss = AllReduce.apply(std_loss)
+
+        # Covariance loss
+        def off_diagonal(x):
+            n, m = x.shape
+            assert n == m
+            return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
+        cov_encoder = (output_encoder.T @ output_encoder) / (num_center_objects - 1)
+        cov_target_encoder = (output_target_encoder.T @ output_target_encoder) / (num_center_objects - 1)
+        cov_loss = off_diagonal(cov_encoder).pow_(2).sum().div(d_model) + off_diagonal(cov_target_encoder).pow_(2).sum().div(d_model)
+        cov_loss = AllReduce.apply(cov_loss)
+
+        # Weighted loss
+        loss = (mse_coeff * mse_loss + std_coeff * std_loss + cov_coeff * cov_loss)
         return loss
 
 
@@ -318,15 +351,25 @@ class JEPAEncoder(nn.Module):
         # organize return features
         center_objects_feature = obj_polylines_feature[torch.arange(num_center_objects), track_index_to_predict]
 
-        batch_dict['center_objects_feature'] = center_objects_feature
-        batch_dict['obj_feature'] = obj_polylines_feature
-        batch_dict['map_feature'] = map_polylines_feature
-        batch_dict['obj_mask'] = obj_valid_mask
-        batch_dict['map_mask'] = map_valid_mask
-        batch_dict['obj_pos'] = obj_trajs_last_pos
-        batch_dict['map_pos'] = map_polylines_center  
+        if target == False:
 
-        return batch_dict
+            batch_dict['center_objects_feature'] = center_objects_feature
+            batch_dict['obj_feature'] = obj_polylines_feature
+            batch_dict['map_feature'] = map_polylines_feature
+            batch_dict['obj_mask'] = obj_valid_mask
+            batch_dict['map_mask'] = map_valid_mask
+            batch_dict['obj_pos'] = obj_trajs_last_pos
+            batch_dict['map_pos'] = map_polylines_center
+
+            if self.attn_pooling:
+                batch_dict['pooled_attn'] = self.attention_pooling(obj_polylines_feature) 
+            return batch_dict
+        else:
+            if self.attn_pooling:
+                return center_objects_feature
+            else:
+                return self.attention_pooling(obj_polylines_feature)
+
 
 
 class MTREncoder(nn.Module):
