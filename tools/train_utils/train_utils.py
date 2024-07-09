@@ -159,6 +159,12 @@ def train_model(model, optimizer, train_loader, optim_cfg,
 
         dataloader_iter = iter(train_loader)
         for cur_epoch in tbar:
+            final_weight_decay = optim_cfg.get('FINAL_WEIGHT_DECAY', None)
+            if final_weight_decay is not None:
+                initial_wd = optim_cfg.get('WEIGHT_DECAY', 0.0)
+                current_wd = initial_wd + (final_weight_decay - initial_wd) * (cur_epoch / total_epochs)
+                for param_group in optimizer.param_groups:
+                    param_group['weight_decay'] = current_wd
             torch.cuda.empty_cache()
             if train_sampler is not None:
                 train_sampler.set_epoch(cur_epoch)
