@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #SBATCH --job-name=jepa_training_wo_poses
-#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_pretraining_center_obj_1_%j.txt
+#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_pretraining_center_obj_2_%j.txt
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=64

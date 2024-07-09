@@ -366,9 +366,9 @@ class JEPAEncoder(nn.Module):
             return batch_dict
         else:
             if self.attn_pooling:
-                return center_objects_feature
-            else:
                 return self.attention_pooling(obj_polylines_feature)
+            else:
+                return center_objects_feature
 
 
 
