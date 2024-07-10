@@ -115,7 +115,7 @@
                     "--cfg_file", "cfgs/waymo/mtr+100_percent_data_jepa.yaml",
                     "--batch_size=10",
                     "--epochs=50",
-                    "--extra_tag=weight_decay_test",
+                    "--extra_tag=ori_loss_coeffs",
                     "--not_eval_with_train",
                     "--max_ckpt_save_num=30",             
         ]
