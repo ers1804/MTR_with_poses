@@ -373,13 +373,13 @@ class JEPAEncoder(nn.Module):
 
             if self.attn_pooling:
                 if not self.lnorm:
-                    batch_dict['pooled_attn'] = self.attention_pooling(obj_polylines_feature)
+                    batch_dict['pooled_attn'] = self.attention_pooling(obj_polylines_feature, obj_valid_mask)
                 else:
                     batch_dict['pooled_attn'] = torch.nn.functional.layer_norm(self.attention_pooling(obj_polylines_feature), (obj_polylines_feature.shape[0], obj_polylines_feature.shape[-1]))
             return batch_dict
         else:
             if self.attn_pooling:
-                return self.attention_pooling(obj_polylines_feature)
+                return self.attention_pooling(obj_polylines_feature, obj_valid_mask)
             else:
                 return center_objects_feature
 
