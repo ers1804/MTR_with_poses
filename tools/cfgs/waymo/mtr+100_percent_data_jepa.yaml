@@ -54,7 +54,8 @@ MODEL:
         mse_coeff: 1.0
         std_coeff: 1.0
         cov_coeff: 0.04
-        USE_ATTN_POOL: True
+        USE_ATTN_POOL: False
+        USE_LAYER_NORM: True
 
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 10

@@ -27,6 +27,8 @@ class JEPAEncoder(nn.Module):
 
         self.attn_pooling = self.model_cfg.get('USE_ATTN_POOL', False)
 
+        self.lnorm = self.model_cfg.get('USE_LAYER_NORM', False)
+
         # build polyline encoders
         self.agent_polyline_encoder = self.build_polyline_encoder(
             in_channels=self.model_cfg.NUM_INPUT_ATTR_AGENT + 1,
@@ -351,6 +353,9 @@ class JEPAEncoder(nn.Module):
         # organize return features
         center_objects_feature = obj_polylines_feature[torch.arange(num_center_objects), track_index_to_predict]
 
+        if self.lnorm:
+            center_objects_feature = torch.nn.functional.layer_norm(center_objects_feature, center_objects_feature.shape[1:])
+
         if target == False:
 
             batch_dict['center_objects_feature'] = center_objects_feature
@@ -362,7 +367,10 @@ class JEPAEncoder(nn.Module):
             batch_dict['map_pos'] = map_polylines_center
 
             if self.attn_pooling:
-                batch_dict['pooled_attn'] = self.attention_pooling(obj_polylines_feature) 
+                if not self.lnorm:
+                    batch_dict['pooled_attn'] = self.attention_pooling(obj_polylines_feature)
+                else:
+                    batch_dict['pooled_attn'] = torch.nn.functional.layer_norm(self.attention_pooling(obj_polylines_feature), (obj_polylines_feature.shape[0], obj_polylines_feature.shape[-1]))
             return batch_dict
         else:
             if self.attn_pooling:
