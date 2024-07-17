@@ -353,7 +353,7 @@ class JEPAEncoder(nn.Module):
         # organize return features
         center_objects_feature = obj_polylines_feature[torch.arange(num_center_objects), track_index_to_predict]
 
-        if self.lnorm:
+        if self.lnorm and target == False:
             center_objects_feature = torch.nn.functional.layer_norm(center_objects_feature, center_objects_feature.shape[1:])
 
         if target == False:
