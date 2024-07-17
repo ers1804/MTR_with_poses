@@ -113,7 +113,7 @@
                     "train.py",
                     "--launcher", "pytorch",
                     "--cfg_file", "cfgs/waymo/mtr+100_percent_data_jepa.yaml",
-                    "--batch_size=14",
+                    "--batch_size=5",
                     "--epochs=50",
                     "--extra_tag=new_dataset",
                     "--not_eval_with_train",

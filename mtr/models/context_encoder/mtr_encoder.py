@@ -150,14 +150,19 @@ class JEPAEncoder(nn.Module):
             x_mask (batch_size, N):
             x_pos (batch_size, N, 3):
         """
+        """
+            x_t: (N, batch_size, d_model)
+            x_mask_t: (N, batch_size)
+            x_pos_t: (N, batch_size, 3)
+        """
         assert torch.all(x_mask.sum(dim=-1) > 0)
 
         batch_size, N, d_model = x.shape
         x_t = x.permute(1, 0, 2)
-        x_mask_t = x_mask.permute(1, 0, 2)
+        x_mask_t = x_mask
         x_pos_t = x_pos.permute(1, 0, 2)
  
-        pos_embedding = position_encoding_utils.gen_sineembed_for_position(x_pos_t, hidden_dim=d_model)
+        pos_embedding = position_encoding_utils.gen_sineembed_for_position(x_pos_t[..., :2], hidden_dim=d_model)
 
         for k in range(len(self.self_attn_layers)):
             x_t = self.self_attn_layers[k](
