@@ -224,7 +224,7 @@ class JEPAEncoder(nn.Module):
         return ret_full_feature
     
 
-    def get_jepa_loss(self, output_encoder, output_target_encoder, mse_coeff=25.0, std_coeff=25.0, cov_coeff=1.0):
+    def get_jepa_loss(self, output_encoder, output_target_encoder, mse_coeff=1.0, std_coeff=1.0, cov_coeff=0.04):
         num_center_objects, d_model = output_encoder.shape
         class AllReduce(torch.autograd.Function):
 
