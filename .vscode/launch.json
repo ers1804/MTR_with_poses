@@ -113,9 +113,9 @@
                     "train.py",
                     "--launcher", "pytorch",
                     "--cfg_file", "cfgs/waymo/mtr+100_percent_data_jepa.yaml",
-                    "--batch_size=10",
+                    "--batch_size=14",
                     "--epochs=50",
-                    "--extra_tag=ori_loss_coeffs",
+                    "--extra_tag=new_dataset",
                     "--not_eval_with_train",
                     "--max_ckpt_save_num=30",             
         ]

@@ -161,28 +161,37 @@ class WaymoDataset(DatasetTemplate):
                     track_index_to_predict=track_index_to_predict, sdc_track_index=sdc_track_index,
                     timestamps=timestamps, obj_types=obj_types, obj_ids=obj_ids, fut_timestamps=fut_timestamps
                 )
-        
-        ret_dict = {
-            'scenario_id': np.array([scene_id] * len(track_index_to_predict)),
-            'obj_trajs': obj_trajs_data,
-            'obj_trajs_mask': obj_trajs_mask,
-            'track_index_to_predict': track_index_to_predict_new,  # used to select center-features
-            'obj_trajs_pos': obj_trajs_pos,
-            'obj_trajs_last_pos': obj_trajs_last_pos,
-            'obj_types': obj_types,
-            'obj_ids': obj_ids,
+        if self.jepa:
+            ret_dict = {
+                'scenario_id': np.array([scene_id] * len(track_index_to_predict)),
+                'obj_trajs': obj_trajs_data,
+                'obj_trajs_mask': obj_trajs_mask,
+                'obj_trajs_last_pos': obj_trajs_last_pos,
+                'obj_trajs_future_mask': obj_trajs_future_mask,
+                'track_index_to_predict': track_index_to_predict_new,  # used to select center-features
+            }
+        else:
+            ret_dict = {
+                'scenario_id': np.array([scene_id] * len(track_index_to_predict)),
+                'obj_trajs': obj_trajs_data,
+                'obj_trajs_mask': obj_trajs_mask,
+                'track_index_to_predict': track_index_to_predict_new,  # used to select center-features
+                'obj_trajs_pos': obj_trajs_pos,
+                'obj_trajs_last_pos': obj_trajs_last_pos,
+                'obj_types': obj_types,
+                'obj_ids': obj_ids,
 
-            'center_objects_world': center_objects,
-            'center_objects_id': np.array(track_infos['object_id'])[track_index_to_predict],
-            'center_objects_type': np.array(track_infos['object_type'])[track_index_to_predict],
+                'center_objects_world': center_objects,
+                'center_objects_id': np.array(track_infos['object_id'])[track_index_to_predict],
+                'center_objects_type': np.array(track_infos['object_type'])[track_index_to_predict],
 
-            'obj_trajs_future_state': obj_trajs_future_state,
-            'obj_trajs_future_mask': obj_trajs_future_mask,
-            'center_gt_trajs': center_gt_trajs,
-            'center_gt_trajs_mask': center_gt_trajs_mask,
-            'center_gt_final_valid_idx': center_gt_final_valid_idx,
-            'center_gt_trajs_src': obj_trajs_full[track_index_to_predict]
-        }
+                'obj_trajs_future_state': obj_trajs_future_state,
+                'obj_trajs_future_mask': obj_trajs_future_mask,
+                'center_gt_trajs': center_gt_trajs,
+                'center_gt_trajs_mask': center_gt_trajs_mask,
+                'center_gt_final_valid_idx': center_gt_final_valid_idx,
+                'center_gt_trajs_src': obj_trajs_full[track_index_to_predict]
+            }
         if self.jepa:
             ret_dict['jepa_obj_trajs_future_state'] = jepa_obj_trajs_future_state
         if self.use_poses:
