@@ -74,7 +74,8 @@ def train_one_epoch(model, optimizer, train_loader, accumulated_iter, optim_cfg,
         # JEPA specific update of the target_encoder params
         if optim_cfg.get('JEPA', False):
             with torch.no_grad():
-                m = next(momentum_scheduler)
+                # m = next(momentum_scheduler)
+                m = momentum_scheduler[accumulated_iter]
                 for param_q, param_k in zip(model.module.context_encoder.parameters(), model.module.target_encoder.parameters()):
                     param_k.data.mul_(m).add_((1.-m) * param_q.detach().data)
 
@@ -152,8 +153,12 @@ def train_model(model, optimizer, train_loader, optim_cfg,
         
         # -- momentum schedule
         if optim_cfg.get('JEPA', False):
+            # ipe = len(train_loader)
+            # momentum_scheduler = (optim_cfg.ema[0] + i*(optim_cfg.ema[1]-optim_cfg.ema[0])/(ipe*total_epochs*optim_cfg.ipe_scale)for i in range(int(ipe*total_epochs*optim_cfg.ipe_scale)+1))
+
             ipe = len(train_loader)
-            momentum_scheduler = (optim_cfg.ema[0] + i*(optim_cfg.ema[1]-optim_cfg.ema[0])/(ipe*total_epochs*optim_cfg.ipe_scale)for i in range(int(ipe*total_epochs*optim_cfg.ipe_scale)+1))
+            total_steps = int(ipe * total_epochs * optim_cfg.ipe_scale) + 1
+            momentum_scheduler = [optim_cfg.ema[0] + i * (optim_cfg.ema[1] - optim_cfg.ema[0]) / (ipe * total_epochs * optim_cfg.ipe_scale) for i in range(total_steps)]
         else:
             momentum_scheduler = None
 
