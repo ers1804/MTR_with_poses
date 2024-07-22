@@ -113,7 +113,7 @@ def train_one_epoch(model, optimizer, train_loader, accumulated_iter, optim_cfg,
             if time_past_this_epoch // ckpt_save_time_interval >= ckpt_save_cnt:
                 ckpt_name = ckpt_save_dir / 'latest_model'
                 save_checkpoint(
-                    checkpoint_state(model, optimizer, cur_epoch, accumulated_iter), filename=ckpt_name,
+                    checkpoint_state(model, optimizer, cur_epoch, accumulated_iter, scheduler=scheduler), filename=ckpt_name,
                 )
                 logger.info(f'Save latest model to {ckpt_name}')
                 ckpt_save_cnt += 1
@@ -198,7 +198,7 @@ def train_model(model, optimizer, train_loader, optim_cfg,
 
                 ckpt_name = ckpt_save_dir / ('checkpoint_epoch_%d' % trained_epoch)
                 save_checkpoint(
-                    checkpoint_state(model, optimizer, trained_epoch, accumulated_iter), filename=ckpt_name,
+                    checkpoint_state(model, optimizer, trained_epoch, accumulated_iter, scheduler=scheduler), filename=ckpt_name,
                 )
 
             # eval the model
@@ -259,7 +259,7 @@ def model_state_to_cpu(model_state):
 def checkpoint_state(model=None, optimizer=None, epoch=None, it=None, scheduler=None):
     optim_state = optimizer.state_dict() if optimizer is not None else None
     try:
-        scheduler_state = scheduler.state_dict() if optimizer is not None else None
+        scheduler_state = scheduler.state_dict() if scheduler is not None else None
     except:
         scheduler_state = None
     if model is not None:
