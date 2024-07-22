@@ -55,6 +55,7 @@ def parse_config():
 
     parser.add_argument('--add_worker_init_fn', action='store_true', default=False, help='')
     parser.add_argument('--single_overfit', type=int, default=0, help='Number of samples of training set used for overfitting')
+    parser.add_argument('--show_grad_curve', action='store_true', default=False, help='Show grad curve')
     args = parser.parse_args()
 
     cfg_from_yaml_file(args.cfg_file, cfg)
@@ -276,6 +277,7 @@ def main():
         cfg=cfg, dist_train=dist_train, logger_iter_interval=args.logger_iter_interval,
         ckpt_save_time_interval=args.ckpt_save_time_interval,
         scaler=scaler,
+        show_grad_curve=args.show_grad_curve,
     )
 
     logger.info('**********************End training %s/%s(%s)**********************\n\n\n'

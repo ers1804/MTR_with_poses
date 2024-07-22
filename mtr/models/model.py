@@ -53,6 +53,7 @@ class JepaModel(nn.Module):
         #batch_dict_target = deepcopy_batch_dict(batch_dict)
         with torch.no_grad():
             target_encoding = self.target_encoder(batch_dict, target=True)
+            batch_dict['target_encoding'] = target_encoding
         if self.training:
             loss = self.context_encoder.get_jepa_loss(predicted_obj_features,
                                                     target_encoding,
@@ -65,7 +66,7 @@ class JepaModel(nn.Module):
             disp_dict.update({'loss': loss.item()})
             return loss, tb_dict, disp_dict
 
-        return batch_dict
+        return batch_dict, loss
 
     # def get_loss(self):
     #     loss = self.context_encoder.get_loss()
