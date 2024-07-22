@@ -256,8 +256,12 @@ def model_state_to_cpu(model_state):
     return model_state_cpu
 
 
-def checkpoint_state(model=None, optimizer=None, epoch=None, it=None):
+def checkpoint_state(model=None, optimizer=None, epoch=None, it=None, scheduler=None):
     optim_state = optimizer.state_dict() if optimizer is not None else None
+    try:
+        scheduler_state = scheduler.state_dict() if optimizer is not None else None
+    except:
+        scheduler_state = None
     if model is not None:
         if isinstance(model, torch.nn.parallel.DistributedDataParallel):
             model_state = model_state_to_cpu(model.module.state_dict())
@@ -272,7 +276,7 @@ def checkpoint_state(model=None, optimizer=None, epoch=None, it=None):
     except:
         version = 'none'
 
-    return {'epoch': epoch, 'it': it, 'model_state': model_state, 'optimizer_state': optim_state, 'version': version}
+    return {'epoch': epoch, 'it': it, 'model_state': model_state, 'optimizer_state': optim_state, 'version': version, 'scheduler_state': scheduler_state}
 
 
 def save_checkpoint(state, filename='checkpoint'):

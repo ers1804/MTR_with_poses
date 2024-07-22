@@ -224,6 +224,16 @@ def main():
         total_iters_each_epoch=len(train_loader), last_epoch=last_epoch
     )
 
+    # Load scheduler state dict:
+    try:
+        if len(ckpt_list) > 0:
+            loc_type = torch.device('cpu') if dist_train else None
+            checkpoint = torch.load(ckpt_list[-1], map_location=loc_type)
+            scheduler.load_state_dict(checkpoint['scheduler_state'])
+    except:
+        pass
+    
+
     model.train()  # before wrap to DistributedDataParallel to support to fix some parameters
 
     if dist_train:
