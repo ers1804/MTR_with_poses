@@ -107,8 +107,11 @@ def train_one_epoch(model, optimizer, train_loader, accumulated_iter, optim_cfg,
                 tb_log.add_scalar('train/total_norm', total_norm, accumulated_iter)
                 if show_grad_curve:
                     for key, val in model.named_parameters():
-                        key = key.replace('.', '/')
-                        tb_log.add_scalar('train_grad/' + key, val.grad.abs().max().item(), accumulated_iter)
+                        if 'target_encoder' in key or 'dense_prediction' in key:
+                            continue
+                        else:
+                            key = key.replace('.', '/')
+                            tb_log.add_scalar('train_grad/' + key, val.grad.abs().max().item(), accumulated_iter)
 
             time_past_this_epoch = pbar.format_dict['elapsed']
             if time_past_this_epoch // ckpt_save_time_interval >= ckpt_save_cnt:
