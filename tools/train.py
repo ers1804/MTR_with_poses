@@ -174,7 +174,7 @@ def main():
         single_overfit=args.single_overfit,
     )
 
-    if cfg.DATA_CONFIG.get('JEPA', False):
+    if cfg.MODEL.CONTEXT_ENCODER.get('USE_JEPA', False):
         model = model_utils.JepaModel(config=cfg.MODEL)
     else:
         model = model_utils.MotionTransformer(config=cfg.MODEL)
@@ -219,6 +219,14 @@ def main():
                     break
                 except:
                     ckpt_list = ckpt_list[:-1]
+        else:
+            if cfg.MODEL.CONTEXT_ENCODER.get('LOAD_JEPA_WEIGHTS', False):
+                logger.info('Loading pretrained Jepa-Encoder weights.')
+                model.load_encoder_params_from_file(cfg.MODEL.CONTEXT_ENCODER.JEPA_WEIGHTS_PATH, to_cpu=dist_train, logger=logger)
+                logger.info('Freezing encoder weights.')
+                for p in model.context_encoder.parameters():
+                    p.requires_grad = False
+                logger.info('Encoder weights loaded and frozen.')
 
     scheduler = build_scheduler(
         optimizer, train_loader, cfg.OPTIMIZATION, total_epochs=args.epochs,

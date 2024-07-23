@@ -33,6 +33,7 @@ DATA_CONFIG:
 
 MODEL:
     CONTEXT_ENCODER:
+        USE_JEPA: True
         NAME: JEPAEncoder
 
         NUM_OF_ATTN_NEIGHBORS: 16
