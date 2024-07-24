@@ -3,8 +3,8 @@
 #SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_pretraining_attn_pooling_7_%j.txt
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=64
-#SBATCH --gres=gpu:a100:8 -C a100_80
+#SBATCH --cpus-per-task=16
+#SBATCH --gres=gpu:a100:2 -C a100_80
 #SBATCH --export=NONE
 
 unset SLURM_EXPORT_ENV
@@ -35,7 +35,7 @@ cd /home/atuin/v103fe/v103fe12/MTR/tools
 
 export OMP_NUM_THREADS=64
 
-torchrun --nproc_per_node=8 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/mtr+100_percent_data_jepa_attn_pooling.yaml --batch_size=232 --epochs=300 --extra_tag=Jepa_wo_poses_attn_pooling_local_8a100_correct_loading --tcp_port=$PORT --workers=8 --not_eval_with_train --max_ckpt_save_num=300 --set DATA_CONFIG.DATA_ROOT $TMPDIR
+torchrun --nproc_per_node=2 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/mtr+100_percent_data_jepa_attn_pooling.yaml --batch_size=58 --epochs=5 --extra_tag=Jepa_wo_poses_attn_pooling_eval_trial --tcp_port=$PORT --workers=8 --max_ckpt_save_num=5 --ckpt_save_interval=1 --eval_batch_size=58 --set DATA_CONFIG.DATA_ROOT $TMPDIR
 
 # Deactivate the virtual environment at the end
 deactivate
