@@ -65,8 +65,14 @@ class JepaModel(nn.Module):
             tb_dict.update({'loss': loss.item()})
             disp_dict.update({'loss': loss.item()})
             return loss, tb_dict, disp_dict
+        else:
+            loss = self.context_encoder.get_jepa_loss(predicted_obj_features,
+                                                    target_encoding,
+                                                    mse_coeff=self.model_cfg.CONTEXT_ENCODER.mse_coeff,
+                                                    std_coeff=self.model_cfg.CONTEXT_ENCODER.std_coeff,
+                                                    cov_coeff=self.model_cfg.CONTEXT_ENCODER.cov_coeff)
 
-        return batch_dict, loss
+            return batch_dict, loss
 
     # def get_loss(self):
     #     loss = self.context_encoder.get_loss()
