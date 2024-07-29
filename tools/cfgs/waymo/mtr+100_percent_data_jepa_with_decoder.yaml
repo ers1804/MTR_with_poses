@@ -52,7 +52,7 @@ MODEL:
 
         USE_LOCAL_ATTN: True
         LOAD_JEPA_WEIGHTS: True
-        JEPA_WEIGHTS_PATH: '/home/erik/raid/jepa_eval/Jepa_wo_poses_attn_pooling_local_8a100_long_normalized_representation/ckpt/checkpoint_epoch_42.pth'
+        JEPA_WEIGHTS_PATH: '/home/atuin/v103fe/v103fe12/jepa_checkpoint.pth'
         mse_coeff: 1.0
         std_coeff: 1.0
         cov_coeff: 0.04
