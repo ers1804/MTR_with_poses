@@ -29,11 +29,12 @@ DATA_CONFIG:
     NUM_OF_SRC_POLYLINES: 768
     CENTER_OFFSET_OF_MAP: &center_offset [30.0, 0]
     JEPA: True
+    JEPA_ENCODER_ONLY: False
 
 
 MODEL:
     CONTEXT_ENCODER:
-        NAME: JEPAEncoder
+        NAME: MTREncoder
 
         NUM_OF_ATTN_NEIGHBORS: 16
         NUM_INPUT_ATTR_AGENT: 109 #29
@@ -52,7 +53,7 @@ MODEL:
 
         USE_LOCAL_ATTN: True
         LOAD_JEPA_WEIGHTS: True
-        JEPA_WEIGHTS_PATH: '/home/atuin/v103fe/v103fe12/jepa_checkpoint.pth'
+        JEPA_WEIGHTS_PATH: '/home/erik/raid/jepa_eval/Jepa_wo_poses_attn_pooling_local_8a100_correct_loading/ckpt/checkpoint_epoch_166.pth'
         mse_coeff: 1.0
         std_coeff: 1.0
         cov_coeff: 0.04

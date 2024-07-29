@@ -155,7 +155,7 @@
                     "--cfg_file", "cfgs/waymo/mtr+100_percent_data_jepa_with_decoder.yaml",
                     "--batch_size=10",
                     "--epochs=5",
-                    "--extra_tag=Tests_grad_curve",
+                    "--extra_tag=Test_decoder",
                     "--max_ckpt_save_num=30",
                     "--not_eval_with_train",             
         ]

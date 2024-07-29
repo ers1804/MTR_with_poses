@@ -25,6 +25,7 @@ class WaymoDataset(DatasetTemplate):
         self.logger.info(f'Total scenes after filters: {len(self.infos)}')
 
         self.jepa = self.dataset_cfg.get('JEPA', False)
+        self.jepa_encoder_only = self.dataset_cfg.get('JEPA_ENCODER_ONLY', False)
         self.use_poses = self.dataset_cfg.get('USE_POSES', False)
         self.use_pose_features = self.dataset_cfg.get('USE_POSE_FEATURES', False)
         self.pose_dir = self.dataset_cfg.get('POSE_DIR', None)
@@ -161,7 +162,7 @@ class WaymoDataset(DatasetTemplate):
                     track_index_to_predict=track_index_to_predict, sdc_track_index=sdc_track_index,
                     timestamps=timestamps, obj_types=obj_types, obj_ids=obj_ids, fut_timestamps=fut_timestamps
                 )
-        if self.jepa:
+        if self.jepa and self.jepa_encoder_only:
             ret_dict = {
                 'scenario_id': np.array([scene_id] * len(track_index_to_predict)),
                 'obj_trajs': obj_trajs_data,
