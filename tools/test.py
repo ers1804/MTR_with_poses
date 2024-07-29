@@ -51,6 +51,7 @@ def parse_config():
     parser.add_argument('--ped_dist_edge', type=float, default=2.0, help='distance threshold between pedestrian and edge')
     parser.add_argument('--cyc_turn', type=float, default=0.5, help='turning threshold for cyclist')
     parser.add_argument('--cluster_info', type=str, default="../mtr/datasets/waymo/vru_infos_val.pkl", help='path to cluster info file')
+    parser.add_argument('--eval_jepa_encoder', action='store_true', default=False, help='whether to evaluate JEPA encoder')
 
     args = parser.parse_args()
 
@@ -66,7 +67,7 @@ def parse_config():
     return args, cfg
 
 
-def eval_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id, dist_test=False):
+def eval_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id, dist_test=False, jepa_encoder=False):
     # load checkpoint
     if args.ckpt is not None: 
         it, epoch = model.load_params_from_file(filename=args.ckpt, logger=logger, to_cpu=dist_test)
@@ -76,10 +77,16 @@ def eval_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id
 
     logger.info(f'*************** LOAD MODEL (epoch={epoch}, iter={it}) for EVALUATION *****************')
     # start evaluation
-    eval_utils.eval_one_epoch(
-        cfg, model, test_loader, epoch_id, logger, dist_test=dist_test,
-        result_dir=eval_output_dir, save_to_file=args.save_to_file
-    )
+    if not jepa_encoder:
+        eval_utils.eval_one_epoch(
+            cfg, model, test_loader, epoch_id, logger, dist_test=dist_test,
+            result_dir=eval_output_dir, save_to_file=args.save_to_file
+        )
+    else:
+        eval_utils.eval_one_epoch_jepa(
+            cfg, model, test_loader, epoch_id, logger, dist_test=dist_test,
+            save_to_file=args.save_to_file, result_dir=eval_output_dir
+        )
 
 
 def get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file, args):
@@ -101,7 +108,7 @@ def get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file, args):
     return -1, None
 
 
-def repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir, dist_test=False):
+def repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir, dist_test=False, jepa_encoder=False):
     # evaluated ckpt record
     ckpt_record_file = eval_output_dir / ('eval_list_val.txt')
     with open(ckpt_record_file, 'a'):
@@ -136,10 +143,16 @@ def repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir
 
         # start evaluation
         cur_result_dir = eval_output_dir / ('epoch_%s' % cur_epoch_id)
-        tb_dict = eval_utils.eval_one_epoch(
-            cfg, model, test_loader, cur_epoch_id, logger, dist_test=dist_test,
-            result_dir=cur_result_dir, save_to_file=args.save_to_file
-        )
+        if not jepa_encoder:
+            tb_dict = eval_utils.eval_one_epoch(
+                cfg, model, test_loader, cur_epoch_id, logger, dist_test=dist_test,
+                result_dir=cur_result_dir, save_to_file=args.save_to_file
+            )
+        else:
+            tb_dict = eval_utils.eval_one_epoch_jepa(
+                cfg, model, test_loader, cur_epoch_id, logger, dist_test=dist_test,
+                save_to_file=args.save_to_file, result_dir=cur_result_dir
+            )
 
         if cfg.LOCAL_RANK == 0:
             for key, val in tb_dict.items():
@@ -228,12 +241,15 @@ def main():
         batch_size=args.batch_size,
         dist=dist_test, workers=args.workers, logger=logger, training=False, scenario_id=scenario_ids if args.eval_vru else None
     )
-    model = model_utils.MotionTransformer(config=cfg.MODEL)
+    if not args.eval_jepa_encoder:
+        model = model_utils.MotionTransformer(config=cfg.MODEL)
+    else:
+        model = model = model_utils.JepaModel(config=cfg.MODEL)
     with torch.no_grad():
         if args.eval_all:
-            repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir, dist_test=dist_test)
+            repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir, dist_test=dist_test, jepa_encoder=args.eval_jepa_encoder)
         else:
-            eval_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id, dist_test=dist_test)
+            eval_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id, dist_test=dist_test, jepa_encoder=args.eval_jepa_encoder)
 
 
 if __name__ == '__main__':
