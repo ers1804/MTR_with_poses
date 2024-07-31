@@ -117,6 +117,7 @@ def eval_one_epoch_jepa(cfg, model, dataloader, epoch_id, logger, dist_test=Fals
     start_time = time.time()
 
     pred_dicts = []
+    sum_loss = 0.0
     for i, batch_dict in enumerate(dataloader):
         with torch.no_grad():
             batch_pred_dicts, eval_loss = model(batch_dict)
@@ -124,7 +125,8 @@ def eval_one_epoch_jepa(cfg, model, dataloader, epoch_id, logger, dist_test=Fals
             #pred_dicts += final_pred_dicts
 
         disp_dict = {}
-        disp_dict.update({'eval_loss': eval_loss.item()})
+        sum_loss += eval_loss.item()
+        disp_dict.update({'eval_loss': sum_loss / (i + 1)})
 
         if cfg.LOCAL_RANK == 0 and (i % logger_iter_interval == 0 or i == 0 or i + 1== len(dataloader)):
             past_time = progress_bar.format_dict['elapsed']
