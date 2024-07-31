@@ -252,7 +252,7 @@ class JEPAEncoder(nn.Module):
         output_target_encoder = output_target_encoder - torch.mean(output_target_encoder, dim=0)
         std_encoder = torch.sqrt(output_encoder.var(dim=0) + 0.0001)
         std_target_encoder = torch.sqrt(output_target_encoder.var(dim=0) + 0.0001)
-        std_loss = torch.mean(torch.nn.functional.relu(1 - std_encoder)) / 2 + torch.mean(torch.nn.functional.relu(1 - std_target_encoder)) / 2
+        std_loss = torch.mean(torch.nn.functional.relu(2 - std_encoder)) / 2 + torch.mean(torch.nn.functional.relu(2 - std_target_encoder)) / 2
         std_loss = AllReduce.apply(std_loss)
 
         # Covariance loss

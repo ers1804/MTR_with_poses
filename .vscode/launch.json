@@ -155,11 +155,10 @@
                     "--cfg_file", "cfgs/waymo/mtr+100_percent_data_jepa_attn_pooling.yaml",
                     "--batch_size=25",
                     "--extra_tag=Jepa_wo_poses_attn_pooling_local_8a100_correct_loading",
-                    "--eval_tag=Jepa_wo_poses_attn_pooling_local_8a100_correct_loading_eval_all",
-                    "--eval_all",
+                    "--eval_tag=test_for_mode_collapse",
+                    "--ckpt=/home/erik/raid/jepa_eval/Jepa_wo_poses_attn_pooling_local_8a100_correct_loading/ckpt/checkpoint_epoch_116.pth",
                     "--ckpt_dir=/home/erik/raid/jepa_eval/Jepa_wo_poses_attn_pooling_local_8a100_correct_loading/ckpt",
-                    "--eval_jepa_encoder",
-                    "--start_epoch=112",             
+                    "--eval_jepa_encoder",             
         ]
         },
         {
