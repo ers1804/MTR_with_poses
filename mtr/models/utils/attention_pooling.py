@@ -14,6 +14,7 @@ class AttentionPooling(nn.Module):
 
     def forward(self, encoded_scene, mask=None):
         # encoded_scene: [num_agents_of_interest, num_agents, feature_dim]
+        _, num_agents, _ = encoded_scene.shape
         queries = self.query(encoded_scene)  # [num_agents_of_interest, num_agents, feature_dim]
         keys = self.key(encoded_scene)      # [num_agents_of_interest, num_agents, feature_dim]
         values = self.value(encoded_scene)  # [num_agents_of_interest, num_agents, feature_dim]
@@ -25,7 +26,7 @@ class AttentionPooling(nn.Module):
 
             counting_mask = mask
 
-            mask = mask.unsqueeze(1).expand(-1, scores.size(1), -1)  # [num_agents_of_interest, num_agents, num_agents]
+            mask = mask.unsqueeze(1).expand(-1, num_agents, -1)  # [num_agents_of_interest, num_agents, num_agents]
 
             scores = scores.masked_fill(mask == 0, float('-inf'))
 
@@ -38,9 +39,12 @@ class AttentionPooling(nn.Module):
         # Compute weighted sum of values
         attended_representation = torch.bmm(weights, values)  # [num_agents_of_interest, num_agents, feature_dim]
 
-        # Normalize the agent representation by dividing through the number of valid agents
-        valid_agents_count = counting_mask.sum(dim=1, keepdim=True).float()  # [num_agents_of_interest, 1]
-        valid_agents_count = valid_agents_count.expand(-1, self.feature_dim)  # [num_agents_of_interest, feature_dim]
-        
-        # Aggregate information across agents
-        return torch.sum(attended_representation, dim=1) / (valid_agents_count + 1e-9)  # [num_agents_of_interest, feature_dim]
+        if mask is not None:
+            # Normalize the agent representation by dividing through the number of valid agents
+            valid_agents_count = counting_mask.sum(dim=1, keepdim=True).float()  # [num_agents_of_interest, 1]
+            valid_agents_count = valid_agents_count.expand(-1, self.feature_dim)  # [num_agents_of_interest, feature_dim]
+            
+            # Aggregate information across agents
+            return torch.sum(attended_representation, dim=1) / (valid_agents_count + 1e-9)  # [num_agents_of_interest, feature_dim]
+        else:
+            return torch.sum(attended_representation, dim=1) / (num_agents + 1e-9)
