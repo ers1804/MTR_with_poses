@@ -40,15 +40,17 @@ class JepaModel(nn.Module):
         for p in self.target_encoder.parameters():
             p.requires_grad = False
         hidden_dim = self.model_cfg.CONTEXT_ENCODER.D_MODEL
-        self.dense_prediction = common_layers.build_mlps(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim], ret_before_act=True, without_norm=True)
+        self.predictor_type = self.model_cfg.CONTEXT_ENCODER.get('PREDICTOR', 'mlp')
+        if self.predictor_type == 'mlp':
+            self.predictor = common_layers.build_mlps(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim, hidden_dim], ret_before_act=False, without_norm=False)
 
     def forward(self, batch_dict):
         batch_dict = self.context_encoder(batch_dict)
         # batch_dict = self.motion_decoder(batch_dict)
         if self.context_encoder.attn_pooling:
-            predicted_obj_features = self.dense_prediction(batch_dict['pooled_attn'])
+            predicted_obj_features = self.predictor(batch_dict['pooled_attn'])
         else:
-            predicted_obj_features = self.dense_prediction(batch_dict['center_objects_feature'])
+            predicted_obj_features = self.predictor(batch_dict['center_objects_feature'])
         batch_dict['predicted_obj_features'] = predicted_obj_features
         #batch_dict_target = deepcopy_batch_dict(batch_dict)
         with torch.no_grad():

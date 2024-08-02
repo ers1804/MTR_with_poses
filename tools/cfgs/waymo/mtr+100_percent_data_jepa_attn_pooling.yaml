@@ -57,6 +57,7 @@ MODEL:
         cov_coeff: 0.04
         USE_ATTN_POOL: True
         USE_LAYER_NORM: False
+        PREDICTOR: mlp # attention
 
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 10
