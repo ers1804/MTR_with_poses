@@ -24,3 +24,19 @@ def build_mlps(c_in, mlp_channels=None, ret_before_act=False, without_norm=False
 
     return nn.Sequential(*layers)
 
+
+class MlpRandomNoise(nn.Module):
+    def __init__(self, c_in, mlp_channels=None, ret_before_act=False, without_norm=False, mean=0.0, std=0.1):
+        super().__init__()
+        self.mlp = build_mlps(c_in, mlp_channels, ret_before_act, without_norm)
+        self.mean = mean
+        self.std = std
+
+    def forward(self, x):
+        noise = torch.randn_like(x) * self.std + self.mean
+        return self.mlp(x + noise)
+    
+
+def build_mlps_with_noise(c_in, mlp_channels=None, ret_before_act=False, without_norm=False, mean=0.0, std=0.1):
+    return MlpRandomNoise(c_in, mlp_channels, ret_before_act, without_norm, mean, std)
+

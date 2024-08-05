@@ -45,6 +45,10 @@ class JepaModel(nn.Module):
             self.predictor = common_layers.build_mlps(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim, hidden_dim], ret_before_act=False, without_norm=False)
         elif self.predictor_type == 'bottleneck':
             self.predictor = common_layers.build_mlps(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim // 2, (hidden_dim // 2) // 2, hidden_dim // 2, hidden_dim], ret_before_act=False, without_norm=False)
+        elif self.predictor_type == 'noise':
+            self.predictor = common_layers.build_mlps_with_noise(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim, hidden_dim], ret_before_act=False, without_norm=False, mean=0.0, std=0.1)
+        elif self.predictor_type == 'noise_bottleneck':
+            self.predictor = common_layers.build_mlps_with_noise(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim // 2, (hidden_dim // 2) // 2, hidden_dim // 2, hidden_dim], ret_before_act=False, without_norm=False, mean=0.0, std=0.1)
 
     def forward(self, batch_dict):
         batch_dict = self.context_encoder(batch_dict)
