@@ -53,8 +53,8 @@ MODEL:
 
         USE_LOCAL_ATTN: True
         mse_coeff: 1.0
-        std_coeff: 2.0
-        cov_coeff: 0.04
+        std_coeff: 10.0
+        cov_coeff: 0.001
         USE_ATTN_POOL: True
         USE_LAYER_NORM: False
 
