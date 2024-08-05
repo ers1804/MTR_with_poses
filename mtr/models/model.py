@@ -57,24 +57,24 @@ class JepaModel(nn.Module):
             target_encoding = self.target_encoder(batch_dict, target=True)
             batch_dict['target_encoding'] = target_encoding
         if self.training:
-            loss = self.context_encoder.get_jepa_loss(predicted_obj_features,
+            loss, sub_losses = self.context_encoder.get_jepa_loss(predicted_obj_features,
                                                     target_encoding,
                                                     mse_coeff=self.model_cfg.CONTEXT_ENCODER.mse_coeff,
                                                     std_coeff=self.model_cfg.CONTEXT_ENCODER.std_coeff,
                                                     cov_coeff=self.model_cfg.CONTEXT_ENCODER.cov_coeff)
             tb_dict = {}
             disp_dict = {}
-            tb_dict.update({'loss': loss.item()})
-            disp_dict.update({'loss': loss.item()})
+            tb_dict.update({'loss': loss.item(), 'mse_loss': sub_losses[0].item(), 'std_loss': sub_losses[1].item(), 'cov_loss': sub_losses[2].item()})
+            disp_dict.update({'loss': loss.item(), 'mse_loss': sub_losses[0].item(), 'std_loss': sub_losses[1].item(), 'cov_loss': sub_losses[2].item()})
             return loss, tb_dict, disp_dict
         else:
-            loss = self.context_encoder.get_jepa_loss(predicted_obj_features,
+            loss, sub_losses = self.context_encoder.get_jepa_loss(predicted_obj_features,
                                                     target_encoding,
                                                     mse_coeff=self.model_cfg.CONTEXT_ENCODER.mse_coeff,
                                                     std_coeff=self.model_cfg.CONTEXT_ENCODER.std_coeff,
                                                     cov_coeff=self.model_cfg.CONTEXT_ENCODER.cov_coeff)
 
-            return batch_dict, loss
+            return batch_dict, loss, sub_losses
 
     # def get_loss(self):
     #     loss = self.context_encoder.get_loss()

@@ -267,7 +267,7 @@ class JEPAEncoder(nn.Module):
 
         # Weighted loss
         loss = (mse_coeff * mse_loss + std_coeff * std_loss + cov_coeff * cov_loss)
-        return loss
+        return loss, (mse_coeff * mse_loss, std_coeff * std_loss, cov_coeff * cov_loss)
 
 
     def forward(self, batch_dict, target=False):
