@@ -254,7 +254,7 @@ def main():
     model.train()  # before wrap to DistributedDataParallel to support to fix some parameters
 
     if dist_train:
-        model = nn.parallel.DistributedDataParallel(model, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()], find_unused_parameters=True)
+        model = nn.parallel.DistributedDataParallel(model, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()], find_unused_parameters=False)
     logger.info(model)
     num_total_params = sum([x.numel() for x in model.parameters()])
     logger.info(f'Total number of parameters: {num_total_params}')
