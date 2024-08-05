@@ -43,6 +43,8 @@ class JepaModel(nn.Module):
         self.predictor_type = self.model_cfg.CONTEXT_ENCODER.get('PREDICTOR', 'mlp')
         if self.predictor_type == 'mlp':
             self.predictor = common_layers.build_mlps(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim, hidden_dim], ret_before_act=False, without_norm=False)
+        elif self.predictor_type == 'bottleneck':
+            self.predictor = common_layers.build_mlps(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim // 2, (hidden_dim // 2) // 2, hidden_dim // 2, hidden_dim], ret_before_act=False, without_norm=False)
 
     def forward(self, batch_dict):
         batch_dict = self.context_encoder(batch_dict)
