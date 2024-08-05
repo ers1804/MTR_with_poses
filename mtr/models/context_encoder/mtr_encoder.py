@@ -358,16 +358,15 @@ class JEPAEncoder(nn.Module):
         # organize return features
         center_objects_feature = obj_polylines_feature[torch.arange(num_center_objects), track_index_to_predict]
 
-        if self.lnorm and target == False:
-            center_objects_feature = torch.nn.functional.layer_norm(center_objects_feature, center_objects_feature.shape[1:])
+        # if self.lnorm and target == False:
+        #     center_objects_feature = torch.nn.functional.layer_norm(center_objects_feature, center_objects_feature.shape[1:])
 
         if target == False:
 
             if self.attn_pooling:
-                if not self.lnorm:
-                    batch_dict['pooled_attn'] = self.attention_pooling(obj_polylines_feature, obj_valid_mask) #obj_valid_mask
-                else:
-                    batch_dict['pooled_attn'] = torch.nn.functional.layer_norm(self.attention_pooling(obj_polylines_feature), (obj_polylines_feature.shape[0], obj_polylines_feature.shape[-1]))
+                batch_dict['pooled_attn'] = self.attention_pooling(obj_polylines_feature, obj_valid_mask) #obj_valid_mask
+                # else:
+                #     batch_dict['pooled_attn'] = torch.nn.functional.layer_norm(self.attention_pooling(obj_polylines_feature, obj_valid_mask), (obj_polylines_feature.shape[0], obj_polylines_feature.shape[-1]))
 
             batch_dict['center_objects_feature'] = batch_dict['pooled_attn'] if self.attn_pooling else center_objects_feature #center_objects_feature
             batch_dict['obj_feature'] = obj_polylines_feature
@@ -381,9 +380,12 @@ class JEPAEncoder(nn.Module):
             return batch_dict
         else:
             if self.attn_pooling:
-                return self.attention_pooling(obj_polylines_feature, obj_valid_mask)
+                features = self.attention_pooling(obj_polylines_feature, obj_valid_mask)
             else:
-                return center_objects_feature
+                features = center_objects_feature
+            if self.lnorm:
+                features = torch.nn.functional.layer_norm(features, (features.size(-1),))
+            return features
 
 
 
