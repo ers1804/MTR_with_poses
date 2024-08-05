@@ -118,7 +118,7 @@
                     "--cfg_file", "cfgs/waymo/mtr+100_percent_data_jepa_attn_pooling.yaml",
                     "--batch_size=10",
                     "--epochs=5",
-                    "--extra_tag=Test_loss_logging",
+                    "--extra_tag=Test_target_layer_norm",
                     "--max_ckpt_save_num=30",
                     "--show_grad_curve",
                     "--eval_batch_size=10",             
