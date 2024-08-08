@@ -15,9 +15,20 @@ module add cuda/12.3.0
 #module add gcc/12.1.0
 source $WORK/mtr_venv/bin/activate
 
+mkdir -p $TMPDIR/processed_scenarios_training
+mkdir -p $TMPDIR/processed_scenarios_validation
+# find the data
+STORAGE_DIR="$(ws_find jepa_data)"
+# the -P parameter defines the number of parallel processes, something like 4-8 should work well
+ls -1 $STORAGE_DIR/training | xargs -P 4 -I{} tar xzf {} $TMPDIR/processed_scenarios_training
+ls -1 $STORAGE_DIR/validation | xargs -P 4 -I{} tar xzf {} $TMPDIR/processed_scenarios_validation
+
+cp $WORK/processed_scenarios_training_infos.pkl $TMPDIR/processed_scenarios_training_infos.pkl
+cp $WORK/processed_scenarios_val_infos.pkl $TMPDIR/processed_scenarios_val_infos.pkl
+
 # Unpack training data to $TMPDIR
-cd $TMPDIR
-tar xzf $WORK/mtr_training_wo_poses.tar.gz
+#cd $TMPDIR
+#tar xzf $WORK/mtr_training_wo_poses.tar.gz
 
 set -x
 
