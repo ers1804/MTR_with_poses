@@ -499,14 +499,24 @@ class WaymoDataset(DatasetTemplate):
         acce = (vel - vel_pre) / 0.1  # (num_centered_objects, num_objects, num_timestamps, 2)
         acce[:, :, 0, :] = acce[:, :, 1, :]
 
-        ret_obj_trajs = torch.cat((
-            obj_trajs[:, :, :, 0:6], 
-            object_onehot_mask,
-            object_time_embedding, 
-            object_heading_embedding,
-            obj_trajs[:, :, :, 7:9], 
-            acce,
-        ), dim=-1)
+        timestamp_embedding = self.dataset_cfg.get('TIMESTAMP_EMBEDDING', True)
+        if timestamp_embedding:
+            ret_obj_trajs = torch.cat((
+                obj_trajs[:, :, :, 0:6], 
+                object_onehot_mask,
+                object_time_embedding, 
+                object_heading_embedding,
+                obj_trajs[:, :, :, 7:9], 
+                acce,
+            ), dim=-1)
+        else:
+            ret_obj_trajs = torch.cat((
+                obj_trajs[:, :, :, 0:6], 
+                object_onehot_mask, 
+                object_heading_embedding,
+                obj_trajs[:, :, :, 7:9], 
+                acce,
+            ), dim=-1)
 
         ret_obj_valid_mask = obj_trajs[:, :, :, -1]  # (num_center_obejcts, num_objects, num_timestamps)  # TODO: CHECK THIS, 20220322
         ret_obj_trajs[ret_obj_valid_mask == 0] = 0
@@ -541,14 +551,23 @@ class WaymoDataset(DatasetTemplate):
         fut_acce = (fut_vel - fut_vel_pre) / 0.1  # (num_centered_objects, num_objects, num_timestamps, 2)
         fut_acce[:, :, 0, :] = fut_acce[:, :, 1, :]
 
-        ret_obj_trajs_future_encodings = torch.cat((
-            obj_trajs_future[:, :, :, 0:6], 
-            fut_object_onehot_mask,
-            fut_object_time_embedding, 
-            fut_object_heading_embedding,
-            obj_trajs_future[:, :, :, 7:9], 
-            fut_acce,
-        ), dim=-1)
+        if timestamp_embedding:
+            ret_obj_trajs_future_encodings = torch.cat((
+                obj_trajs_future[:, :, :, 0:6], 
+                fut_object_onehot_mask,
+                fut_object_time_embedding, 
+                fut_object_heading_embedding,
+                obj_trajs_future[:, :, :, 7:9], 
+                fut_acce,
+            ), dim=-1)
+        else:
+            ret_obj_trajs_future_encodings = torch.cat((
+                obj_trajs_future[:, :, :, 0:6], 
+                fut_object_onehot_mask, 
+                fut_object_heading_embedding,
+                obj_trajs_future[:, :, :, 7:9], 
+                fut_acce,
+            ), dim=-1)
 
         ret_obj_trajs_future = obj_trajs_future[:, :, :, [0, 1, 7, 8]]  # (x, y, vx, vy)
         ret_obj_valid_mask_future = obj_trajs_future[:, :, :, -1]  # (num_center_obejcts, num_objects, num_timestamps_future)  # TODO: CHECK THIS, 20220322
