@@ -20,8 +20,8 @@ source $WORK/mtr_venv/bin/activate
 # find the data
 STORAGE_DIR="$(ws_find jepa_data)"
 # the -P parameter defines the number of parallel processes, something like 4-8 should work well
-ls -1 $STORAGE_DIR/validation | xargs -P 8 -I{} tar xzf $STORAGE_DIR/validation/{} -C $TMPDIR
-ls -1 $STORAGE_DIR/training | xargs -P 8 -I{} tar xzf $STORAGE_DIR/training/{} -C $TMPDIR
+ls -1 $STORAGE_DIR/archives_val | xargs -P 8 -I{} tar xzf $STORAGE_DIR/archives_val/{} -C $TMPDIR
+ls -1 $STORAGE_DIR/archives_train | xargs -P 8 -I{} tar xzf $STORAGE_DIR/archives_train/{} -C $TMPDIR
 
 cp $WORK/processed_scenarios_training_infos.pkl $TMPDIR/processed_scenarios_training_infos.pkl
 cp $WORK/processed_scenarios_val_infos.pkl $TMPDIR/processed_scenarios_val_infos.pkl
