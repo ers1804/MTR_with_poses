@@ -29,6 +29,8 @@ class JEPAEncoder(nn.Module):
 
         self.lnorm = self.model_cfg.get('USE_LAYER_NORM', False)
 
+        self.complete_traj = self.model_cfg.get('COMPLETE_TRAJ', False)
+
         # build polyline encoders
         self.agent_polyline_encoder = self.build_polyline_encoder(
             in_channels=self.model_cfg.NUM_INPUT_ATTR_AGENT + 1,
@@ -280,7 +282,11 @@ class JEPAEncoder(nn.Module):
         if target == False:
             obj_trajs, obj_trajs_mask = input_dict['obj_trajs'].cuda(), input_dict['obj_trajs_mask'].cuda()
         else:
-            obj_trajs, obj_trajs_mask = input_dict['jepa_obj_trajs_future_state'].cuda(), input_dict['obj_trajs_future_mask'].cuda()
+            if self.complete_traj:
+                obj_trajs = torch.cat((input_dict['obj_trajs'], input_dict['jepa_obj_trajs_future_state']), dim=-2).cuda()
+                obj_trajs_mask = torch.cat((input_dict['obj_trajs_mask'], input_dict['obj_trajs_future_mask']), dim=-1).cuda()
+            else:
+                obj_trajs, obj_trajs_mask = input_dict['jepa_obj_trajs_future_state'].cuda(), input_dict['obj_trajs_future_mask'].cuda()
         map_polylines, map_polylines_mask = input_dict['map_polylines'].cuda(), input_dict['map_polylines_mask'].cuda()
 
         if self.use_poses:
