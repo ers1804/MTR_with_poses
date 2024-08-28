@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #SBATCH --job-name=jepa_l1_layer_weight
-#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_pretraining_12_%j.txt
+#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_pretraining_13_%j.txt
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=64
@@ -46,7 +46,7 @@ cd /home/atuin/v103fe/v103fe12/MTR/tools
 
 export OMP_NUM_THREADS=64
 
-torchrun --nproc_per_node=8 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/mtr+100_percent_data_jepa_only_l1_layer.yaml --batch_size=232 --epochs=100 --extra_tag=L1_Layer_Init --tcp_port=$PORT --workers=8 --ckpt_save_interval=5 --max_ckpt_save_num=300 --set DATA_CONFIG.DATA_ROOT $TMPDIR
+torchrun --nproc_per_node=8 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/mtr+100_percent_data_jepa_only_l1_layer.yaml --batch_size=232 --epochs=100 --extra_tag=L1_Layer_Init_wEval --tcp_port=$PORT --workers=8 --ckpt_save_interval=5 --max_ckpt_save_num=300 --set DATA_CONFIG.DATA_ROOT $TMPDIR
 
 # Deactivate the virtual environment at the end
 deactivate

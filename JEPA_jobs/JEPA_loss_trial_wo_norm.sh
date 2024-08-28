@@ -1,6 +1,6 @@
 #!/bin/bash -l
-#SBATCH --job-name=jepa_training_wo_poses
-#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_pretraining_attn_pooling_13_%j.txt
+#SBATCH --job-name=jepa_loss_trial
+#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_pretraining_loss_trial_%j.txt
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=64
@@ -45,7 +45,7 @@ cd /home/atuin/v103fe/v103fe12/MTR/tools
 
 export OMP_NUM_THREADS=64
 
-torchrun --nproc_per_node=8 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/mtr+100_percent_data_jepa_attn_pooling_new_loss_target_lnorm.yaml --batch_size=232 --epochs=300 --extra_tag=Weight_Init_L_Norm_wEval --tcp_port=$PORT --workers=8 --max_ckpt_save_num=300 --ckpt_save_interval=5  --set DATA_CONFIG.DATA_ROOT $TMPDIR
+torchrun --nproc_per_node=8 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_loss_trial_wo_norm.yaml --batch_size=232 --epochs=50 --extra_tag=Trial_1 --tcp_port=$PORT --workers=8 --max_ckpt_save_num=300 --ckpt_save_interval=5  --set DATA_CONFIG.DATA_ROOT $TMPDIR
 
 # Deactivate the virtual environment at the end
 deactivate
