@@ -125,7 +125,7 @@ class JepaModel(nn.Module):
                                                     cov_coeff=self.model_cfg.CONTEXT_ENCODER.cov_coeff)
             tb_dict = {}
             disp_dict = {}
-            tb_dict.update({'loss': loss.item(), 'mse_loss': sub_losses[0].item(), 'std_loss': sub_losses[1].item(), 'cov_loss': sub_losses[2].item()})
+            tb_dict.update({'loss': loss.item(), 'mse_loss': sub_losses[0].item(), 'std_loss': sub_losses[1].item(), 'cov_loss': sub_losses[2].item(), 'context_embeddings': batch_dict['pooled_attn'] if self.context_encoder.attn_pooling else batch_dict['center_objects_feature'], 'predicted_embeddings': predicted_obj_features, 'target_embeddings': target_encoding, 'object_ids': batch_dict['input_dict']['center_objects_id']})
             disp_dict.update({'loss': loss.item(), 'mse_loss': sub_losses[0].item(), 'std_loss': sub_losses[1].item(), 'cov_loss': sub_losses[2].item()})
             return loss, tb_dict, disp_dict
         else:
