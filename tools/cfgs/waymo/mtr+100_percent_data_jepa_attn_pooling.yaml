@@ -58,6 +58,7 @@ MODEL:
         USE_ATTN_POOL: True
         USE_LAYER_NORM: False
         PREDICTOR: mlp # attention
+        COMPLETE_TRAJ: True
 
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 10
