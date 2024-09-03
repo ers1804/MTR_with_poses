@@ -107,9 +107,10 @@ def train_one_epoch(model, optimizer, train_loader, accumulated_iter, optim_cfg,
                         tb_log.add_scalar('train/' + key, val, accumulated_iter)
                     else:
                         continue
-                tb_log.add_embedding(tb_dict['context_embeddings'], metadata=tb_dict['object_ids'], global_step=accumulated_iter, tag='context_embeddings')
-                tb_log.add_embedding(tb_dict['predicted_embeddings'], metadata=tb_dict['object_ids'], global_step=accumulated_iter, tag='predicted_embeddings')
-                tb_log.add_embedding(tb_dict['target_embeddings'], metadata=tb_dict['object_ids'], global_step=accumulated_iter, tag='target_embeddings')
+                if accumulated_iter % total_it_each_epoch == 0:
+                    tb_log.add_embedding(tb_dict['context_embeddings'], metadata=tb_dict['object_ids'], global_step=accumulated_iter, tag='context_embeddings')
+                    tb_log.add_embedding(tb_dict['predicted_embeddings'], metadata=tb_dict['object_ids'], global_step=accumulated_iter, tag='predicted_embeddings')
+                    tb_log.add_embedding(tb_dict['target_embeddings'], metadata=tb_dict['object_ids'], global_step=accumulated_iter, tag='target_embeddings')
                 tb_log.add_scalar('train/total_norm', total_norm, accumulated_iter)
                 if show_grad_curve:
                     for key, val in model.named_parameters():
