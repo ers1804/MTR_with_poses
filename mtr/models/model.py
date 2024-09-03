@@ -304,7 +304,7 @@ class MotionTransformer(nn.Module):
             raise FileNotFoundError
         
         loc_type = torch.device('cpu') if to_cpu else None
-        checkpoint = torch.load(ckpt_path, map_location=loc_type)
+        checkpoint = torch.load(ckpt_path, map_location=loc_type, weights_only=True)
         complete_model_state = checkpoint['model_state']
 
         # Filter out state_dict of context_encoder weights:
