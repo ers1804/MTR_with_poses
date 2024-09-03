@@ -401,8 +401,8 @@ class JEPAEncoder(nn.Module):
             else:
                 features = center_objects_feature
             if self.lnorm:
-                features = torch.nn.functional.layer_norm(features, (features.size(-1),))
-            return features
+                features = self.batch_norm(torch.nn.functional.layer_norm(features, (features.size(-1),))) if self.use_batch_norm else torch.nn.functional.layer_norm(features, (features.size(-1),))
+            return self.batch_norm(features) if self.use_batch_norm else features
 
 
 
