@@ -251,10 +251,10 @@ class JEPAEncoder(nn.Module):
         # Variance loss
         # Turn encoded features into [num_center_objects, d_model]
         output_encoder = output_encoder - torch.mean(output_encoder, dim=0)
-        output_target_encoder = output_target_encoder - torch.mean(output_target_encoder, dim=0)
+        #output_target_encoder = output_target_encoder - torch.mean(output_target_encoder, dim=0)
         std_encoder = torch.sqrt(output_encoder.var(dim=0) + 0.0001)
-        std_target_encoder = torch.sqrt(output_target_encoder.var(dim=0) + 0.0001)
-        std_loss = torch.mean(torch.nn.functional.relu(2 - std_encoder)) / 2 + torch.mean(torch.nn.functional.relu(2 - std_target_encoder)) / 2
+        #std_target_encoder = torch.sqrt(output_target_encoder.var(dim=0) + 0.0001)
+        std_loss = torch.mean(torch.nn.functional.relu(2 - std_encoder)) / 2 #+ torch.mean(torch.nn.functional.relu(2 - std_target_encoder)) / 2
         std_loss = AllReduce.apply(std_loss)
 
         # Covariance loss
@@ -263,8 +263,8 @@ class JEPAEncoder(nn.Module):
             assert n == m
             return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
         cov_encoder = (output_encoder.T @ output_encoder) / (num_center_objects - 1)
-        cov_target_encoder = (output_target_encoder.T @ output_target_encoder) / (num_center_objects - 1)
-        cov_loss = off_diagonal(cov_encoder).pow_(2).sum().div(d_model) + off_diagonal(cov_target_encoder).pow_(2).sum().div(d_model)
+        #cov_target_encoder = (output_target_encoder.T @ output_target_encoder) / (num_center_objects - 1)
+        cov_loss = off_diagonal(cov_encoder).pow_(2).sum().div(d_model) #+ off_diagonal(cov_target_encoder).pow_(2).sum().div(d_model)
         cov_loss = AllReduce.apply(cov_loss)
 
         # Weighted loss
