@@ -31,6 +31,11 @@ class JEPAEncoder(nn.Module):
 
         self.complete_traj = self.model_cfg.get('COMPLETE_TRAJ', False)
 
+        self.use_batch_norm = self.model_cfg.get('USE_BATCH_NORM', False)
+
+        if self.use_batch_norm:
+            self.batch_norm = nn.BatchNorm1d(self.model_cfg.D_MODEL)
+
         # build polyline encoders
         self.agent_polyline_encoder = self.build_polyline_encoder(
             in_channels=self.model_cfg.NUM_INPUT_ATTR_AGENT + 1,
@@ -250,11 +255,11 @@ class JEPAEncoder(nn.Module):
 
         # Variance loss
         # Turn encoded features into [num_center_objects, d_model]
-        output_encoder = output_encoder - torch.mean(output_encoder, dim=0)
+        #output_encoder = output_encoder - torch.mean(output_encoder, dim=0)
         #output_target_encoder = output_target_encoder - torch.mean(output_target_encoder, dim=0)
         std_encoder = torch.sqrt(output_encoder.var(dim=0) + 0.0001)
         #std_target_encoder = torch.sqrt(output_target_encoder.var(dim=0) + 0.0001)
-        std_loss = torch.mean(torch.nn.functional.relu(2 - std_encoder)) / 2 #+ torch.mean(torch.nn.functional.relu(2 - std_target_encoder)) / 2
+        std_loss = torch.mean(torch.nn.functional.relu(1 - std_encoder)) / 2 #+ torch.mean(torch.nn.functional.relu(2 - std_target_encoder)) / 2
         std_loss = AllReduce.apply(std_loss)
 
         # Covariance loss
@@ -370,11 +375,17 @@ class JEPAEncoder(nn.Module):
         if target == False:
 
             if self.attn_pooling:
-                batch_dict['pooled_attn'] = self.attention_pooling(obj_polylines_feature, obj_valid_mask) #obj_valid_mask
+                if not self.use_batch_norm:
+                    batch_dict['pooled_attn'] = self.attention_pooling(obj_polylines_feature, obj_valid_mask) #obj_valid_mask
+                else:
+                    batch_dict['pooled_attn'] = self.batch_norm(self.attention_pooling(obj_polylines_feature, obj_valid_mask))
                 # else:
                 #     batch_dict['pooled_attn'] = torch.nn.functional.layer_norm(self.attention_pooling(obj_polylines_feature, obj_valid_mask), (obj_polylines_feature.shape[0], obj_polylines_feature.shape[-1]))
 
-            batch_dict['center_objects_feature'] = batch_dict['pooled_attn'] if self.attn_pooling else center_objects_feature #center_objects_feature
+            if self.attn_pooling:
+                batch_dict['center_objects_feature'] = batch_dict['pooled_attn'] if self.attn_pooling else center_objects_feature #center_objects_feature
+            else:
+                batch_dict['center_objects_feature'] = batch_dict['pooled_attn'] if self.attn_pooling else self.batch_norm(center_objects_feature)
             batch_dict['obj_feature'] = obj_polylines_feature
             batch_dict['map_feature'] = map_polylines_feature
             batch_dict['obj_mask'] = obj_valid_mask
