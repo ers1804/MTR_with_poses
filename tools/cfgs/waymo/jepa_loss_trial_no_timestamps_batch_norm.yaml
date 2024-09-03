@@ -1,0 +1,86 @@
+DATA_CONFIG:
+    DATASET: WaymoDataset
+    OBJECT_TYPE: &object_type ['TYPE_VEHICLE', 'TYPE_PEDESTRIAN', 'TYPE_CYCLIST']
+    
+    DATA_ROOT: '/home/erik/raid/datasets/womd'
+    SPLIT_DIR: {
+        'train': 'processed_scenarios_training', 
+        'test': 'processed_scenarios_validation'
+    }
+
+    INFO_FILE: {
+        'train': 'processed_scenarios_training_infos.pkl', 
+        'test': 'processed_scenarios_val_infos.pkl'
+    }
+
+    SAMPLE_INTERVAL: {
+        'train': 1, 
+        'test': 1
+    }
+
+    INFO_FILTER_DICT: 
+        filter_info_by_object_type: *object_type
+
+   # for map feature encoding
+    POINT_SAMPLED_INTERVAL: 1
+    NUM_POINTS_EACH_POLYLINE: 20
+    VECTOR_BREAK_DIST_THRESH: 1.0
+
+    NUM_OF_SRC_POLYLINES: 768
+    CENTER_OFFSET_OF_MAP: &center_offset [30.0, 0]
+    JEPA: True
+    TIMESTAMP_EMBEDDING: False
+
+
+MODEL:
+    CONTEXT_ENCODER:
+        USE_JEPA: True
+        NAME: JEPAEncoder
+
+        NUM_OF_ATTN_NEIGHBORS: 16
+        NUM_INPUT_ATTR_AGENT: 17 #29
+        NUM_INPUT_ATTR_MAP: 9
+        
+        NUM_CHANNEL_IN_MLP_AGENT: 256
+        NUM_CHANNEL_IN_MLP_MAP: 64
+        NUM_LAYER_IN_MLP_AGENT: 3
+        NUM_LAYER_IN_MLP_MAP: 5
+        NUM_LAYER_IN_PRE_MLP_MAP: 3
+
+        D_MODEL: 256
+        NUM_ATTN_LAYERS: 6
+        NUM_ATTN_HEAD: 8 
+        DROPOUT_OF_ATTN: 0.1 
+
+        USE_LOCAL_ATTN: True
+        mse_coeff: 1.0
+        std_coeff: 1.0
+        cov_coeff: 0.0
+        USE_ATTN_POOL: True
+        USE_LAYER_NORM: True
+        USE_BATCH_NORM: True
+
+
+OPTIMIZATION:
+    BATCH_SIZE_PER_GPU: 10
+    NUM_EPOCHS: 30
+
+    OPTIMIZER: AdamW
+    LR: 0.0001
+    REF_LR: 0.001
+    FINAL_LR: 0.000001
+    WEIGHT_DECAY: 0.04 #was 0.01
+    FINAL_WEIGHT_DECAY: 0.4
+
+    SCHEDULER: jepa_cosine
+    DECAY_STEP_LIST: [22, 24, 26, 28]
+    LR_DECAY: 0.5
+    LR_CLIP: 0.000001
+
+    GRAD_NORM_CLIP: 1000.0
+    ema:
+    - 0.996
+    - 1.0
+    ipe_scale: 1.0
+    JEPA: True
+    use_scaler: False
