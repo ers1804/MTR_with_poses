@@ -500,18 +500,26 @@ class WaymoDataset(DatasetTemplate):
         acce[:, :, 0, :] = acce[:, :, 1, :]
 
         timestamp_embedding = self.dataset_cfg.get('TIMESTAMP_EMBEDDING', True)
+        frequency_embedding = self.dataset_cfg.get('FREQUENCY_EMBEDDING', False)
+        frequency_dim = self.dataset_cfg.get('FREQUENCY_DIM', 4)
+        if frequency_embedding:
+            freq_embedded = [obj_trajs[:, :, :, 0:6]]
+            for i in range(frequency_dim):
+                freq_embedded.append(torch.sin(2 ** i * obj_trajs[:, :, :, 0:6]))
+                freq_embedded.append(torch.cos(2 ** i * obj_trajs[:, :, :, 0:6]))
+            freq_embedded = torch.cat(freq_embedded, dim=-1)
         if timestamp_embedding:
             ret_obj_trajs = torch.cat((
-                obj_trajs[:, :, :, 0:6], 
+                obj_trajs[:, :, :, 0:6] if not frequency_embedding else freq_embedded, 
                 object_onehot_mask,
                 object_time_embedding, 
                 object_heading_embedding,
                 obj_trajs[:, :, :, 7:9], 
                 acce,
-            ), dim=-1)
+            ), dim=-1)      
         else:
             ret_obj_trajs = torch.cat((
-                obj_trajs[:, :, :, 0:6], 
+                obj_trajs[:, :, :, 0:6] if not frequency_embedding else freq_embedded, 
                 object_onehot_mask, 
                 object_heading_embedding,
                 obj_trajs[:, :, :, 7:9], 
@@ -551,9 +559,16 @@ class WaymoDataset(DatasetTemplate):
         fut_acce = (fut_vel - fut_vel_pre) / 0.1  # (num_centered_objects, num_objects, num_timestamps, 2)
         fut_acce[:, :, 0, :] = fut_acce[:, :, 1, :]
 
+        if frequency_embedding:
+            freq_embedded = [obj_trajs_future[:, :, :, 0:6]]
+            for i in range(frequency_dim):
+                freq_embedded.append(torch.sin(2 ** i * obj_trajs_future[:, :, :, 0:6]))
+                freq_embedded.append(torch.cos(2 ** i * obj_trajs_future[:, :, :, 0:6]))
+            freq_embedded = torch.cat(freq_embedded, dim=-1)
+
         if timestamp_embedding:
             ret_obj_trajs_future_encodings = torch.cat((
-                obj_trajs_future[:, :, :, 0:6], 
+                obj_trajs_future[:, :, :, 0:6] if not frequency_embedding else freq_embedded, 
                 fut_object_onehot_mask,
                 fut_object_time_embedding, 
                 fut_object_heading_embedding,
@@ -562,7 +577,7 @@ class WaymoDataset(DatasetTemplate):
             ), dim=-1)
         else:
             ret_obj_trajs_future_encodings = torch.cat((
-                obj_trajs_future[:, :, :, 0:6], 
+                obj_trajs_future[:, :, :, 0:6] if not frequency_embedding else freq_embedded, 
                 fut_object_onehot_mask, 
                 fut_object_heading_embedding,
                 obj_trajs_future[:, :, :, 7:9], 
