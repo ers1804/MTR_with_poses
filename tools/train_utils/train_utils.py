@@ -103,7 +103,7 @@ def train_one_epoch(model, optimizer, train_loader, accumulated_iter, optim_cfg,
             if tb_log is not None:
                 tb_log.add_scalar('meta_data/learning_rate', cur_lr, accumulated_iter)
                 for key, val in tb_dict.items():
-                    if 'loss' in key:
+                    if 'embeddings' not in key:
                         tb_log.add_scalar('train/' + key, val, accumulated_iter)
                     else:
                         continue
