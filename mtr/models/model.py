@@ -87,13 +87,13 @@ class JepaModel(nn.Module):
         hidden_dim = self.model_cfg.CONTEXT_ENCODER.D_MODEL
         self.predictor_type = self.model_cfg.CONTEXT_ENCODER.get('PREDICTOR', 'mlp')
         if self.predictor_type == 'mlp':
-            self.predictor = common_layers.build_mlps(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim, hidden_dim], ret_before_act=False, without_norm=False)
+            self.predictor = common_layers.build_mlps(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim, hidden_dim], ret_before_act=True, without_norm=False)
         elif self.predictor_type == 'bottleneck':
-            self.predictor = common_layers.build_mlps(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim // 2, (hidden_dim // 2) // 2, hidden_dim // 2, hidden_dim], ret_before_act=False, without_norm=False)
+            self.predictor = common_layers.build_mlps(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim // 2, (hidden_dim // 2) // 2, hidden_dim // 2, hidden_dim], ret_before_act=True, without_norm=False)
         elif self.predictor_type == 'noise':
-            self.predictor = common_layers.build_mlps_with_noise(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim, hidden_dim], ret_before_act=False, without_norm=False, mean=0.0, std=0.1)
+            self.predictor = common_layers.build_mlps_with_noise(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim, hidden_dim], ret_before_act=True, without_norm=False, mean=0.0, std=0.1)
         elif self.predictor_type == 'noise_bottleneck':
-            self.predictor = common_layers.build_mlps_with_noise(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim // 2, (hidden_dim // 2) // 2, hidden_dim // 2, hidden_dim], ret_before_act=False, without_norm=False, mean=0.0, std=0.1)
+            self.predictor = common_layers.build_mlps_with_noise(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim // 2, (hidden_dim // 2) // 2, hidden_dim // 2, hidden_dim], ret_before_act=True, without_norm=False, mean=0.0, std=0.1)
 
         # Init weights as in I-JEPA
         for m in self.context_encoder.modules():
@@ -118,6 +118,7 @@ class JepaModel(nn.Module):
             target_encoding = self.target_encoder(batch_dict, target=True)
             batch_dict['target_encoding'] = target_encoding
         if self.training:
+            test_magnitude = torch.norm(predicted_obj_features, dim=-1)
             loss, sub_losses = self.context_encoder.get_jepa_loss(predicted_obj_features,
                                                     target_encoding,
                                                     mse_coeff=self.model_cfg.CONTEXT_ENCODER.mse_coeff,

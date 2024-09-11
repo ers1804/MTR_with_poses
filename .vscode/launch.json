@@ -124,6 +124,27 @@
         ]
         },
         {
+            "name": "train.py without poses with JEPA overfit",
+            "type": "debugpy",
+            "program": "/home/erik/venv/mtr_pose/bin/torchrun",
+            "request": "launch",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "/home/erik/gitprojects/MTR/tools",
+            "python": "/home/erik/venv/mtr_pose/bin/python",
+            "args": ["--nproc_per_node=1",
+                    "train.py",
+                    "--launcher", "pytorch",
+                    "--cfg_file", "cfgs/waymo/jepa_loss_trial_no_timestamps_batch_norm.yaml",
+                    "--batch_size=10",
+                    "--epochs=200",
+                    "--extra_tag=Overfit_Freq_Embedding_10",
+                    "--max_ckpt_save_num=100",
+                    "--single_overfit=10",
+                    "--not_eval_with_train",             
+        ]
+        },
+        {
             "name": "test.py JEPA Encoder",
             "type": "debugpy",
             "program": "/home/erik/venv/mtr_pose/bin/torchrun",
