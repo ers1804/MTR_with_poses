@@ -22,6 +22,7 @@ from mtr.config import cfg, cfg_from_list, cfg_from_yaml_file, log_config_to_fil
 from mtr.datasets import build_dataloader
 from mtr.models import model as model_utils
 from mtr.utils import common_utils
+from mtr.datasets.waymo.waymo_dataset import WaymoDataset
 
 
 def parse_config():
@@ -49,6 +50,7 @@ def parse_config():
     # Vis Arguments
     parser.add_argument('--scenario_id', nargs='+', default=None, required=True, help='ID of the scenario to be visualised.')
     parser.add_argument('--agent_ids', nargs='+', default=None, help='ID of the agent to be visualised.')
+    parser.add_argument('--vis_groundtruth', action='store_true', default=False, help='Visualise groundtruth data.')
 
     args = parser.parse_args()
 
@@ -150,69 +152,83 @@ def repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir
 
 def main():
     args, cfg = parse_config()
-    if args.launcher == 'none':
-        dist_test = False
-        total_gpus = 1
-    else:
-        total_gpus, cfg.LOCAL_RANK = getattr(common_utils, 'init_dist_%s' % args.launcher)(
-            args.tcp_port, args.local_rank, backend='nccl'
+    if not args.vis_groundtruth:
+        if args.launcher == 'none':
+            dist_test = False
+            total_gpus = 1
+        else:
+            total_gpus, cfg.LOCAL_RANK = getattr(common_utils, 'init_dist_%s' % args.launcher)(
+                args.tcp_port, args.local_rank, backend='nccl'
+            )
+            dist_test = True
+
+        if args.batch_size is None:
+            args.batch_size = cfg.OPTIMIZATION.BATCH_SIZE_PER_GPU
+        else:
+            assert args.batch_size % total_gpus == 0, 'Batch size should match the number of gpus'
+            args.batch_size = args.batch_size // total_gpus
+            
+        output_dir = cfg.ROOT_DIR / 'output' / cfg.EXP_GROUP_PATH / cfg.TAG / args.extra_tag
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        eval_output_dir = output_dir / 'eval'
+
+        if not args.eval_all:
+            num_list = re.findall(r'\d+', args.ckpt) if args.ckpt is not None else []
+            epoch_id = num_list[-1] if num_list.__len__() > 0 else 'no_number'
+            eval_output_dir = eval_output_dir / ('epoch_%s' % epoch_id)
+        else:
+            epoch_id = None
+            eval_output_dir = eval_output_dir / 'eval_all_default'
+
+        if args.eval_tag is not None:
+            eval_output_dir = eval_output_dir / args.eval_tag
+
+        eval_output_dir.mkdir(parents=True, exist_ok=True)
+        log_file = eval_output_dir / ('log_eval_%s.txt' % datetime.datetime.now().strftime('%Y%m%d-%H%M%S'))
+        logger = common_utils.create_logger(log_file, rank=cfg.LOCAL_RANK)
+
+        # log to file
+        logger.info('**********************Start logging**********************')
+        gpu_list = os.environ['CUDA_VISIBLE_DEVICES'] if 'CUDA_VISIBLE_DEVICES' in os.environ.keys() else 'ALL'
+        logger.info('CUDA_VISIBLE_DEVICES=%s' % gpu_list)
+
+        if dist_test:
+            logger.info('total_batch_size: %d' % (total_gpus * args.batch_size))
+        for key, val in vars(args).items():
+            logger.info('{:16} {}'.format(key, val))
+        log_config_to_file(cfg, logger=logger)
+
+        if args.fix_random_seed:
+            common_utils.set_random_seed(666)
+
+        ckpt_dir = args.ckpt_dir if args.ckpt_dir is not None else output_dir / 'ckpt'
+
+    
+        test_set, test_loader, sampler = build_dataloader(
+            dataset_cfg=cfg.DATA_CONFIG,
+            batch_size=args.batch_size,
+            dist=dist_test, workers=args.workers, logger=logger, training=False,
+            scenario_id=args.scenario_id
         )
-        dist_test = True
-
-    if args.batch_size is None:
-        args.batch_size = cfg.OPTIMIZATION.BATCH_SIZE_PER_GPU
+        model = model_utils.MotionTransformer(config=cfg.MODEL)
+        with torch.no_grad():
+            # if args.eval_all:
+            #     repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir, dist_test=dist_test)
+            # else:
+            vis_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id, dist_test=dist_test)
     else:
-        assert args.batch_size % total_gpus == 0, 'Batch size should match the number of gpus'
-        args.batch_size = args.batch_size // total_gpus
-          
-    output_dir = cfg.ROOT_DIR / 'output' / cfg.EXP_GROUP_PATH / cfg.TAG / args.extra_tag
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    eval_output_dir = output_dir / 'eval'
-
-    if not args.eval_all:
-        num_list = re.findall(r'\d+', args.ckpt) if args.ckpt is not None else []
-        epoch_id = num_list[-1] if num_list.__len__() > 0 else 'no_number'
-        eval_output_dir = eval_output_dir / ('epoch_%s' % epoch_id)
-    else:
-        epoch_id = None
-        eval_output_dir = eval_output_dir / 'eval_all_default'
-
-    if args.eval_tag is not None:
-        eval_output_dir = eval_output_dir / args.eval_tag
-
-    eval_output_dir.mkdir(parents=True, exist_ok=True)
-    log_file = eval_output_dir / ('log_eval_%s.txt' % datetime.datetime.now().strftime('%Y%m%d-%H%M%S'))
-    logger = common_utils.create_logger(log_file, rank=cfg.LOCAL_RANK)
-
-    # log to file
-    logger.info('**********************Start logging**********************')
-    gpu_list = os.environ['CUDA_VISIBLE_DEVICES'] if 'CUDA_VISIBLE_DEVICES' in os.environ.keys() else 'ALL'
-    logger.info('CUDA_VISIBLE_DEVICES=%s' % gpu_list)
-
-    if dist_test:
-        logger.info('total_batch_size: %d' % (total_gpus * args.batch_size))
-    for key, val in vars(args).items():
-        logger.info('{:16} {}'.format(key, val))
-    log_config_to_file(cfg, logger=logger)
-
-    if args.fix_random_seed:
-        common_utils.set_random_seed(666)
-
-    ckpt_dir = args.ckpt_dir if args.ckpt_dir is not None else output_dir / 'ckpt'
-
-    test_set, test_loader, sampler = build_dataloader(
+        log_file = '/home/erik/gitprojects/MTR/plots/' + ('log_eval_%s.txt' % datetime.datetime.now().strftime('%Y%m%d-%H%M%S'))
+        logger = common_utils.create_logger(log_file, rank=cfg.LOCAL_RANK)
+        dataset = WaymoDataset(
         dataset_cfg=cfg.DATA_CONFIG,
-        batch_size=args.batch_size,
-        dist=dist_test, workers=args.workers, logger=logger, training=False,
-        scenario_id=args.scenario_id
+        training=True,
+        logger=logger,
+        scenario_id=args.scenario_id 
     )
-    model = model_utils.MotionTransformer(config=cfg.MODEL)
-    with torch.no_grad():
-        # if args.eval_all:
-        #     repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir, dist_test=dist_test)
-        # else:
-        vis_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id, dist_test=dist_test)
+        vis_utils.vis_groundtruth(
+            cfg, args, dataset
+        )
 
 
 if __name__ == '__main__':

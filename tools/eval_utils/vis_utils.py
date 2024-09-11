@@ -449,5 +449,61 @@ def vis_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sav
     return ret_dict
 
 
+def vis_groundtruth(cfg, args, dataset):
+    for i in range(len(dataset)):
+        sample = dataset[i]
+        curr_pos_center = sample['center_objects_world'][:, :2] # [num_center_objects, 2]
+        angles_center = sample['center_objects_world'][:, 6] # [num_center_objects]
+        past_trajs = sample['obj_trajs'][0, :, :, :2] + curr_pos_center[0, :] # [num_agents, num_past_steps, 2]
+        past_trajs_mask = sample['obj_trajs_mask'][0, :, :] # [num_agents, num_past_steps]
+        future_trajs = sample['obj_trajs_future_state'][0, :, :, :2] + curr_pos_center[0, :] # [num_agents, num_future_steps, 2]
+        future_trajs_mask = np.array(sample['obj_trajs_future_mask'][0, :, :], dtype=bool) # [num_agents, num_future_steps]
+        obj_ids = sample['obj_ids'] # [num_agents]
+        center_object_id = sample['center_objects_id'] # [num_center_objects]
+        obj_types = sample['obj_types'] # [num_agents]
+        map_data = sample['map_polylines'][0, :, :, :2]
+        num_polylines, num_points, _ = map_data.shape
+        #map_data = common_utils.rotate_points_along_z(map_data[None, :, :, :].reshape((1, -1, 2)), angle=angles_center[0].reshape((1,))).reshape((num_polylines, num_points, -1))
+        map_data = map_data + curr_pos_center[0, :]
+        map_mask = sample['map_polylines_mask'][0, :, :]
+
+        center_y, center_x, width = get_viewport(np.concatenate([past_trajs, future_trajs], axis=-2), np.array(np.concatenate([past_trajs_mask, future_trajs_mask], axis=-1), dtype=bool))
+
+        fig, ax = create_figure_and_axes(size_pixels=1000)
+        # Plot Map
+        for i in range(map_data.shape[0]):
+            ax.plot(map_data[i, map_mask[i], 0], map_data[i, map_mask[i], 1], 'k.', alpha=1, ms=2, c='grey')
+        # Plot Current Position
+        for i in range(past_trajs.shape[0]):
+            if past_trajs_mask[i, -1] == 1:
+                if obj_types[i] == "TYPE_VEHICLE":
+                    color = 'blue'
+                elif obj_types[i] == "TYPE_PEDESTRIAN":
+                    color = 'red'
+                elif obj_types[i] == "TYPE_CYCLIST":
+                    color = 'green'
+                ax.plot(past_trajs[i, -1, 0], past_trajs[i, -1, 1], 'o', c=color, markersize=4 if obj_ids[i] in center_object_id else 1)
+                plt.annotate(str(obj_ids[i]), (past_trajs[i, -1, 0], past_trajs[i, -1, 1]), textcoords="offset points", xytext=(0, 10), ha='center')
+        # Plot Past Trajectory
+        for i in range(past_trajs.shape[0]):
+            ax.plot(past_trajs[i, past_trajs_mask[i], 0].T, past_trajs[i, past_trajs_mask[i], 1].T, 'k--', c='black', alpha=0.5)
+        # Plot Future Trajectory
+        for i in range(future_trajs.shape[0]):
+            ax.plot(future_trajs[i, future_trajs_mask[i], 0].T, future_trajs[i, future_trajs_mask[i], 1].T, 'k--', c='cyan', alpha=0.5)
+        
+        # Set Title
+        ax.set_title('Scenario: {}'.format(sample['scenario_id'][0]))
+        size = max(10, width * 1.0)
+        ax.axis([
+            -size / 2 + center_x, size / 2 + center_x, -size / 2 + center_y,
+            size / 2 + center_y
+        ])
+        ax.set_aspect('equal')
+        image = fig_canvas_image(fig)
+        plt.close(fig)
+        pil_img = Image.fromarray(image)
+        pil_img.save('/home/erik/gitprojects/MTR/plots/' + (str(sample['scenario_id'][0]) + '_gt.png'))
+
+
 if __name__ == '__main__':
     pass
