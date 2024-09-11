@@ -56,6 +56,7 @@ def parse_config():
     parser.add_argument('--add_worker_init_fn', action='store_true', default=False, help='')
     parser.add_argument('--single_overfit', type=int, default=0, help='Number of samples of training set used for overfitting')
     parser.add_argument('--show_grad_curve', action='store_true', default=False, help='Show grad curve')
+    parser.add_argument('--scenario_id', nargs='+', default=None, help='scenario ids for subset of dataset')
     args = parser.parse_args()
 
     cfg_from_yaml_file(args.cfg_file, cfg)
@@ -180,6 +181,7 @@ def main():
         total_epochs=args.epochs,
         add_worker_init_fn=args.add_worker_init_fn,
         single_overfit=args.single_overfit,
+        scenario_id=args.scenario_id
     )
 
     if cfg.MODEL.CONTEXT_ENCODER.get('USE_JEPA', False):
