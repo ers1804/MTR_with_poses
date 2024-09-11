@@ -45,7 +45,7 @@ cd /home/atuin/v103fe/v103fe12/MTR/tools
 
 export OMP_NUM_THREADS=64
 
-torchrun --nproc_per_node=8 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_loss_trial_no_timestamps_batch_norm.yaml --batch_size=232 --epochs=50 --extra_tag=MSE_5_STD_5 --tcp_port=$PORT --workers=8 --max_ckpt_save_num=300 --ckpt_save_interval=2  --set DATA_CONFIG.DATA_ROOT $TMPDIR MODEL.CONTEXT_ENCODER.mse_coeff 5.0 MODEL.CONTEXT_ENCODER.std_coeff 5.0
+torchrun --nproc_per_node=8 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_loss_trial_no_timestamps_batch_norm.yaml --batch_size=232 --epochs=50 --extra_tag=MSE_5_STD_5_ReLU --tcp_port=$PORT --workers=8 --max_ckpt_save_num=300 --ckpt_save_interval=2  --set DATA_CONFIG.DATA_ROOT $TMPDIR MODEL.CONTEXT_ENCODER.mse_coeff 5.0 MODEL.CONTEXT_ENCODER.std_coeff 5.0
 
 # Deactivate the virtual environment at the end
 deactivate
