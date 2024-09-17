@@ -91,7 +91,10 @@ def build_scheduler(optimizer, dataloader, opt_cfg, total_epochs, total_iters_ea
             if cur_epoch >= decay_step:
                 cur_decay = cur_decay * opt_cfg.LR_DECAY
         return max(cur_decay, opt_cfg.LR_CLIP / opt_cfg.LR)
-
+    try:
+        cur_lr = float(optimizer.lr)
+    except:
+        cur_lr = optimizer.param_groups[0]['lr']
     if opt_cfg.get('SCHEDULER', None) == 'cosine':
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer,
@@ -108,11 +111,11 @@ def build_scheduler(optimizer, dataloader, opt_cfg, total_epochs, total_iters_ea
     elif opt_cfg.get('SCHEDULER', None) == 'jepa_cosine':
         scheduler = common_utils.WarmupCosineSchedule(optimizer,
                                                       warmup_steps=opt_cfg.get('WARMUP_EPOCHS', 0) * total_iters_each_epoch,
-                                                      start_lr=opt_cfg.get('LR', 0.0001),
+                                                      start_lr=cur_lr, #opt_cfg.get('LR', 0.0001),
                                                       ref_lr=opt_cfg.get('REF_LR', 0.001),
                                                       final_lr=opt_cfg.get('FINAL_LR', 0.000001),
                                                       T_max=total_epochs * total_iters_each_epoch,
-                                                      last_epoch=last_epoch)
+                                                      last_epoch=last_epoch * total_iters_each_epoch)
     else:
         scheduler = None
 
@@ -237,12 +240,10 @@ def main():
                 for p in model.context_encoder.parameters():
                     p.requires_grad = False
                 logger.info('Encoder weights loaded and frozen.')
-
     scheduler = build_scheduler(
         optimizer, train_loader, cfg.OPTIMIZATION, total_epochs=args.epochs,
         total_iters_each_epoch=len(train_loader), last_epoch=last_epoch
     )
-
     # Load scheduler state dict:
     try:
         if len(ckpt_list) > 0:
