@@ -265,7 +265,8 @@ class WarmupCosineSchedule(object):
         ref_lr,
         T_max,
         last_epoch=-1,
-        final_lr=0.
+        final_lr=0.,
+        it=0
     ):
         self.optimizer = optimizer
         self.start_lr = start_lr
@@ -273,7 +274,7 @@ class WarmupCosineSchedule(object):
         self.final_lr = final_lr
         self.warmup_steps = warmup_steps
         self.T_max = T_max - warmup_steps
-        self._step = last_epoch#0.
+        self._step = it#0.
 
     def step(self):
         self._step += 1

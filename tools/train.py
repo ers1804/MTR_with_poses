@@ -83,7 +83,7 @@ def build_optimizer(model, opt_cfg):
     return optimizer
 
 
-def build_scheduler(optimizer, dataloader, opt_cfg, total_epochs, total_iters_each_epoch, last_epoch):
+def build_scheduler(optimizer, dataloader, opt_cfg, total_epochs, total_iters_each_epoch, last_epoch, it=0):
     decay_steps = [x * total_iters_each_epoch for x in opt_cfg.get('DECAY_STEP_LIST', [5, 10, 15, 20])]
     def lr_lbmd(cur_epoch):
         cur_decay = 1
@@ -115,7 +115,8 @@ def build_scheduler(optimizer, dataloader, opt_cfg, total_epochs, total_iters_ea
                                                       ref_lr=opt_cfg.get('REF_LR', 0.001),
                                                       final_lr=opt_cfg.get('FINAL_LR', 0.000001),
                                                       T_max=total_epochs * total_iters_each_epoch,
-                                                      last_epoch=last_epoch * total_iters_each_epoch)
+                                                      last_epoch=0 if last_epoch < 0 else last_epoch * total_iters_each_epoch,
+                                                      it=it)
     else:
         scheduler = None
 
@@ -242,7 +243,7 @@ def main():
                 logger.info('Encoder weights loaded and frozen.')
     scheduler = build_scheduler(
         optimizer, train_loader, cfg.OPTIMIZATION, total_epochs=args.epochs,
-        total_iters_each_epoch=len(train_loader), last_epoch=last_epoch
+        total_iters_each_epoch=len(train_loader), last_epoch=last_epoch, it=it
     )
     # Load scheduler state dict:
     try:
@@ -257,7 +258,7 @@ def main():
     model.train()  # before wrap to DistributedDataParallel to support to fix some parameters
 
     if dist_train:
-        model = nn.parallel.DistributedDataParallel(model, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()], find_unused_parameters=False)
+        model = nn.parallel.DistributedDataParallel(model, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()], find_unused_parameters=True)
     logger.info(model)
     num_total_params = sum([x.numel() for x in model.parameters()])
     logger.info(f'Total number of parameters: {num_total_params}')
