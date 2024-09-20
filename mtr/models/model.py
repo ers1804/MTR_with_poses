@@ -130,6 +130,7 @@ class JepaModel(nn.Module):
             disp_dict.update({'loss': loss.item(), 'mse_loss': sub_losses[0].item(), 'std_loss': sub_losses[1].item(), 'cov_loss': sub_losses[2].item()})
             return loss, tb_dict, disp_dict
         else:
+            test_magnitude = torch.norm(predicted_obj_features, dim=-1)
             loss, sub_losses = self.context_encoder.get_jepa_loss(predicted_obj_features,
                                                     target_encoding,
                                                     mse_coeff=self.model_cfg.CONTEXT_ENCODER.mse_coeff,
@@ -309,8 +310,13 @@ class MotionTransformer(nn.Module):
         complete_model_state = checkpoint['model_state']
 
         # Filter out state_dict of context_encoder weights:
-        encoder_dict = {k: v for k, v in complete_model_state.items() if 'context_encoder' in k}
-        self.context_encoder.load_state_dict(encoder_dict, strict=False)
+        encoder_dict = dict()
+        for k,v in complete_model_state.items():
+            if 'context_encoder.agent_polyline_encoder' in k or 'context_encoder.map_polyline_encoder' in k or 'context_encoder.self_attn_layers' in k:
+                encoder_dict[k.replace('context_encoder.', '')] = v
+            else:
+                continue
+        self.context_encoder.load_state_dict(encoder_dict, strict=True)
 
 
 
