@@ -1,10 +1,10 @@
 #!/bin/bash -l
 #SBATCH --job-name=jepa_loss_trial
-#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_pretraining_no_covariance_%j.txt
+#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_overfit_%j.txt
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=64
-#SBATCH --gres=gpu:a100:8 -C a100_80
+#SBATCH --gres=gpu:a100:8 -C a100_40
 #SBATCH --export=NONE
 
 unset SLURM_EXPORT_ENV
@@ -45,7 +45,7 @@ cd /home/atuin/v103fe/v103fe12/MTR/tools
 
 export OMP_NUM_THREADS=64
 
-torchrun --nproc_per_node=8 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_loss_trial_no_timestamps_batch_norm.yaml --batch_size=232 --epochs=50 --extra_tag=MSE_1_STD_1_No_Layer_2 --tcp_port=$PORT --workers=8 --max_ckpt_save_num=300 --ckpt_save_interval=2 --set DATA_CONFIG.DATA_ROOT $TMPDIR MODEL.CONTEXT_ENCODER.USE_LAYER_NORM False
+torchrun --nproc_per_node=8 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_overfit_trials.yaml --batch_size=96 --epochs=200 --extra_tag=Overfit_4 --tcp_port=$PORT --workers=8 --max_ckpt_save_num=10 --not_eval_with_train  --single_overfit=96 --set DATA_CONFIG.DATA_ROOT $TMPDIR
 
 # Deactivate the virtual environment at the end
 deactivate
