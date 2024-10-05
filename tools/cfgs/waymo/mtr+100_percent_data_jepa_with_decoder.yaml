@@ -30,6 +30,7 @@ DATA_CONFIG:
     CENTER_OFFSET_OF_MAP: &center_offset [30.0, 0]
     JEPA: True
     JEPA_ENCODER_ONLY: False
+    TIMESTAMP_EMBEDDING: True
 
 
 MODEL:
@@ -94,10 +95,12 @@ OPTIMIZATION:
 
     OPTIMIZER: AdamW
     LR: 0.0001
-    WEIGHT_DECAY: 0.01 
-    # FINAL_WEIGHT_DECAY: 0.4
+    REF_LR: 0.001
+    FINAL_LR: 0.000001
+    WEIGHT_DECAY: 0.01 #was 0.01
+    #FINAL_WEIGHT_DECAY: 0.4
 
-    SCHEDULER: lambdaLR # was lambdaLR
+    SCHEDULER: jepa_cosine # was lambdaLR
     DECAY_STEP_LIST: [22, 24, 26, 28]
     LR_DECAY: 0.5
     LR_CLIP: 0.000001
