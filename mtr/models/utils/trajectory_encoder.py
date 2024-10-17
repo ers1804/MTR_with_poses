@@ -29,7 +29,7 @@ class TrajectoryEncoder(nn.Module):
         elif time_encoder == 'tcn':
             self.encoder = TCN(num_inputs=hidden_dim, num_channels=[hidden_dim] * num_layers, kernel_size=kernel_size, input_shape='NLC')
         elif time_encoder == 'set_transformer':
-            self.encoder = ISAB(dim=hidden_dim, num_heads=nhead, num_latents=1, latent_self_attend=True)
+            self.encoder = ISAB(dim=hidden_dim, heads=nhead, num_latents=1, latent_self_attend=True)
         else:
             raise ValueError(f"Invalid time_encoder: {time_encoder}")
         
@@ -75,11 +75,16 @@ class TrajectoryEncoder(nn.Module):
             _, hidden = self.encoder(trajectories_feature)
             feature_buffers = hidden[-1].view(num_center_agents, num_agents, -1)
         elif self.time_encoder == 'transformer':
-            pass
+            trajectories_feature = trajectories_feature.view(-1, num_timesteps, trajectories_feature.shape[-1])
+            out = self.encoder(trajectories_feature)
+            feature_buffers = out[:, -1, :].view(num_center_agents, num_agents, -1)
         elif self.time_encoder == 'tcn':
+            # TODO: Check for output shapes between context and target
             pass
         elif self.time_encoder == 'set_transformer':
-            pass
+            trajectories_feature = trajectories_feature.view(-1, num_timesteps, trajectories_feature.shape[-1])
+            out, _ = self.encoder(trajectories_feature)
+            feature_buffers = out[:, -1, :].view(num_center_agents, num_agents, -1)
         
         # out-mlp 
         if self.out_mlps is not None:
