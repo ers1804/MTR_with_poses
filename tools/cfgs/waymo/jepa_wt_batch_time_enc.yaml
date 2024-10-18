@@ -61,7 +61,7 @@ MODEL:
         USE_BATCH_NORM: True
 
         TIME_ENCODER:
-            TYPE: 'set_transformer' # 'rnn' or 'transformer' or 'tcn' or 'set_transformer'
+            TYPE: 'rnn' # 'rnn' or 'transformer' or 'tcn' or 'set_transformer'
             KERNEL_SIZE: 3
             NUM_HEADS: 4
 
