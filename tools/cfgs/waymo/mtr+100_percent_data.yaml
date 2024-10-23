@@ -29,6 +29,7 @@ DATA_CONFIG:
     NUM_OF_SRC_POLYLINES: 768
     CENTER_OFFSET_OF_MAP: &center_offset [30.0, 0]
     TIMESTAMP_EMBEDDING: True
+    JEPA: False
 
 
 MODEL:
