@@ -74,10 +74,10 @@ OPTIMIZATION:
     REF_LR: 0.0001
     FINAL_LR: 0.000001
     WEIGHT_DECAY: 0.04 #was 0.01
-    FINAL_WEIGHT_DECAY: 0.4
+    #FINAL_WEIGHT_DECAY: None # was 0.4
 
-    SCHEDULER: jepa_cosine
-    DECAY_STEP_LIST: [22, 24, 26, 28]
+    SCHEDULER: lambdaLR #jepa_cosine
+    DECAY_STEP_LIST: []
     LR_DECAY: 0.5
     LR_CLIP: 0.000001
 
