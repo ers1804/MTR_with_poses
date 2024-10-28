@@ -36,6 +36,8 @@ class JEPAEncoder(nn.Module):
 
         self.use_time_encoder = self.model_cfg.get('USE_TIME_ENC', False)
 
+        self.smooth_l1_loss = nn.SmoothL1Loss()
+
         if self.use_batch_norm:
             self.batch_norm = nn.BatchNorm1d(self.model_cfg.D_MODEL)
 
@@ -277,8 +279,8 @@ class JEPAEncoder(nn.Module):
             def backward(ctx, grads):
                 return grads
         # MSE loss
-        mse_loss = torch.nn.functional.smooth_l1_loss(output_encoder, output_target_encoder)
-        mse_loss = AllReduce.apply(mse_loss)
+        mse_loss = self.smooth_l1_loss(output_encoder, output_target_encoder)
+        #mse_loss = AllReduce.apply(mse_loss)
 
         # Variance loss
         # Turn encoded features into [num_center_objects, d_model]
@@ -287,7 +289,7 @@ class JEPAEncoder(nn.Module):
         std_encoder = torch.sqrt(output_encoder.var(dim=0) + 0.0001)
         #std_target_encoder = torch.sqrt(output_target_encoder.var(dim=0) + 0.0001)
         std_loss = torch.mean(torch.nn.functional.relu(1 - std_encoder)) / 2 #+ torch.mean(torch.nn.functional.relu(2 - std_target_encoder)) / 2
-        std_loss = AllReduce.apply(std_loss)
+        #std_loss = AllReduce.apply(std_loss)
 
         # Covariance loss
         def off_diagonal(x):
@@ -297,7 +299,7 @@ class JEPAEncoder(nn.Module):
         cov_encoder = (output_encoder.T @ output_encoder) / (num_center_objects - 1)
         #cov_target_encoder = (output_target_encoder.T @ output_target_encoder) / (num_center_objects - 1)
         cov_loss = off_diagonal(cov_encoder).pow_(2).sum().div(d_model) #+ off_diagonal(cov_target_encoder).pow_(2).sum().div(d_model)
-        cov_loss = AllReduce.apply(cov_loss)
+        #cov_loss = AllReduce.apply(cov_loss)
 
         # Weighted loss
         loss = (mse_coeff * mse_loss + std_coeff * std_loss + cov_coeff * cov_loss)
