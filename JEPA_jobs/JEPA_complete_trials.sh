@@ -45,7 +45,9 @@ cd /home/atuin/v103fe/v103fe12/MTR/tools
 
 export OMP_NUM_THREADS=64
 
+
 torchrun --nproc_per_node=8 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_wt_batch.yaml --batch_size=232 --epochs=200 --extra_tag=Trial_w_t_1_1_0001 --tcp_port=$PORT --workers=8 --max_ckpt_save_num=5 --ckpt_save_interval=2 --set DATA_CONFIG.DATA_ROOT $TMPDIR MODEL.CONTEXT_ENCODER.mse_coeff 0.001
+
 
 # Deactivate the virtual environment at the end
 deactivate
