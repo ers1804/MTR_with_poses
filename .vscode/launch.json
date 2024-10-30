@@ -115,12 +115,12 @@
             "args": ["--nproc_per_node=1",
                     "train.py",
                     "--launcher", "pytorch",
-                    "--cfg_file", "cfgs/waymo/jepa_wt_batch_time_enc.yaml",
-                    "--batch_size=2",
-                    "--epochs=5",
-                    "--extra_tag=Testing_LR",
+                    "--cfg_file", "cfgs/waymo/jepa_wt_batch_20.yaml",
+                    "--batch_size=10",
+                    "--epochs=30",
+                    "--extra_tag=Testing_20_Percent_Bottle_WD_10_10_0001",
                     "--max_ckpt_save_num=5",
-                    "--not_eval_with_train",             
+                    "--set", "MODEL.CONTEXT_ENCODER.mse_coeff", "10.0", "MODEL.CONTEXT_ENCODER.std_coeff", "10.0", "MODEL.CONTEXT_ENCODER.cov_coeff", "0.001",        
         ]
         },
         {
