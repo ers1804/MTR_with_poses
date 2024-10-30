@@ -208,7 +208,7 @@ def main():
         test_set, test_loader, sampler = build_dataloader(
             dataset_cfg=cfg.DATA_CONFIG,
             batch_size=args.batch_size,
-            dist=dist_test, workers=args.workers, logger=logger, training=False,
+            dist=dist_test, workers=args.workers, logger=logger, training=True,
             scenario_id=args.scenario_id
         )
         model = model_utils.MotionTransformer(config=cfg.MODEL)

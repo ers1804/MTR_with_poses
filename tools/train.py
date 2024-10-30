@@ -115,7 +115,7 @@ def build_scheduler(optimizer, dataloader, opt_cfg, total_epochs, total_iters_ea
             else:
                 step = it
         else:
-            step = last_epoch * total_iters_each_epoch
+            step = it #last_epoch * total_iters_each_epoch
         scheduler = common_utils.WarmupCosineSchedule(optimizer,
                                                       warmup_steps=opt_cfg.get('WARMUP_EPOCHS', 0) * total_iters_each_epoch,
                                                       start_lr=cur_lr, #opt_cfg.get('LR', 0.0001),

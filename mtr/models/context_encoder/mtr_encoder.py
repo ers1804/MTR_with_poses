@@ -12,6 +12,7 @@ import torch.nn as nn
 from mtr.models.utils.transformer import transformer_encoder_layer, position_encoding_utils
 from mtr.models.utils import polyline_encoder
 from mtr.models.utils import attention_pooling
+from mtr.models.utils import trajectory_encoder
 from mtr.utils import common_utils
 from mtr.ops.knn import knn_utils
 from mtr.models.context_encoder import pointnet
@@ -33,16 +34,31 @@ class JEPAEncoder(nn.Module):
 
         self.use_batch_norm = self.model_cfg.get('USE_BATCH_NORM', False)
 
+        self.use_time_encoder = self.model_cfg.get('USE_TIME_ENC', False)
+
+        self.smooth_l1_loss = nn.SmoothL1Loss()
+
         if self.use_batch_norm:
             self.batch_norm = nn.BatchNorm1d(self.model_cfg.D_MODEL)
 
         # build polyline encoders
-        self.agent_polyline_encoder = self.build_polyline_encoder(
-            in_channels=self.model_cfg.NUM_INPUT_ATTR_AGENT + 1,
-            hidden_dim=self.model_cfg.NUM_CHANNEL_IN_MLP_AGENT,
-            num_layers=self.model_cfg.NUM_LAYER_IN_MLP_AGENT,
-            out_channels=self.model_cfg.D_MODEL
-        )
+        if not self.use_time_encoder:
+            self.agent_polyline_encoder = self.build_polyline_encoder(
+                in_channels=self.model_cfg.NUM_INPUT_ATTR_AGENT + 1,
+                hidden_dim=self.model_cfg.NUM_CHANNEL_IN_MLP_AGENT,
+                num_layers=self.model_cfg.NUM_LAYER_IN_MLP_AGENT,
+                out_channels=self.model_cfg.D_MODEL
+            )
+        else:
+            self.agent_polyline_encoder = self.build_trajectory_encoder(
+                in_channels=self.model_cfg.NUM_INPUT_ATTR_AGENT + 1,
+                hidden_dim=self.model_cfg.NUM_CHANNEL_IN_MLP_AGENT,
+                num_layers=self.model_cfg.NUM_LAYER_IN_MLP_AGENT,
+                out_channels=self.model_cfg.D_MODEL,
+                time_encoder=self.model_cfg.TIME_ENCODER.TYPE,
+                kernel_size=self.model_cfg.TIME_ENCODER.KERNEL_SIZE,
+                nhead=self.model_cfg.TIME_ENCODER.NUM_HEADS
+            )
         self.map_polyline_encoder = self.build_polyline_encoder(
             in_channels=self.model_cfg.NUM_INPUT_ATTR_MAP,
             hidden_dim=self.model_cfg.NUM_CHANNEL_IN_MLP_MAP,
@@ -141,6 +157,19 @@ class JEPAEncoder(nn.Module):
             out_channels=out_channels
         )
         return ret_polyline_encoder
+    
+    def build_trajectory_encoder(self, in_channels, hidden_dim, num_layers, num_pre_layers=1, out_channels=None, time_encoder='rnn', kernel_size=3, nhead=4):
+        ret_trajectory_encoder = trajectory_encoder.TrajectoryEncoder(
+            in_channels=in_channels,
+            hidden_dim=hidden_dim,
+            num_layers=num_layers,
+            num_pre_layers=num_pre_layers,
+            out_channels=out_channels,
+            time_encoder=time_encoder,
+            kernel_size=kernel_size,
+            nhead=nhead
+        )
+        return ret_trajectory_encoder
 
     def build_transformer_encoder_layer(self, d_model, nhead, dropout=0.1, normalize_before=False, use_local_attn=False):
         single_encoder_layer = transformer_encoder_layer.TransformerEncoderLayer(
@@ -250,8 +279,8 @@ class JEPAEncoder(nn.Module):
             def backward(ctx, grads):
                 return grads
         # MSE loss
-        mse_loss = torch.nn.functional.smooth_l1_loss(output_encoder, output_target_encoder)
-        mse_loss = AllReduce.apply(mse_loss)
+        mse_loss = self.smooth_l1_loss(output_encoder, output_target_encoder)
+        #mse_loss = AllReduce.apply(mse_loss)
 
         # Variance loss
         # Turn encoded features into [num_center_objects, d_model]
@@ -260,7 +289,7 @@ class JEPAEncoder(nn.Module):
         std_encoder = torch.sqrt(output_encoder.var(dim=0) + 0.0001)
         #std_target_encoder = torch.sqrt(output_target_encoder.var(dim=0) + 0.0001)
         std_loss = torch.mean(torch.nn.functional.relu(1 - std_encoder)) / 2 #+ torch.mean(torch.nn.functional.relu(2 - std_target_encoder)) / 2
-        std_loss = AllReduce.apply(std_loss)
+        #std_loss = AllReduce.apply(std_loss)
 
         # Covariance loss
         def off_diagonal(x):
@@ -270,7 +299,7 @@ class JEPAEncoder(nn.Module):
         cov_encoder = (output_encoder.T @ output_encoder) / (num_center_objects - 1)
         #cov_target_encoder = (output_target_encoder.T @ output_target_encoder) / (num_center_objects - 1)
         cov_loss = off_diagonal(cov_encoder).pow_(2).sum().div(d_model) #+ off_diagonal(cov_target_encoder).pow_(2).sum().div(d_model)
-        cov_loss = AllReduce.apply(cov_loss)
+        #cov_loss = AllReduce.apply(cov_loss)
 
         # Weighted loss
         loss = (mse_coeff * mse_loss + std_coeff * std_loss + cov_coeff * cov_loss)
