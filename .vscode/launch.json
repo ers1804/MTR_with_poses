@@ -118,7 +118,7 @@
                     "--cfg_file", "cfgs/waymo/jepa_wt_batch_20.yaml",
                     "--batch_size=10",
                     "--epochs=30",
-                    "--extra_tag=Testing_20_Percent_Bottle_WD_10_10_0001",
+                    "--extra_tag=Test_LR",
                     "--max_ckpt_save_num=5",
                     "--set", "MODEL.CONTEXT_ENCODER.mse_coeff", "10.0", "MODEL.CONTEXT_ENCODER.std_coeff", "10.0", "MODEL.CONTEXT_ENCODER.cov_coeff", "0.001",        
         ]
