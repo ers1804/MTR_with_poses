@@ -71,7 +71,7 @@ OPTIMIZATION:
     WEIGHT_DECAY: 0.1 #was 0.01
     #FINAL_WEIGHT_DECAY: 0.4
 
-    SCHEDULER: lambdaLR #jepa_cosine
+    SCHEDULER: jepa_cosine #lambdaLR
     DECAY_STEP_LIST: []
     LR_DECAY: 0.5
     LR_CLIP: 0.000001
