@@ -118,11 +118,11 @@ def build_scheduler(optimizer, dataloader, opt_cfg, total_epochs, total_iters_ea
             step = it #last_epoch * total_iters_each_epoch
         scheduler = common_utils.WarmupCosineSchedule(optimizer,
                                                       warmup_steps=opt_cfg.get('WARMUP_EPOCHS', 0) * total_iters_each_epoch,
-                                                      start_lr=cur_lr, #opt_cfg.get('LR', 0.0001),
+                                                      start_lr=opt_cfg.get('LR', 0.0001),
                                                       ref_lr=opt_cfg.get('REF_LR', 0.001),
                                                       final_lr=opt_cfg.get('FINAL_LR', 0.000001),
                                                       T_max=total_epochs * total_iters_each_epoch,
-                                                      last_epoch=step)
+                                                      it=step)
     else:
         scheduler = None
 
@@ -258,6 +258,7 @@ def main():
             checkpoint = torch.load(ckpt_list[-1], map_location=loc_type)
             scheduler.load_state_dict(checkpoint['scheduler_state'])
     except:
+        logger.info('Failed to load scheduler state dict.')
         pass
     
 
