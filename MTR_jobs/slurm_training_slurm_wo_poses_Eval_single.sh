@@ -1,6 +1,6 @@
 #!/bin/bash -l
-#SBATCH --job-name=mtr_training_wo_poses_eval
-#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/mtr_training_wo_poses_eval_single_%j.txt
+#SBATCH --job-name=jepa_eval
+#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/eval_jepa_%j.txt
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=12

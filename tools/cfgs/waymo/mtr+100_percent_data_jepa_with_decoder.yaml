@@ -58,7 +58,7 @@ MODEL:
         mse_coeff: 1.0
         std_coeff: 1.0
         cov_coeff: 0.04
-        USE_ATTN_POOL: True
+        USE_ATTN_POOL: False
         USE_LAYER_NORM: False
     
     MOTION_DECODER:
@@ -100,7 +100,7 @@ OPTIMIZATION:
     WEIGHT_DECAY: 0.01 #was 0.01
     #FINAL_WEIGHT_DECAY: 0.4
 
-    SCHEDULER: jepa_cosine # was lambdaLR
+    SCHEDULER: lambdaLR # was lambdaLR
     DECAY_STEP_LIST: [22, 24, 26, 28]
     LR_DECAY: 0.5
     LR_CLIP: 0.000001
