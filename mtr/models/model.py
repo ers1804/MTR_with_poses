@@ -314,6 +314,8 @@ class MotionTransformer(nn.Module):
         for k,v in complete_model_state.items():
             if 'context_encoder.agent_polyline_encoder' in k or 'context_encoder.map_polyline_encoder' in k or 'context_encoder.self_attn_layers' in k:
                 encoder_dict[k.replace('context_encoder.', '')] = v
+            elif 'context_encoder.attention_pooling' in k and self.model_cfg.CONTEXT_ENCODER.get('USE_ATTN_POOL', False):
+                encoder_dict[k.replace('context_encoder.', '')] = v
             else:
                 continue
         self.context_encoder.load_state_dict(encoder_dict, strict=True)
