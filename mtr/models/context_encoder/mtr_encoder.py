@@ -442,6 +442,8 @@ class MTREncoder(nn.Module):
 
         self.use_poses = self.model_cfg.get('USE_POSES', False)
 
+        self.attn_pooling = self.model_cfg.get('USE_ATTN_POOL', False)
+
         # build polyline encoders
         self.agent_polyline_encoder = self.build_polyline_encoder(
             in_channels=self.model_cfg.NUM_INPUT_ATTR_AGENT + 1,
@@ -456,6 +458,8 @@ class MTREncoder(nn.Module):
             num_pre_layers=self.model_cfg.NUM_LAYER_IN_PRE_MLP_MAP,
             out_channels=self.model_cfg.D_MODEL
         )
+        if self.attn_pooling:
+            self.attention_pooling = self.build_attention_pooling(self.model_cfg.D_MODEL)
         if self.use_poses:
             self.pose_encoder = self.build_pose_encoder()
             if self.model_cfg.POSE_ENCODER.TYPE != 'PointNet':
@@ -530,6 +534,10 @@ class MTREncoder(nn.Module):
             #     ))
             # pose_encoder = nn.ModuleList(pose_encoder) 
         return pose_encoder
+
+
+    def build_attention_pooling(self, d_model):
+        return attention_pooling.AttentionPooling(feature_dim=d_model)
 
 
     def build_polyline_encoder(self, in_channels, hidden_dim, num_layers, num_pre_layers=1, out_channels=None):
@@ -710,7 +718,12 @@ class MTREncoder(nn.Module):
         # organize return features
         center_objects_feature = obj_polylines_feature[torch.arange(num_center_objects), track_index_to_predict]
 
-        batch_dict['center_objects_feature'] = center_objects_feature
+        # Attention Pooling
+        if self.attn_pooling:
+            batch_dict['pooled_attn'] = self.attention_pooling(obj_polylines_feature, obj_valid_mask) #obj_valid_mask
+
+
+        batch_dict['center_objects_feature'] = batch_dict['pooled_attn'] if self.attn_pooling else center_objects_feature
         batch_dict['obj_feature'] = obj_polylines_feature
         batch_dict['map_feature'] = map_polylines_feature
         batch_dict['obj_mask'] = obj_valid_mask
