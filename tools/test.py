@@ -92,7 +92,7 @@ def eval_single_ckpt(model, test_loader, args, eval_output_dir, logger, epoch_id
 def get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file, args):
     ckpt_list = glob.glob(os.path.join(ckpt_dir, '*checkpoint_epoch_*.pth'))
     #ckpt_list.sort(key=os.path.getmtime)
-    ckpt_list = sorted(ckpt_list)
+    ckpt_list = sorted(ckpt_list, key=lambda x: int(re.search(r'epoch_(\d+)', x).group(1)))
     evaluated_ckpt_list = [float(x.strip()) for x in open(ckpt_record_file, 'r').readlines()]
 
     for cur_ckpt in ckpt_list:
