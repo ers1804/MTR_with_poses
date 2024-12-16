@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #SBATCH --job-name=jepa_loss_trial
-#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_complete_%j.txt
+#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_complete_time_%j.txt
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=128
@@ -11,9 +11,9 @@ unset SLURM_EXPORT_ENV
 
 # Activate Conda
 module add python
-module add cuda/12.3.0
+module add cuda/12.6.2
 #module add gcc/12.1.0
-source $WORK/mtr_venv/bin/activate
+source $WORK/mtr_venv_helma/bin/activate
 
 #mkdir -p $TMPDIR/processed_scenarios_training
 #mkdir -p $TMPDIR/processed_scenarios_validation
@@ -41,12 +41,12 @@ do
 done
 echo $PORT
 
-cd /home/atuin/v103fe/v103fe12/MTR/tools
+cd /home/atuin/v103fe/v103fe12/MTR_helma/MTR_with_poses/tools
 
 export OMP_NUM_THREADS=128
 
 
-torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_loss_trial.yaml --batch_size=120 --epochs=150 --extra_tag=Training_1_1_0001_150_Epochs_No_Attn --tcp_port=$PORT --workers=16 --max_ckpt_save_num=150 --ckpt_save_interval=2 --set DATA_CONFIG.DATA_ROOT $TMPDIR MODEL.CONTEXT_ENCODER.USE_ATTN_POOL False OPTIMIZATION.DECAY_STEP_LIST [100]
+torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_loss_trial.yaml --batch_size=80 --epochs=150 --extra_tag=Training_1_1_0001_150_Epochs_No_Attn --tcp_port=$PORT --workers=16 --max_ckpt_save_num=150 --ckpt_save_interval=2 --set DATA_CONFIG.DATA_ROOT $TMPDIR MODEL.CONTEXT_ENCODER.USE_ATTN_POOL False OPTIMIZATION.DECAY_STEP_LIST [100]
 
 
 # Deactivate the virtual environment at the end

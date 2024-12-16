@@ -11,9 +11,9 @@ unset SLURM_EXPORT_ENV
 
 # Activate Conda
 module add python
-module add cuda/12.3.0
+module add cuda/12.6.2
 #module add gcc/12.1.0
-source $WORK/mtr_venv/bin/activate
+source $WORK/mtr_venv_helma/bin/activate
 
 #mkdir -p $TMPDIR/processed_scenarios_training
 #mkdir -p $TMPDIR/processed_scenarios_validation
@@ -41,7 +41,7 @@ do
 done
 echo $PORT
 
-cd /home/atuin/v103fe/v103fe12/MTR/tools
+cd /home/atuin/v103fe/v103fe12/MTR_helma/MTR_with_poses/tools
 
 export OMP_NUM_THREADS=128
 

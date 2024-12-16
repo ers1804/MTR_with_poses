@@ -46,7 +46,7 @@ cd /home/atuin/v103fe/v103fe12/MTR/tools
 
 export OMP_NUM_THREADS=16
 
-torchrun --nproc_per_node=1 test.py --launcher pytorch --cfg_file cfgs/waymo/mtr+100_percent_data.yaml --batch_size=50 --extra_tag=Full_Training_20_1_1_0001_100 --eval_tag=Full_Training_20_1_1_0001_100_eval --ckpt_dir=/home/atuin/v103fe/v103fe12/MTR/output/home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/mtr+20_percent_data_jepa_with_decoder/Full_Training_20_1_1_0001_100/ckpt --save_to_file --workers=8 --eval_all --set DATA_CONFIG.DATA_ROOT $TMPDIR
+torchrun --nproc_per_node=1 test.py --launcher pytorch --cfg_file cfgs/waymo/mtr+100_percent_data_jepa_with_decoder.yaml --batch_size=50 --extra_tag=Full_Training_20_1_1_0001_100 --eval_tag=Full_Training_20_1_1_0001_100_eval --ckpt_dir=/home/atuin/v103fe/v103fe12/MTR/output/home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/mtr+20_percent_data_jepa_with_decoder/Full_Training_20_1_1_0001_100/ckpt --save_to_file --workers=8 --eval_all --set DATA_CONFIG.DATA_ROOT $TMPDIR
 
 # Deactivate the virtual environment at the end
 deactivate
