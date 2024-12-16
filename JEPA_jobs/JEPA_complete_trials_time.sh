@@ -1,10 +1,10 @@
 #!/bin/bash -l
 #SBATCH --job-name=jepa_loss_trial
-#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_complete__time_%j.txt
+#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_complete_time_%j.txt
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=64
-#SBATCH --gres=gpu:a100:8 -C a100_80
+#SBATCH --cpus-per-task=128
+#SBATCH --gres=gpu:h100:4
 #SBATCH --export=NONE
 
 unset SLURM_EXPORT_ENV
@@ -43,9 +43,9 @@ echo $PORT
 
 cd /home/atuin/v103fe/v103fe12/MTR/tools
 
-export OMP_NUM_THREADS=64
+export OMP_NUM_THREADS=128
 
-torchrun --nproc_per_node=8 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_wt_batch_time_enc.yaml --batch_size=232 --epochs=200 --extra_tag=Trial_Set_1_1_0 --tcp_port=$PORT --workers=8 --max_ckpt_save_num=5 --ckpt_save_interval=2 --set DATA_CONFIG.DATA_ROOT $TMPDIR MODEL.CONTEXT_ENCODER.TIME_ENCODER.TYPE set_transformer
+torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_loss_trial_time_enc.yaml --batch_size=80 --epochs=150 --extra_tag=Training_1_1_0001_GRU --tcp_port=$PORT --workers=16 --max_ckpt_save_num=150 --ckpt_save_interval=2 --set DATA_CONFIG.DATA_ROOT $TMPDIR OPTIMIZATION.DECAY_STEP_LIST [100]
 
 # Deactivate the virtual environment at the end
 deactivate

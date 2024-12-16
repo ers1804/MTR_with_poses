@@ -414,7 +414,7 @@ class JEPATransformerEncoder(nn.Module):
             if self.attn_pooling:
                 batch_dict['center_objects_feature'] = batch_dict['pooled_attn'] if self.attn_pooling else center_objects_feature #center_objects_feature
             else:
-                batch_dict['center_objects_feature'] = batch_dict['pooled_attn'] if self.attn_pooling else self.batch_norm(center_objects_feature)
+                batch_dict['center_objects_feature'] = self.batch_norm(center_objects_feature) if self.use_batch_norm else center_objects_feature
             batch_dict['obj_feature'] = obj_polylines_feature
             batch_dict['map_feature'] = map_polylines_feature
             batch_dict['obj_mask'] = obj_valid_mask

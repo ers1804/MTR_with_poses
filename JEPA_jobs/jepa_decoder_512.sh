@@ -1,6 +1,6 @@
 #!/bin/bash -l
-#SBATCH --job-name=jepa_loss_trial
-#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_complete_%j.txt
+#SBATCH --job-name=jepa_decoder
+#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_decoder_%j.txt
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=64
@@ -22,6 +22,7 @@ STORAGE_DIR="$(ws_find jepa_data)"
 # the -P parameter defines the number of parallel processes, something like 4-8 should work well
 ls -1 $STORAGE_DIR/archives_val | xargs -P 8 -I{} tar xzf $STORAGE_DIR/archives_val/{} -C $TMPDIR
 ls -1 $STORAGE_DIR/archives_train | xargs -P 8 -I{} tar xzf $STORAGE_DIR/archives_train/{} -C $TMPDIR
+
 cp $WORK/processed_scenarios_training_infos.pkl $TMPDIR/processed_scenarios_training_infos.pkl
 cp $WORK/processed_scenarios_val_infos.pkl $TMPDIR/processed_scenarios_val_infos.pkl
 
@@ -45,9 +46,7 @@ cd /home/atuin/v103fe/v103fe12/MTR/tools
 
 export OMP_NUM_THREADS=64
 
-
-torchrun --nproc_per_node=8 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_loss_trial.yaml --batch_size=232 --epochs=150 --extra_tag=Training_1_1_0004_150 --tcp_port=$PORT --workers=8 --max_ckpt_save_num=150 --ckpt_save_interval=2 --set DATA_CONFIG.DATA_ROOT $TMPDIR OPTIMIZATION.DECAY_STEP_LIST [100] MODEL.CONTEXT_ENCODER.cov_coeff 0.004
-
+torchrun --nproc_per_node=8 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/mtr+100_percent_data_jepa_with_decoder.yaml --batch_size=120 --epochs=50 --extra_tag=Full_Training_1_1_0001_512_C_LR --tcp_port=$PORT --workers=8 --not_eval_with_train --max_ckpt_save_num=50 --set DATA_CONFIG.DATA_ROOT $TMPDIR MODEL.CONTEXT_ENCODER.JEPA_WEIGHTS_PATH /home/atuin/v103fe/v103fe12/MTR/output/home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_loss_trial/Training_1_1_0001_512/ckpt/checkpoint_epoch_80.pth MODEL.CONTEXT_ENCODER.D_MODEL 512 OPTIMIZATION.DECAY_STEP_LIST []
 
 # Deactivate the virtual environment at the end
 deactivate

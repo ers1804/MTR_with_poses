@@ -101,7 +101,7 @@ OPTIMIZATION:
     #FINAL_WEIGHT_DECAY: 0.4
 
     SCHEDULER: lambdaLR # was lambdaLR
-    DECAY_STEP_LIST: [22, 24, 26, 28]
+    DECAY_STEP_LIST: [32, 34, 36, 38] #[22, 24, 26, 28]
     LR_DECAY: 0.5
     LR_CLIP: 0.000001
 
