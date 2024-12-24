@@ -17,6 +17,8 @@ from mtr.utils import common_utils
 from mtr.ops.knn import knn_utils
 from mtr.models.context_encoder import pointnet
 import torch.distributed as dist
+from mtr.models.utils import vision_transformer
+from functools import partial
 
 
 class JEPATransformerEncoder(nn.Module):
@@ -24,17 +26,11 @@ class JEPATransformerEncoder(nn.Module):
         super().__init__()
         self.model_cfg = config
 
-        self.use_poses = self.model_cfg.get('USE_POSES', False)
-
         self.attn_pooling = self.model_cfg.get('USE_ATTN_POOL', False)
 
         self.lnorm = self.model_cfg.get('USE_LAYER_NORM', False)
 
-        self.complete_traj = self.model_cfg.get('COMPLETE_TRAJ', False)
-
         self.use_batch_norm = self.model_cfg.get('USE_BATCH_NORM', False)
-
-        self.use_time_encoder = self.model_cfg.get('USE_TIME_ENC', False)
 
         self.smooth_l1_loss = nn.SmoothL1Loss()
 
@@ -42,23 +38,6 @@ class JEPATransformerEncoder(nn.Module):
             self.batch_norm = nn.BatchNorm1d(self.model_cfg.D_MODEL)
 
         # build polyline encoders
-        if not self.use_time_encoder:
-            self.agent_polyline_encoder = self.build_polyline_encoder(
-                in_channels=self.model_cfg.NUM_INPUT_ATTR_AGENT + 1,
-                hidden_dim=self.model_cfg.NUM_CHANNEL_IN_MLP_AGENT,
-                num_layers=self.model_cfg.NUM_LAYER_IN_MLP_AGENT,
-                out_channels=self.model_cfg.D_MODEL
-            )
-        else:
-            self.agent_polyline_encoder = self.build_trajectory_encoder(
-                in_channels=self.model_cfg.NUM_INPUT_ATTR_AGENT + 1,
-                hidden_dim=self.model_cfg.NUM_CHANNEL_IN_MLP_AGENT,
-                num_layers=self.model_cfg.NUM_LAYER_IN_MLP_AGENT,
-                out_channels=self.model_cfg.D_MODEL,
-                time_encoder=self.model_cfg.TIME_ENCODER.TYPE,
-                kernel_size=self.model_cfg.TIME_ENCODER.KERNEL_SIZE,
-                nhead=self.model_cfg.TIME_ENCODER.NUM_HEADS
-            )
         self.map_polyline_encoder = self.build_polyline_encoder(
             in_channels=self.model_cfg.NUM_INPUT_ATTR_MAP,
             hidden_dim=self.model_cfg.NUM_CHANNEL_IN_MLP_MAP,
@@ -66,27 +45,24 @@ class JEPATransformerEncoder(nn.Module):
             num_pre_layers=self.model_cfg.NUM_LAYER_IN_PRE_MLP_MAP,
             out_channels=self.model_cfg.D_MODEL
         )
+
+        self.agent_polyline_encoder = vision_transformer.TrajectoryTransformer(
+            in_features=self.model_cfg.NUM_INPUT_ATTR_AGENT + 1,
+            embed_hidden_dim=self.model_cfg.EMBED_HIDDEN_DIM,
+            embed_act_layer=nn.GELU if self.model_cfg.EMBED_ACT_LAYER == 'GELU' else nn.ReLU,
+            embed_dropout=self.model_cfg.EMBED_DROPOUT,
+            embed_layer_norm=self.model_cfg.EMBED_LAYER_NORM,
+            num_total_timesteps=self.model_cfg.NUM_TOTAL_TIMESTEPS,
+            pre_num_heads=self.model_cfg.PRE_NUM_HEADS,
+            embed_dim=self.model_cfg.D_MODEL,
+            depth=self.model_cfg.DEPTH,
+            num_heads=self.model_cfg.NUM_HEADS,
+            mlp_ratio=self.model_cfg.MLP_RATIO,
+            qkv_bias=self.model_cfg.QKV_BIAS,
+            norm_layer=partial(nn.LayerNorm, eps=1e-6))
+        
         if self.attn_pooling:
             self.attention_pooling = self.build_attention_pooling(self.model_cfg.D_MODEL)
-        if self.use_poses:
-            self.pose_encoder = self.build_pose_encoder()
-            if self.model_cfg.POSE_ENCODER.TYPE != 'PointNet':
-                if self.model_cfg.POSE_ENCODER.TYPE == 'Features':
-                    self.pose_sequencer = nn.GRU(64*64, self.model_cfg.POSE_ENCODER.D_MODEL_POSES, batch_first=True)
-                else:
-                    self.pose_sequencer = nn.GRU(self.model_cfg.POSE_ENCODER.D_MODEL_POSES, self.model_cfg.POSE_ENCODER.D_MODEL_POSES, batch_first=True)
-            if self.model_cfg.FEATURE_FUSER.TYPE == 'MLP':
-                self.feature_fuser = nn.Sequential(
-                    nn.Linear(self.model_cfg.D_MODEL + self.model_cfg.POSE_ENCODER.D_MODEL_POSES, self.model_cfg.D_MODEL),
-                    nn.ReLU()
-                )
-            # Value: position features, Key: position features, Query: pose features
-            elif self.model_cfg.FEATURE_FUSER.TYPE == 'ATTENTION':
-                self.feature_fuser = nn.MultiheadAttention(
-                    embed_dim=self.model_cfg.D_MODEL,
-                    num_heads=self.model_cfg.FEATURE_FUSER.NUM_HEADS_FUSER,
-                    batch_first=True
-                )
 
         # build transformer encoder layers
         self.use_local_attn = self.model_cfg.get('USE_LOCAL_ATTN', False)
@@ -103,47 +79,6 @@ class JEPATransformerEncoder(nn.Module):
         self.self_attn_layers = nn.ModuleList(self_attn_layers)
         self.num_out_channels = self.model_cfg.D_MODEL
 
-
-    def build_pose_encoder(self,):
-        if self.model_cfg.POSE_ENCODER.TYPE == 'MLP':
-            hidden_dims = self.model_cfg.POSE_ENCODER.HIDDEN_DIMS
-            module_list = list()
-            module_list.append(
-                nn.Sequential(
-                    nn.Linear(self.model_cfg.POSE_ENCODER.NUM_JOINTS*3, hidden_dims[0]),
-                    nn.ReLU()
-                )
-            )
-            for i, hidden_dim in enumerate(hidden_dims[:-1]):
-                module_list.append(nn.Sequential(
-                    nn.Linear(hidden_dim, hidden_dims[i+1]),
-                    nn.ReLU()
-                ))
-            pose_encoder = nn.Sequential(*module_list)
-        elif self.model_cfg.POSE_ENCODER.TYPE == 'PointNet':
-            pose_encoder = pointnet.PointNetEncoder(hidden_dims=self.model_cfg.POSE_ENCODER.HIDDEN_DIMS, hidden_dims_conv=self.model_cfg.POSE_ENCODER.HIDDEN_DIMS_CONV, hidden_dims_fc=self.model_cfg.POSE_ENCODER.HIDDEN_DIMS_FC)
-        elif self.model_cfg.POSE_ENCODER.TYPE == 'Transformer':
-            self.pre_pose_encoder = nn.Sequential(
-                nn.Linear(self.model_cfg.POSE_ENCODER.NUM_JOINTS*3, self.model_cfg.POSE_ENCODER.D_MODEL_POSES),
-                nn.ReLU())
-            pose_encoder = nn.MultiheadAttention(self.model_cfg.POSE_ENCODER.D_MODEL_POSES, self.model_cfg.POSE_ENCODER.NUM_HEADS_POSES, batch_first=True)
-        
-        elif self.model_cfg.POSE_ENCODER.TYPE == 'Features':
-            # Use the features computed by the pose estimator
-            self.pre_pose_encoder = nn.Identity()
-            # pose_encoder = []
-            # for _ in range(self.model_cfg.POSE_ENCODER.NUM_LAYERS_POSES):
-            #     pose_encoder.append(self.build_transformer_encoder_layer(
-            #         d_model=self.model_cfg.POSE_ENCODER.D_MODEL_POSES,
-            #         nhead=self.model_cfg.POSE_ENCODER.NUM_HEADS_POSES,
-            #         dropout=self.model_cfg.POSE_ENCODER.get('DROPOUT_POSES', 0.1),
-            #         normalize_before=False,
-            #         use_local_attn=self.model_cfg.get('USE_LOCAL_ATTN', False)
-            #     ))
-            # pose_encoder = nn.ModuleList(pose_encoder) 
-        return pose_encoder
-
-
     def build_attention_pooling(self, d_model):
         return attention_pooling.AttentionPooling(feature_dim=d_model)
 
@@ -157,19 +92,6 @@ class JEPATransformerEncoder(nn.Module):
             out_channels=out_channels
         )
         return ret_polyline_encoder
-    
-    def build_trajectory_encoder(self, in_channels, hidden_dim, num_layers, num_pre_layers=1, out_channels=None, time_encoder='rnn', kernel_size=3, nhead=4):
-        ret_trajectory_encoder = trajectory_encoder.TrajectoryEncoder(
-            in_channels=in_channels,
-            hidden_dim=hidden_dim,
-            num_layers=num_layers,
-            num_pre_layers=num_pre_layers,
-            out_channels=out_channels,
-            time_encoder=time_encoder,
-            kernel_size=kernel_size,
-            nhead=nhead
-        )
-        return ret_trajectory_encoder
 
     def build_transformer_encoder_layer(self, d_model, nhead, dropout=0.1, normalize_before=False, use_local_attn=False):
         single_encoder_layer = transformer_encoder_layer.TransformerEncoderLayer(
@@ -323,32 +245,6 @@ class JEPATransformerEncoder(nn.Module):
                 obj_trajs, obj_trajs_mask = input_dict['jepa_obj_trajs_future_state'].cuda(), input_dict['obj_trajs_future_mask'].cuda()
         map_polylines, map_polylines_mask = input_dict['map_polylines'].cuda(), input_dict['map_polylines_mask'].cuda()
 
-        if self.use_poses:
-            obj_poses = input_dict['pose_data'].cuda()
-            obj_poses_mask = input_dict['pose_mask'].cuda()
-            if self.model_cfg.POSE_ENCODER.TYPE == 'Features':
-                obj_poses = input_dict['pose_features'].cuda()
-            # Apply pose encoder
-            num_center_objects, num_objects, num_timestamps, _, _ = obj_poses.shape
-            if self.model_cfg.POSE_ENCODER.TYPE == 'PointNet':
-                obj_poses = obj_poses.view(num_center_objects, num_objects, -1, 3).permute(0, 1, 3, 2).view(num_center_objects*num_objects, 3, -1)
-            else:
-                obj_poses = obj_poses.view(num_center_objects*num_objects, num_timestamps, -1)
-            if self.model_cfg.POSE_ENCODER.TYPE == 'Transformer':
-                obj_poses_feature = self.pre_pose_encoder(obj_poses)
-                obj_poses_feature, _ = self.pose_encoder(obj_poses_feature, obj_poses_feature, obj_poses_feature)
-            else:
-                obj_poses_feature = self.pose_encoder(obj_poses)
-            if self.model_cfg.POSE_ENCODER.TYPE == 'PointNet':
-                obj_poses_feature = obj_poses_feature[0].view(num_center_objects, num_objects, -1)
-            else:
-                if self.model_cfg.POSE_ENCODER.TYPE != 'Features':
-                    obj_poses_feature = obj_poses_feature.view(-1, num_timestamps, self.model_cfg.POSE_ENCODER.D_MODEL_POSES)
-                _, obj_poses_feature = self.pose_sequencer(obj_poses_feature)
-                obj_poses_feature = obj_poses_feature.permute(1, 0, 2).view(num_center_objects, num_objects, -1)
-
-
-
         obj_trajs_last_pos = input_dict['obj_trajs_last_pos'].cuda() 
         map_polylines_center = input_dict['map_polylines_center'].cuda() 
         track_index_to_predict = input_dict['track_index_to_predict']
@@ -360,18 +256,8 @@ class JEPATransformerEncoder(nn.Module):
 
         # apply polyline encoder
         obj_trajs_in = torch.cat((obj_trajs, obj_trajs_mask[:, :, :, None].type_as(obj_trajs)), dim=-1)
-        obj_polylines_feature = self.agent_polyline_encoder(obj_trajs_in, obj_trajs_mask)  # (num_center_objects, num_objects, C)
+        obj_polylines_feature = self.agent_polyline_encoder(obj_trajs_in, obj_trajs_mask, target)  # (num_center_objects, num_objects, C)
         map_polylines_feature = self.map_polyline_encoder(map_polylines, map_polylines_mask)  # (num_center_objects, num_polylines, C)
-
-        # fuse pose features with object features
-        if self.use_poses:
-            if self.model_cfg.FEATURE_FUSER.TYPE == 'MLP':
-                # obj_polylines_feature: shape [38, 122, 256]
-                # obj_poses_feature: shape [38, 122, 11, 256]
-                obj_polylines_feature = self.feature_fuser(torch.cat((obj_polylines_feature, obj_poses_feature), dim=-1))
-            elif self.model_cfg.FEATURE_FUSER.TYPE == 'ATTENTION':
-                obj_polylines_feature, _ = self.feature_fuser(value=obj_polylines_feature, key=obj_polylines_feature, query=obj_poses_feature)
-
 
         # apply self-attn
         obj_valid_mask = (obj_trajs_mask.sum(dim=-1) > 0)  # (num_center_objects, num_objects)

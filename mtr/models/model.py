@@ -12,8 +12,10 @@ import torch.nn.functional as F
 from .context_encoder import build_context_encoder
 from .motion_decoder import build_motion_decoder
 from mtr.models.utils import common_layers
+from mtr.models.utils import vision_transformer
 import copy
 import math
+from functools import partial
 
 
 def deepcopy_batch_dict(batch_dict):
@@ -62,9 +64,9 @@ def trunc_normal_(tensor, mean=0., std=1., a=-2., b=2.):
     return _no_grad_trunc_normal_(tensor, mean, std, a, b)
 
 
-def init_weights(m):
+def init_weights(m, std=0.02):
         if isinstance(m, torch.nn.Linear):
-            trunc_normal_(m.weight, std=0.02)
+            trunc_normal_(m.weight, std=std)
             if m.bias is not None:
                 torch.nn.init.constant_(m.bias, 0)
         elif isinstance(m, torch.nn.LayerNorm):
@@ -94,12 +96,19 @@ class JepaModel(nn.Module):
             self.predictor = common_layers.build_mlps_with_noise(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim, hidden_dim], ret_before_act=True, without_norm=False, mean=0.0, std=0.1)
         elif self.predictor_type == 'noise_bottleneck':
             self.predictor = common_layers.build_mlps_with_noise(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim // 2, (hidden_dim // 2) // 2, hidden_dim // 2, hidden_dim], ret_before_act=True, without_norm=False, mean=0.0, std=0.1)
+        elif self.predictor_type == 'VIT':
+            self.predictor = vision_transformer.TrajectoryTransformerPredictor(
+                embed_dim=self.model_cfg.CONTEXT_ENCODER.D_MODEL,
+                predictor_embed_dim=self.model_cfg.CONTEXT_ENCODER.PREDICTOR_EMBED_DIM,
+                num_heads=self.model_cfg.CONTEXT_ENCODER.PREDICTOR_NUM_HEADS,
+                mlp_ratio=4, qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6),
+            )
 
         # Init weights as in I-JEPA
         for m in self.context_encoder.modules():
-            init_weights(m)
+            init_weights(m, std=0.05)
         for m in self.predictor.modules():
-            init_weights(m)
+            init_weights(m, std=0.05)
 
         self.target_encoder = copy.deepcopy(self.context_encoder)
         for p in self.target_encoder.parameters():

@@ -116,11 +116,12 @@
                     "train.py",
                     "--launcher", "pytorch",
                     "--cfg_file", "cfgs/waymo/jepa_wt_batch_20.yaml",
-                    "--batch_size=2",
-                    "--epochs=30",
-                    "--extra_tag=Test_LR_Loading",
+                    "--batch_size=10",
+                    "--epochs=10",
+                    "--ckpt", "/home/erik/gitprojects/MTR/output/waymo/jepa_wt_batch_20/Testing_20_Percent/ckpt/checkpoint_epoch_2.pth",
+                    "--extra_tag=Test_LR_Setting",
                     "--max_ckpt_save_num=5",
-                    "--set", "MODEL.CONTEXT_ENCODER.mse_coeff", "10.0", "MODEL.CONTEXT_ENCODER.std_coeff", "10.0", "MODEL.CONTEXT_ENCODER.cov_coeff", "0.001", "MODEL.CONTEXT_ENCODER.D_MODEL", "512", "OPTIMIZATION.DECAY_STEP_LIST", "[100]",        
+                    "--set", "OPTIMIZATION.DECAY_STEP_LIST", "[0]",        
         ]
         },
         {
@@ -135,16 +136,15 @@
             "args": ["--nproc_per_node=1",
                     "train.py",
                     "--launcher", "pytorch",
-                    "--cfg_file", "cfgs/waymo/jepa_loss_trial.yaml",
-                    "--batch_size=1",
+                    "--cfg_file", "cfgs/waymo/jepa_loss_trial_vit.yaml",
+                    "--batch_size=2",
                     "--epochs=400",
                     "--extra_tag=LR-Test",
                     "--max_ckpt_save_num=5",
                     "--not_eval_with_train",
-                    "--single_overfit=1",
+                    "--single_overfit=2",
                     //"--scenario_id", "e1f1bfadf52926cc", "a6096ab505a6a23c", "6a4b8d28ba5eaa5f", "2e120d13d594afe7", "4c1bc2d5c58f1157", "ffe81a0c1a2f295a", "4bf755e469cf5ef0", "87bc122cbfc7d5ec", "4baba23fe5e8503a", "a591dcbc657d18fb",
-                    //"--set", "MODEL.CONTEXT_ENCODER.cov_coeff", "0.0", "DATA_CONFIG.TIMESTAMP_EMBEDDING", "False", "MODEL.CONTEXT_ENCODER.NUM_INPUT_ATTR_AGENT", "17",
-                    "--set", "OPTIMIZATION.SCHEDULER", "lambdaLR", "OPTIMIZATION.DECAY_STEP_LIST", "[5]"             
+                    //"--set", "MODEL.CONTEXT_ENCODER.cov_coeff", "0.0", "DATA_CONFIG.TIMESTAMP_EMBEDDING", "False", "MODEL.CONTEXT_ENCODER.NUM_INPUT_ATTR_AGENT", "17",             
         ]
         },
         {

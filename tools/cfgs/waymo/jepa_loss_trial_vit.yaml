@@ -14,7 +14,7 @@ DATA_CONFIG:
     }
 
     SAMPLE_INTERVAL: {
-        'train': 5, 
+        'train': 1, 
         'test': 1
     }
 
@@ -29,15 +29,32 @@ DATA_CONFIG:
     NUM_OF_SRC_POLYLINES: 768
     CENTER_OFFSET_OF_MAP: &center_offset [30.0, 0]
     JEPA: True
+    TIMESTAMP_EMBEDDING: False
 
 
 MODEL:
     CONTEXT_ENCODER:
         USE_JEPA: True
-        NAME: JEPAEncoder
+        NAME: JEPATransformerEncoder
+
+        EMBED_HIDDEN_DIM: 256
+        EMBED_ACT_LAYER: GELU
+        EMBED_DROPOUT: 0.
+        EMBED_LAYER_NORM: False
+        PRE_NUM_HEADS: 4
+        NUM_TOTAL_TIMESTEPS: 91
+        DEPTH: 12
+        NUM_HEADS: 4
+        MLP_RATIO: 4
+        QKV_BIAS: True
+
+        PREDICTOR: VIT
+        PREDICTOR_EMBED_DIM: 128
+        PREDICTOR_NUM_HEADS: 4
+
 
         NUM_OF_ATTN_NEIGHBORS: 16
-        NUM_INPUT_ATTR_AGENT: 109 #29
+        NUM_INPUT_ATTR_AGENT: 17 #29 #109
         NUM_INPUT_ATTR_MAP: 9
         
         NUM_CHANNEL_IN_MLP_AGENT: 256
@@ -54,10 +71,10 @@ MODEL:
         USE_LOCAL_ATTN: True
         mse_coeff: 1.0
         std_coeff: 1.0
-        cov_coeff: 0.0
+        cov_coeff: 0.001
         USE_ATTN_POOL: True
-        USE_LAYER_NORM: False
-        USE_BATCH_NORM: True
+        USE_LAYER_NORM: True
+        USE_BATCH_NORM: False
 
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 10
@@ -67,10 +84,10 @@ OPTIMIZATION:
     LR: 0.0001
     REF_LR: 0.0001
     FINAL_LR: 0.000001
-    WEIGHT_DECAY: 0.1 #was 0.01
-    #FINAL_WEIGHT_DECAY: 0.4
+    WEIGHT_DECAY: 0.04 #was 0.01
+    FINAL_WEIGHT_DECAY: 0.4
 
-    SCHEDULER: lambdaLR #lambdaLR
+    SCHEDULER: lambdaLR
     DECAY_STEP_LIST: []
     LR_DECAY: 0.5
     LR_CLIP: 0.000001
