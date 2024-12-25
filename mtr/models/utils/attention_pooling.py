@@ -68,7 +68,6 @@ class AttentionPoolingTimesteps(nn.Module):
         
         # Compute attention scores
         scores = torch.matmul(queries, keys.transpose(-2, -1)) / torch.sqrt(torch.tensor(self.feature_dim, dtype=torch.float32))  # [B, N, T, T]
-
         if mask is not None:
             # Prepare the mask
             ori_agent_mask = mask
@@ -76,19 +75,19 @@ class AttentionPoolingTimesteps(nn.Module):
 
             # Apply the mask to the attention scores
             scores = scores.masked_fill(~mask, float('-inf'))
-            print(torch.any(torch.isnan(scores)))
+            scores_zeros = torch.zeros_like(scores)
+            complete_invalid = torch.any(mask, dim=-1)
+            scores_zeros[complete_invalid] = scores[complete_invalid]
             # Compute attention weights
-            weights = self.softmax(scores)  # [B, N, T, T]
-            print(torch.any(torch.isnan(weights)))
+            weights = self.softmax(scores_zeros)  # [B, N, T, T]
             # Zero out invalid weights
-            weights[~mask] = 0.
+            #weights[~mask] = 0.
+            #weights = weights * mask.float()
         else:
             weights = self.softmax(scores)
-        print(torch.any(torch.isnan(weights)))
         
         # Compute weighted sum of values
         attended_representation = torch.einsum("bntt, bntc->bntc", weights, values)  # [B, N, T, C]
-        print(torch.any(torch.isnan(attended_representation)))
 
         if mask is not None:
             # Normalize by the number of valid timesteps

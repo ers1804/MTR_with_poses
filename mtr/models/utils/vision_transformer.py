@@ -182,32 +182,21 @@ class AttentionWithMask(nn.Module):
         B, N, C = x.shape  # B = batch size, N = sequence length, C = feature dimension
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]
-        print("Line 185: ", torch.any(torch.isnan(q)))
-        print("Line 186: ", torch.any(torch.isnan(k)))
-        print("Line 187: ", torch.any(torch.isnan(v)))
 
         attn = (q @ k.transpose(-2, -1)) * self.scale # (B, num_heads, N, N)
 
-        print("Line 191: ", torch.any(torch.isnan(attn)))
         if mask is not None:
             mask = mask.unsqueeze(1)  # Broadcast mask: (B, 1, N, N)
             attn = attn.masked_fill(~mask, float('-inf'))
 
-        print("Line 196: ", torch.any(torch.isnan(attn)))
-        print(torch.max(attn, dim=-1))
         attn[torch.all(attn == float('-inf'), dim=-1)] = 0.
         attn = attn.softmax(dim=-1)
-        print("After softmax: ", torch.any(torch.isnan(attn)))
 
         attn = self.attn_drop(attn)
-        print("Line 203: ", torch.any(torch.isnan(attn)))
 
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
-        print("Line 206: ", torch.any(torch.isnan(x)))
         x = self.proj(x)
-        print("Line 208: ", torch.any(torch.isnan(x)))
         x = self.proj_drop(x)
-        print("Line 210: ", torch.any(torch.isnan(x)))
         return x, attn
     
 
@@ -542,10 +531,8 @@ class TrajectoryTransformer(nn.Module):
         else:
             total_timesteps = self.pos_embed.shape[2]
             x = x + self.pos_embed[:, :, (total_timesteps - num_timesteps):, :]
-        print("Line 545: ", torch.any(torch.isnan(x)))
         # -- apply agent-time attention
         x = self.agent_time_attention(x, agent_valid_mask)
-        print("Line 545: ", torch.any(torch.isnan(x)))
         # -- pool features across time dimension
         x = self.attention_pooling(x, mask=agent_valid_mask)
 
