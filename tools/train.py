@@ -244,8 +244,19 @@ def main():
                 logger.info('Loading pretrained Jepa-Encoder weights.')
                 model.load_encoder_params_from_file(cfg.MODEL.CONTEXT_ENCODER.JEPA_WEIGHTS_PATH, to_cpu=dist_train, logger=logger)
                 logger.info('Freezing encoder weights.')
-                for p in model.context_encoder.parameters():
-                    p.requires_grad = False
+                params_to_freeze = cfg.MODEL.CONTEXT_ENCODER.get('PARAMS_TO_FREEZE', None)
+                layers_for_probing = cfg.MODEL.CONTEXT_ENCODER.get('LINEAR_PROBING', False)
+                if params_to_freeze is None:
+                    for p in model.context_encoder.parameters():
+                        p.requires_grad = False
+                else:
+                    for module in params_to_freeze:
+                        module_to_freeze = getattr(model.context_encoder, module)
+                        for p in module_to_freeze.parameters():
+                            p.requires_grad = False
+                if layers_for_probing:
+                    for p in model.context_encoder.self_attn_layers[-1].parameters():
+                        p.requires_grad = True
                 logger.info('Encoder weights loaded and frozen.')
     scheduler = build_scheduler(
         optimizer, train_loader, cfg.OPTIMIZATION, total_epochs=args.epochs,
