@@ -26,11 +26,17 @@ class JEPATransformerEncoder(nn.Module):
         super().__init__()
         self.model_cfg = config
 
+        self.use_poses = self.model_cfg.get('USE_POSES', False)
+
         self.attn_pooling = self.model_cfg.get('USE_ATTN_POOL', False)
 
         self.lnorm = self.model_cfg.get('USE_LAYER_NORM', False)
 
+        self.complete_traj = self.model_cfg.get('COMPLETE_TRAJ', False)
+
         self.use_batch_norm = self.model_cfg.get('USE_BATCH_NORM', False)
+
+        self.use_time_encoder = self.model_cfg.get('USE_TIME_ENC', False)
 
         self.smooth_l1_loss = nn.SmoothL1Loss()
 
