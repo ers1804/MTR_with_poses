@@ -156,6 +156,7 @@ class Attention(nn.Module):
         q, k, v = qkv[0], qkv[1], qkv[2]
 
         attn = (q @ k.transpose(-2, -1)) * self.scale
+        attn[torch.all(attn == float('-inf'), dim=-1)] = 0.
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
 
@@ -181,30 +182,32 @@ class AttentionWithMask(nn.Module):
         B, N, C = x.shape  # B = batch size, N = sequence length, C = feature dimension
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]
-        print(torch.any(torch.isnan(q)))
-        print(torch.any(torch.isnan(k)))
-        print(torch.any(torch.isnan(v)))
+        print("Line 185: ", torch.any(torch.isnan(q)))
+        print("Line 186: ", torch.any(torch.isnan(k)))
+        print("Line 187: ", torch.any(torch.isnan(v)))
 
         attn = (q @ k.transpose(-2, -1)) * self.scale # (B, num_heads, N, N)
 
-        print(torch.any(torch.isnan(attn)))
+        print("Line 191: ", torch.any(torch.isnan(attn)))
         if mask is not None:
             mask = mask.unsqueeze(1)  # Broadcast mask: (B, 1, N, N)
             attn = attn.masked_fill(~mask, float('-inf'))
 
-        print(torch.any(torch.isnan(attn)))
+        print("Line 196: ", torch.any(torch.isnan(attn)))
+        print(torch.max(attn, dim=-1))
+        attn[torch.all(attn == float('-inf'), dim=-1)] = 0.
         attn = attn.softmax(dim=-1)
-        print(torch.any(torch.isnan(attn)))
+        print("After softmax: ", torch.any(torch.isnan(attn)))
 
         attn = self.attn_drop(attn)
-        print(torch.any(torch.isnan(attn)))
+        print("Line 203: ", torch.any(torch.isnan(attn)))
 
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
-        print(torch.any(torch.isnan(x)))
+        print("Line 206: ", torch.any(torch.isnan(x)))
         x = self.proj(x)
-        print(torch.any(torch.isnan(x)))
+        print("Line 208: ", torch.any(torch.isnan(x)))
         x = self.proj_drop(x)
-        print(torch.any(torch.isnan(x)))
+        print("Line 210: ", torch.any(torch.isnan(x)))
         return x, attn
     
 
@@ -414,13 +417,13 @@ class TrajectoryTransformerPredictor(nn.Module):
         #B = len(x) // len(masks_x)
 
         # -- map from encoder-dim to pedictor-dim
-        x = self.predictor_embed(x)
+        x = self.predictor_embed(torch.unsqueeze(x, dim=1))
 
         # -- add positional embedding to x tokens
         # x_pos_embed = self.predictor_pos_embed.repeat(B, 1, 1)
         # x += apply_masks(x_pos_embed, masks_x)
 
-        _, N_ctxt, D = x.shape
+        #_, N_ctxt, D = x.shape
 
         # -- concat mask tokens to x
         # pos_embs = self.predictor_pos_embed.repeat(B, 1, 1)
@@ -439,10 +442,9 @@ class TrajectoryTransformerPredictor(nn.Module):
         x = self.predictor_norm(x)
 
         # -- return preds for mask tokens
-        x = x[:, N_ctxt:]
+        #x = x[:, N_ctxt:]
         x = self.predictor_proj(x)
-
-        return x
+        return torch.squeeze(x, dim=1)
 
 
 class TrajectoryTransformer(nn.Module):
@@ -538,11 +540,12 @@ class TrajectoryTransformer(nn.Module):
         if not target:
             x = x + self.pos_embed[:, :, :num_timesteps, :]
         else:
-            x = x + self.pos_embed[:, :, num_timesteps:, :]
-        print(torch.any(torch.isnan(x)))
+            total_timesteps = self.pos_embed.shape[2]
+            x = x + self.pos_embed[:, :, (total_timesteps - num_timesteps):, :]
+        print("Line 545: ", torch.any(torch.isnan(x)))
         # -- apply agent-time attention
         x = self.agent_time_attention(x, agent_valid_mask)
-        print(torch.any(torch.isnan(x)))
+        print("Line 545: ", torch.any(torch.isnan(x)))
         # -- pool features across time dimension
         x = self.attention_pooling(x, mask=agent_valid_mask)
 
