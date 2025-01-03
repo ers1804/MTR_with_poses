@@ -58,6 +58,7 @@ MODEL:
         USE_ATTN_POOL: True
         USE_LAYER_NORM: True
         USE_BATCH_NORM: False
+        AGENT_ONLY: False
 
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 10

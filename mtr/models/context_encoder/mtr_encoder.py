@@ -342,6 +342,8 @@ class JEPAEncoder(nn.Module):
 
         self.use_time_encoder = self.model_cfg.get('USE_TIME_ENC', False)
 
+        self.agent_only = self.model_cfg.get('AGENT_ONLY', False)
+
         self.smooth_l1_loss = nn.SmoothL1Loss()
 
         if self.use_batch_norm:
@@ -365,13 +367,14 @@ class JEPAEncoder(nn.Module):
                 kernel_size=self.model_cfg.TIME_ENCODER.KERNEL_SIZE,
                 nhead=self.model_cfg.TIME_ENCODER.NUM_HEADS
             )
-        self.map_polyline_encoder = self.build_polyline_encoder(
-            in_channels=self.model_cfg.NUM_INPUT_ATTR_MAP,
-            hidden_dim=self.model_cfg.NUM_CHANNEL_IN_MLP_MAP,
-            num_layers=self.model_cfg.NUM_LAYER_IN_MLP_MAP,
-            num_pre_layers=self.model_cfg.NUM_LAYER_IN_PRE_MLP_MAP,
-            out_channels=self.model_cfg.D_MODEL
-        )
+        if not self.agent_only:
+            self.map_polyline_encoder = self.build_polyline_encoder(
+                in_channels=self.model_cfg.NUM_INPUT_ATTR_MAP,
+                hidden_dim=self.model_cfg.NUM_CHANNEL_IN_MLP_MAP,
+                num_layers=self.model_cfg.NUM_LAYER_IN_MLP_MAP,
+                num_pre_layers=self.model_cfg.NUM_LAYER_IN_PRE_MLP_MAP,
+                out_channels=self.model_cfg.D_MODEL
+            )
         if self.attn_pooling:
             self.attention_pooling = self.build_attention_pooling(self.model_cfg.D_MODEL)
         if self.use_poses:
@@ -395,18 +398,19 @@ class JEPAEncoder(nn.Module):
                 )
 
         # build transformer encoder layers
-        self.use_local_attn = self.model_cfg.get('USE_LOCAL_ATTN', False)
-        self_attn_layers = []
-        for _ in range(self.model_cfg.NUM_ATTN_LAYERS):
-            self_attn_layers.append(self.build_transformer_encoder_layer(
-                d_model=self.model_cfg.D_MODEL,
-                nhead=self.model_cfg.NUM_ATTN_HEAD,
-                dropout=self.model_cfg.get('DROPOUT_OF_ATTN', 0.1),
-                normalize_before=False,
-                use_local_attn=self.use_local_attn
-            ))
+        if not self.agent_only:
+            self.use_local_attn = self.model_cfg.get('USE_LOCAL_ATTN', False)
+            self_attn_layers = []
+            for _ in range(self.model_cfg.NUM_ATTN_LAYERS):
+                self_attn_layers.append(self.build_transformer_encoder_layer(
+                    d_model=self.model_cfg.D_MODEL,
+                    nhead=self.model_cfg.NUM_ATTN_HEAD,
+                    dropout=self.model_cfg.get('DROPOUT_OF_ATTN', 0.1),
+                    normalize_before=False,
+                    use_local_attn=self.use_local_attn
+                ))
 
-        self.self_attn_layers = nn.ModuleList(self_attn_layers)
+            self.self_attn_layers = nn.ModuleList(self_attn_layers)
         self.num_out_channels = self.model_cfg.D_MODEL
 
 
@@ -667,7 +671,8 @@ class JEPAEncoder(nn.Module):
         # apply polyline encoder
         obj_trajs_in = torch.cat((obj_trajs, obj_trajs_mask[:, :, :, None].type_as(obj_trajs)), dim=-1)
         obj_polylines_feature = self.agent_polyline_encoder(obj_trajs_in, obj_trajs_mask)  # (num_center_objects, num_objects, C)
-        map_polylines_feature = self.map_polyline_encoder(map_polylines, map_polylines_mask)  # (num_center_objects, num_polylines, C)
+        if not self.agent_only:
+            map_polylines_feature = self.map_polyline_encoder(map_polylines, map_polylines_mask)  # (num_center_objects, num_polylines, C)
 
         # fuse pose features with object features
         if self.use_poses:
@@ -683,23 +688,24 @@ class JEPAEncoder(nn.Module):
         obj_valid_mask = (obj_trajs_mask.sum(dim=-1) > 0)  # (num_center_objects, num_objects)
         map_valid_mask = (map_polylines_mask.sum(dim=-1) > 0)  # (num_center_objects, num_polylines)
 
-        global_token_feature = torch.cat((obj_polylines_feature, map_polylines_feature), dim=1) 
-        global_token_mask = torch.cat((obj_valid_mask, map_valid_mask), dim=1) 
-        global_token_pos = torch.cat((obj_trajs_last_pos, map_polylines_center), dim=1) 
+        if not self.agent_only:
+            global_token_feature = torch.cat((obj_polylines_feature, map_polylines_feature), dim=1) 
+            global_token_mask = torch.cat((obj_valid_mask, map_valid_mask), dim=1) 
+            global_token_pos = torch.cat((obj_trajs_last_pos, map_polylines_center), dim=1) 
 
-        if self.use_local_attn:
-            global_token_feature = self.apply_local_attn(
-                x=global_token_feature, x_mask=global_token_mask, x_pos=global_token_pos,
-                num_of_neighbors=self.model_cfg.NUM_OF_ATTN_NEIGHBORS
-            )
-        else:
-            global_token_feature = self.apply_global_attn(
-                x=global_token_feature, x_mask=global_token_mask, x_pos=global_token_pos
-            )
+            if self.use_local_attn:
+                global_token_feature = self.apply_local_attn(
+                    x=global_token_feature, x_mask=global_token_mask, x_pos=global_token_pos,
+                    num_of_neighbors=self.model_cfg.NUM_OF_ATTN_NEIGHBORS
+                )
+            else:
+                global_token_feature = self.apply_global_attn(
+                    x=global_token_feature, x_mask=global_token_mask, x_pos=global_token_pos
+                )
 
-        obj_polylines_feature = global_token_feature[:, :num_objects]
-        map_polylines_feature = global_token_feature[:, num_objects:]
-        assert map_polylines_feature.shape[1] == num_polylines
+            obj_polylines_feature = global_token_feature[:, :num_objects]
+            map_polylines_feature = global_token_feature[:, num_objects:]
+            assert map_polylines_feature.shape[1] == num_polylines
 
         # organize return features
         center_objects_feature = obj_polylines_feature[torch.arange(num_center_objects), track_index_to_predict]
@@ -722,7 +728,8 @@ class JEPAEncoder(nn.Module):
             else:
                 batch_dict['center_objects_feature'] = batch_dict['pooled_attn'] if self.attn_pooling else self.batch_norm(center_objects_feature)
             batch_dict['obj_feature'] = obj_polylines_feature
-            batch_dict['map_feature'] = map_polylines_feature
+            if not self.agent_only:
+                batch_dict['map_feature'] = map_polylines_feature
             batch_dict['obj_mask'] = obj_valid_mask
             batch_dict['map_mask'] = map_valid_mask
             batch_dict['obj_pos'] = obj_trajs_last_pos
