@@ -241,9 +241,9 @@ def main():
                     ckpt_list = ckpt_list[:-1]
             if cfg.MODEL.CONTEXT_ENCODER.get('LOAD_JEPA_WEIGHTS', False):
                 logger.info('Freezing encoder weights.')
-                params_to_freeze = cfg.MODEL.CONTEXT_ENCODER.get('PARAMS_TO_FREEZE', [])
-                layers_for_probing = cfg.MODEL.CONTEXT_ENCODER.get('LINEAR_PROBING', [])
-                if len(params_to_freeze)==0:
+                params_to_freeze = cfg.MODEL.CONTEXT_ENCODER.get('PARAMS_TO_FREEZE', ['all'])
+                layers_for_probing = cfg.MODEL.CONTEXT_ENCODER.get('LINEAR_PROBING', [0])
+                if len(params_to_freeze)==1 and params_to_freeze[0]=='all':
                     for p in model.context_encoder.parameters():
                         p.requires_grad = False
                 else:
@@ -251,7 +251,7 @@ def main():
                         module_to_freeze = getattr(model.context_encoder, module)
                         for p in module_to_freeze.parameters():
                             p.requires_grad = False
-                if len(layers_for_probing) > 0:
+                if layers_for_probing[0]!=0:
                     for i in layers_for_probing:
                         for p in model.context_encoder.self_attn_layers[i].parameters():
                             p.requires_grad = True
@@ -261,9 +261,9 @@ def main():
                 logger.info('Loading pretrained Jepa-Encoder weights.')
                 model.load_encoder_params_from_file(cfg.MODEL.CONTEXT_ENCODER.JEPA_WEIGHTS_PATH, to_cpu=dist_train, logger=logger)
                 logger.info('Freezing encoder weights.')
-                params_to_freeze = cfg.MODEL.CONTEXT_ENCODER.get('PARAMS_TO_FREEZE', [])
-                layers_for_probing = cfg.MODEL.CONTEXT_ENCODER.get('LINEAR_PROBING', [])
-                if len(params_to_freeze)==0:
+                params_to_freeze = cfg.MODEL.CONTEXT_ENCODER.get('PARAMS_TO_FREEZE', ['all'])
+                layers_for_probing = cfg.MODEL.CONTEXT_ENCODER.get('LINEAR_PROBING', [0])
+                if len(params_to_freeze)==1 and params_to_freeze[0]=='all':
                     for p in model.context_encoder.parameters():
                         p.requires_grad = False
                 else:
@@ -271,7 +271,7 @@ def main():
                         module_to_freeze = getattr(model.context_encoder, module)
                         for p in module_to_freeze.parameters():
                             p.requires_grad = False
-                if len(layers_for_probing) > 0:
+                if layers_for_probing[0]!=0:
                     for i in layers_for_probing:
                         for p in model.context_encoder.self_attn_layers[i].parameters():
                             p.requires_grad = True
