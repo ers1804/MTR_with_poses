@@ -239,6 +239,22 @@ def main():
                     break
                 except:
                     ckpt_list = ckpt_list[:-1]
+            if cfg.MODEL.CONTEXT_ENCODER.get('LOAD_JEPA_WEIGHTS', False):
+                logger.info('Freezing encoder weights.')
+                params_to_freeze = cfg.MODEL.CONTEXT_ENCODER.get('PARAMS_TO_FREEZE', None)
+                layers_for_probing = cfg.MODEL.CONTEXT_ENCODER.get('LINEAR_PROBING', False)
+                if params_to_freeze is None:
+                    for p in model.context_encoder.parameters():
+                        p.requires_grad = False
+                else:
+                    for module in params_to_freeze:
+                        module_to_freeze = getattr(model.context_encoder, module)
+                        for p in module_to_freeze.parameters():
+                            p.requires_grad = False
+                if layers_for_probing:
+                    for p in model.context_encoder.self_attn_layers[-1].parameters():
+                        p.requires_grad = True
+                logger.info('Encoder weights loaded and frozen.')
         else:
             if cfg.MODEL.CONTEXT_ENCODER.get('LOAD_JEPA_WEIGHTS', False):
                 logger.info('Loading pretrained Jepa-Encoder weights.')
