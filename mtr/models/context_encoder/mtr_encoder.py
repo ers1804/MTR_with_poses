@@ -720,13 +720,19 @@ class JEPAEncoder(nn.Module):
                     batch_dict['pooled_attn'] = self.attention_pooling(obj_polylines_feature, obj_valid_mask) #obj_valid_mask
                 else:
                     batch_dict['pooled_attn'] = self.batch_norm(self.attention_pooling(obj_polylines_feature, obj_valid_mask))
+                batch_dict['center_objects_feature'] = batch_dict['pooled_attn']
+            else:
+                if self.use_batch_norm:
+                    batch_dict['center_objects_feature'] = self.batch_norm(center_objects_feature)
+                else:
+                    batch_dict['center_objects_feature'] = center_objects_feature
                 # else:
                 #     batch_dict['pooled_attn'] = torch.nn.functional.layer_norm(self.attention_pooling(obj_polylines_feature, obj_valid_mask), (obj_polylines_feature.shape[0], obj_polylines_feature.shape[-1]))
 
-            if self.attn_pooling:
-                batch_dict['center_objects_feature'] = batch_dict['pooled_attn'] if self.attn_pooling else center_objects_feature #center_objects_feature
-            else:
-                batch_dict['center_objects_feature'] = batch_dict['pooled_attn'] if self.attn_pooling else self.batch_norm(center_objects_feature)
+            # if self.attn_pooling:
+            #     batch_dict['center_objects_feature'] = batch_dict['pooled_attn'] if self.attn_pooling else center_objects_feature #center_objects_feature
+            # else:
+            #     batch_dict['center_objects_feature'] = batch_dict['pooled_attn'] if self.attn_pooling else self.batch_norm(center_objects_feature)
             batch_dict['obj_feature'] = obj_polylines_feature
             if not self.agent_only:
                 batch_dict['map_feature'] = map_polylines_feature
