@@ -45,7 +45,9 @@ cd /home/atuin/v103fe/v103fe12/MTR_helma/MTR_with_poses/tools
 
 export OMP_NUM_THREADS=128
 
-torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_loss_trial_time_enc.yaml --batch_size=32 --epochs=150 --extra_tag=Training_1_1_0001_GRU --tcp_port=$PORT --workers=16 --max_ckpt_save_num=150 --ckpt_save_interval=2 --set DATA_CONFIG.DATA_ROOT $TMPDIR OPTIMIZATION.DECAY_STEP_LIST [100]
+
+torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_loss_trial.yaml --batch_size=120 --epochs=150 --extra_tag=Training_1_1_0001_150_Epochs_WD_2 --tcp_port=$PORT --workers=16 --max_ckpt_save_num=150 --ckpt_save_interval=2 --set DATA_CONFIG.DATA_ROOT $TMPDIR OPTIMIZATION.FINAL_WEIGHT_DECAY 0.232 OPTIMIZATION.DECAY_STEP_LIST []
+
 
 # Deactivate the virtual environment at the end
 deactivate

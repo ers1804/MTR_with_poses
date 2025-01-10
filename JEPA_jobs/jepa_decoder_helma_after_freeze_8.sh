@@ -1,6 +1,6 @@
 #!/bin/bash -l
-#SBATCH --job-name=jepa_loss_trial
-#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_complete_time_%j.txt
+#SBATCH --job-name=jepa_decoder
+#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_decoder_%j.txt
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=128
@@ -22,6 +22,7 @@ STORAGE_DIR="$(ws_find jepa_data)"
 # the -P parameter defines the number of parallel processes, something like 4-8 should work well
 ls -1 $STORAGE_DIR/archives_val | xargs -P 1 -I{} tar xzf $STORAGE_DIR/archives_val/{} -C $TMPDIR
 ls -1 $STORAGE_DIR/archives_train | xargs -P 1 -I{} tar xzf $STORAGE_DIR/archives_train/{} -C $TMPDIR
+
 cp $WORK/processed_scenarios_training_infos.pkl $TMPDIR/processed_scenarios_training_infos.pkl
 cp $WORK/processed_scenarios_val_infos.pkl $TMPDIR/processed_scenarios_val_infos.pkl
 
@@ -45,7 +46,7 @@ cd /home/atuin/v103fe/v103fe12/MTR_helma/MTR_with_poses/tools
 
 export OMP_NUM_THREADS=128
 
-torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_loss_trial_time_enc.yaml --batch_size=32 --epochs=150 --extra_tag=Training_1_1_0001_GRU --tcp_port=$PORT --workers=16 --max_ckpt_save_num=150 --ckpt_save_interval=2 --set DATA_CONFIG.DATA_ROOT $TMPDIR OPTIMIZATION.DECAY_STEP_LIST [100]
+torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/mtr+100_percent_data_jepa_with_decoder.yaml --batch_size=96 --epochs=50 --extra_tag=Full_Training_1_1_0001_50_Epochs_2_LR1 --tcp_port=$PORT --workers=16 --not_eval_with_train --max_ckpt_save_num=50 --set DATA_CONFIG.DATA_ROOT $TMPDIR MODEL.CONTEXT_ENCODER.JEPA_WEIGHTS_PATH /home/atuin/v103fe/v103fe12/MTR/output/home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_loss_trial/Training_1_1_0001/ckpt/checkpoint_epoch_80.pth OPTIMIZATION.LR 0.00005 OPTIMIZATION.DECAY_STEP_LIST []
 
 # Deactivate the virtual environment at the end
 deactivate
