@@ -38,6 +38,8 @@ class JEPATransformerEncoder(nn.Module):
 
         self.use_time_encoder = self.model_cfg.get('USE_TIME_ENC', False)
 
+        self.use_map_loss = self.model_cfg.get('USE_MAP_LOSS', False)
+
         self.smooth_l1_loss = nn.SmoothL1Loss()
 
         if self.use_batch_norm:
@@ -232,6 +234,54 @@ class JEPATransformerEncoder(nn.Module):
         # Weighted loss
         loss = (mse_coeff * mse_loss + std_coeff * std_loss + cov_coeff * cov_loss)
         return loss, (mse_coeff * mse_loss, std_coeff * std_loss, cov_coeff * cov_loss)
+    
+
+    def get_jepa_loss_with_map(self, output_encoder, output_target_encoder, map_encoder, map_target_encoder, mse_coeff=1.0, std_coeff=1.0, cov_coeff=0.04):
+        num_center_objects, d_model = output_encoder.shape
+        class AllReduce(torch.autograd.Function):
+
+            @staticmethod
+            def forward(ctx, x):
+                if (
+                    dist.is_available()
+                    and dist.is_initialized()
+                    and (dist.get_world_size() > 1)
+                ):
+                    x = x.contiguous() / dist.get_world_size()
+                    dist.all_reduce(x)
+                return x
+
+            @staticmethod
+            def backward(ctx, grads):
+                return grads
+        # MSE loss
+        mse_loss = self.smooth_l1_loss(output_encoder, output_target_encoder)
+        map_mse_loss = self.smooth_l1_loss(map_encoder, map_target_encoder)
+        #mse_loss = (mse_loss + map_mse_loss) / 2
+        #mse_loss = AllReduce.apply(mse_loss)
+
+        # Variance loss
+        # Turn encoded features into [num_center_objects, d_model]
+        #output_encoder = output_encoder - torch.mean(output_encoder, dim=0)
+        #output_target_encoder = output_target_encoder - torch.mean(output_target_encoder, dim=0)
+        std_encoder = torch.sqrt(output_encoder.var(dim=0) + 0.0001)
+        #std_target_encoder = torch.sqrt(output_target_encoder.var(dim=0) + 0.0001)
+        std_loss = torch.mean(torch.nn.functional.relu(1 - std_encoder)) / 2 #+ torch.mean(torch.nn.functional.relu(2 - std_target_encoder)) / 2
+        #std_loss = AllReduce.apply(std_loss)
+
+        # Covariance loss
+        def off_diagonal(x):
+            n, m = x.shape
+            assert n == m
+            return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
+        cov_encoder = (output_encoder.T @ output_encoder) / (num_center_objects - 1)
+        #cov_target_encoder = (output_target_encoder.T @ output_target_encoder) / (num_center_objects - 1)
+        cov_loss = off_diagonal(cov_encoder).pow_(2).sum().div(d_model) #+ off_diagonal(cov_target_encoder).pow_(2).sum().div(d_model)
+        #cov_loss = AllReduce.apply(cov_loss)
+
+        # Weighted loss
+        loss = (mse_coeff * mse_loss + std_coeff * std_loss + cov_coeff * cov_loss + mse_coeff * map_mse_loss)
+        return loss, (mse_coeff * mse_loss, std_coeff * std_loss, cov_coeff * cov_loss, mse_coeff * map_mse_loss)
 
 
     def forward(self, batch_dict, target=False):
@@ -317,15 +367,18 @@ class JEPATransformerEncoder(nn.Module):
             
             return batch_dict
         else:
+            map_features = map_polylines_feature
             if self.attn_pooling:
                 features = self.attention_pooling(obj_polylines_feature, obj_valid_mask)
             else:
                 features = center_objects_feature
             if self.lnorm:
                 features = torch.nn.functional.layer_norm(features, (features.size(-1),))
+                map_features = torch.nn.functional.layer_norm(map_polylines_feature, (map_polylines_feature.size(-1),))
             if self.use_batch_norm:
                 features = self.batch_norm(features)
-            return features
+                map_features = self.batch_norm(map_polylines_feature)
+            return features, map_features
 
 class JEPAEncoder(nn.Module):
     def __init__(self, config):
@@ -345,6 +398,8 @@ class JEPAEncoder(nn.Module):
         self.use_time_encoder = self.model_cfg.get('USE_TIME_ENC', False)
 
         self.agent_only = self.model_cfg.get('AGENT_ONLY', False)
+
+        self.use_map_loss = self.model_cfg.get('USE_MAP_LOSS', False)
 
         self.smooth_l1_loss = nn.SmoothL1Loss()
 
@@ -639,7 +694,7 @@ class JEPAEncoder(nn.Module):
         # MSE loss
         mse_loss = self.smooth_l1_loss(output_encoder, output_target_encoder)
         map_mse_loss = self.smooth_l1_loss(map_encoder, map_target_encoder)
-        mse_loss = (mse_loss + map_mse_loss) / 2
+        #mse_loss = (mse_loss + map_mse_loss) / 2
         #mse_loss = AllReduce.apply(mse_loss)
 
         # Variance loss
@@ -662,8 +717,8 @@ class JEPAEncoder(nn.Module):
         #cov_loss = AllReduce.apply(cov_loss)
 
         # Weighted loss
-        loss = (mse_coeff * mse_loss + std_coeff * std_loss + cov_coeff * cov_loss)
-        return loss, (mse_coeff * mse_loss, std_coeff * std_loss, cov_coeff * cov_loss)
+        loss = (mse_coeff * mse_loss + std_coeff * std_loss + cov_coeff * cov_loss + mse_coeff * map_mse_loss)
+        return loss, (mse_coeff * mse_loss, std_coeff * std_loss, cov_coeff * cov_loss, mse_coeff * map_mse_loss)
 
 
     def forward(self, batch_dict, target=False):
@@ -794,15 +849,18 @@ class JEPAEncoder(nn.Module):
             
             return batch_dict
         else:
+            map_features = map_polylines_feature
             if self.attn_pooling:
                 features = self.attention_pooling(obj_polylines_feature, obj_valid_mask)
             else:
                 features = center_objects_feature
             if self.lnorm:
                 features = torch.nn.functional.layer_norm(features, (features.size(-1),))
+                map_features = torch.nn.functional.layer_norm(map_polylines_feature, (map_polylines_feature.size(-1),))
             if self.use_batch_norm:
                 features = self.batch_norm(features)
-            return features
+                map_features = self.batch_norm(map_polylines_feature)
+            return features, map_features
 
 
 

@@ -88,6 +88,8 @@ class JepaModel(nn.Module):
         
         hidden_dim = self.model_cfg.CONTEXT_ENCODER.D_MODEL
         self.predictor_type = self.model_cfg.CONTEXT_ENCODER.get('PREDICTOR', 'mlp')
+        if self.context_encoder.use_map_loss:
+            self.map_predictor = common_layers.build_mlps_map(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim, hidden_dim], ret_before_act=True, without_norm=False)
         if self.predictor_type == 'mlp':
             self.predictor = common_layers.build_mlps(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim, hidden_dim], ret_before_act=True, without_norm=False)
         elif self.predictor_type == 'bottleneck':
@@ -109,6 +111,9 @@ class JepaModel(nn.Module):
             init_weights(m, std=0.05)
         for m in self.predictor.modules():
             init_weights(m, std=0.05)
+        if self.context_encoder.use_map_loss:
+            for m in self.map_predictor.modules():
+                init_weights(m, std=0.05)
 
         self.target_encoder = copy.deepcopy(self.context_encoder)
         for p in self.target_encoder.parameters():
@@ -123,12 +128,28 @@ class JepaModel(nn.Module):
             predicted_obj_features = self.predictor(batch_dict['center_objects_feature'])
         batch_dict['predicted_obj_features'] = predicted_obj_features
         #batch_dict_target = deepcopy_batch_dict(batch_dict)
+        if self.context_encoder.use_map_loss:
+            predicted_map_features = self.map_predictor(batch_dict['map_feature'])
         with torch.no_grad():
-            target_encoding = self.target_encoder(batch_dict, target=True)
+            target_encoding, target_map_encoding = self.target_encoder(batch_dict, target=True)
             batch_dict['target_encoding'] = target_encoding
         if self.training:
-            test_magnitude = torch.norm(predicted_obj_features, dim=-1)
+            #test_magnitude = torch.norm(predicted_obj_features, dim=-1)
             loss, sub_losses = self.context_encoder.get_jepa_loss(predicted_obj_features,
+                                                    target_encoding,
+                                                    mse_coeff=self.model_cfg.CONTEXT_ENCODER.mse_coeff,
+                                                    std_coeff=self.model_cfg.CONTEXT_ENCODER.std_coeff,
+                                                    cov_coeff=self.model_cfg.CONTEXT_ENCODER.cov_coeff)
+            if self.context_encoder.use_map_loss:
+                loss, sub_losses = self.context_encoder.get_jepa_loss_with_map(predicted_obj_features,
+                                                    target_encoding,
+                                                    predicted_map_features,
+                                                    target_map_encoding,
+                                                    mse_coeff=self.model_cfg.CONTEXT_ENCODER.mse_coeff,
+                                                    std_coeff=self.model_cfg.CONTEXT_ENCODER.std_coeff,
+                                                    cov_coeff=self.model_cfg.CONTEXT_ENCODER.cov_coeff)
+            else:
+                loss, sub_losses = self.context_encoder.get_jepa_loss(predicted_obj_features,
                                                     target_encoding,
                                                     mse_coeff=self.model_cfg.CONTEXT_ENCODER.mse_coeff,
                                                     std_coeff=self.model_cfg.CONTEXT_ENCODER.std_coeff,
@@ -137,10 +158,22 @@ class JepaModel(nn.Module):
             disp_dict = {}
             tb_dict.update({'loss': loss.item(), 'mse_loss': sub_losses[0].item(), 'std_loss': sub_losses[1].item(), 'cov_loss': sub_losses[2].item(), 'context_embeddings': batch_dict['pooled_attn'] if self.context_encoder.attn_pooling else batch_dict['center_objects_feature'], 'predicted_embeddings': predicted_obj_features, 'target_embeddings': target_encoding, 'object_ids': batch_dict['input_dict']['center_objects_id']})
             disp_dict.update({'loss': loss.item(), 'mse_loss': sub_losses[0].item(), 'std_loss': sub_losses[1].item(), 'cov_loss': sub_losses[2].item()})
+            if self.context_encoder.use_map_loss:
+                tb_dict.update({'map_mse_loss': sub_losses[3].item()})
+                disp_dict.update({'map_mse_loss': sub_losses[3].item()})
             return loss, tb_dict, disp_dict
         else:
             test_magnitude = torch.norm(predicted_obj_features, dim=-1)
-            loss, sub_losses = self.context_encoder.get_jepa_loss(predicted_obj_features,
+            if self.context_encoder.use_map_loss:
+                loss, sub_losses = self.context_encoder.get_jepa_loss_with_map(predicted_obj_features,
+                                                    target_encoding,
+                                                    predicted_map_features,
+                                                    target_map_encoding,
+                                                    mse_coeff=self.model_cfg.CONTEXT_ENCODER.mse_coeff,
+                                                    std_coeff=self.model_cfg.CONTEXT_ENCODER.std_coeff,
+                                                    cov_coeff=self.model_cfg.CONTEXT_ENCODER.cov_coeff)
+            else:
+                loss, sub_losses = self.context_encoder.get_jepa_loss(predicted_obj_features,
                                                     target_encoding,
                                                     mse_coeff=self.model_cfg.CONTEXT_ENCODER.mse_coeff,
                                                     std_coeff=self.model_cfg.CONTEXT_ENCODER.std_coeff,
