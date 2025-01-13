@@ -1,6 +1,6 @@
 #!/bin/bash -l
-#SBATCH --job-name=jepa_loss_trial
-#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_complete_time_%j.txt
+#SBATCH --job-name=jepa_decoder
+#SBATCH --output=/home/atuin/v103fe/v103fe12/outputs/jepa_decoder_%j.txt
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=128
@@ -31,6 +31,7 @@ find $STORAGE_DIR/archives_train -type f -name '*.tar.gz' | xargs -P 8 -I{} bash
 
 find $STORAGE_DIR/archives_val -type f -name '*.tar.gz' | xargs -P 8 -I{} bash -c 'mkdir -p $TMPDIR/tmp_{} && tar xzf {} -C $TMPDIR/tmp_{} && mv $TMPDIR/tmp_{}/processed_scenarios_validation/* $TMPDIR/processed_scenarios_validation'
 find $STORAGE_DIR/archives_val -type f -name '*.tar.gz' | xargs -P 8 -I{} bash -c 'rm -rf $TMPDIR/tmp_{}'
+
 cp $WORK/processed_scenarios_training_infos.pkl $TMPDIR/processed_scenarios_training_infos.pkl
 cp $WORK/processed_scenarios_val_infos.pkl $TMPDIR/processed_scenarios_val_infos.pkl
 
@@ -54,9 +55,7 @@ cd /home/atuin/v103fe/v103fe12/MTR_helma/MTR_with_poses/tools
 
 export OMP_NUM_THREADS=128
 
-
-torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_loss_trial.yaml --batch_size=120 --epochs=150 --extra_tag=Training_1_1_0001_150_Epochs_No_Attn_2 --tcp_port=$PORT --workers=16 --max_ckpt_save_num=150 --ckpt_save_interval=2 --set DATA_CONFIG.DATA_ROOT $TMPDIR MODEL.CONTEXT_ENCODER.USE_ATTN_POOL False OPTIMIZATION.DECAY_STEP_LIST []
-
+torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/mtr+100_percent_data_jepa_with_decoder.yaml --batch_size=120 --epochs=40 --extra_tag=Full_Training_1_1_0001_2_WD --tcp_port=$PORT --workers=16 --not_eval_with_train --max_ckpt_save_num=40 --set DATA_CONFIG.DATA_ROOT $TMPDIR MODEL.CONTEXT_ENCODER.JEPA_WEIGHTS_PATH /home/atuin/v103fe/v103fe12/wd_trial_checkpoint_epoch_100.pth MODEL.CONTEXT_ENCODER.PARAMS_TO_FREEZE "['agent_polyline_encoder']" OPTIMIZATION.DECAY_STEP_LIST "[32,34,36,38]"
 
 # Deactivate the virtual environment at the end
 deactivate

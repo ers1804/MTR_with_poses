@@ -20,8 +20,17 @@ source $WORK/mtr_venv_helma/bin/activate
 # find the data
 STORAGE_DIR="$(ws_find jepa_data)"
 # the -P parameter defines the number of parallel processes, something like 4-8 should work well
-ls -1 $STORAGE_DIR/archives_val | xargs -P 1 -I{} tar xzf $STORAGE_DIR/archives_val/{} -C $TMPDIR
-ls -1 $STORAGE_DIR/archives_train | xargs -P 1 -I{} tar xzf $STORAGE_DIR/archives_train/{} -C $TMPDIR
+#ls -1 $STORAGE_DIR/archives_val | xargs -P 1 -I{} tar xzf $STORAGE_DIR/archives_val/{} -C $TMPDIR
+#ls -1 $STORAGE_DIR/archives_train | xargs -P 1 -I{} tar xzf $STORAGE_DIR/archives_train/{} -C $TMPDIR
+
+mkdir $TMPDIR/processed_scenarios_training
+mkdir $TMPDIR/processed_scenarios_validation
+
+find $STORAGE_DIR/archives_train -type f -name '*.tar.gz' | xargs -P 8 -I{} bash -c 'mkdir -p $TMPDIR/tmp_{} && tar xzf {} -C $TMPDIR/tmp_{} && mv $TMPDIR/tmp_{}/processed_scenarios_training/* $TMPDIR/processed_scenarios_training'
+find $STORAGE_DIR/archives_train -type f -name '*.tar.gz' | xargs -P 8 -I{} bash -c 'rm -rf $TMPDIR/tmp_{}'
+
+find $STORAGE_DIR/archives_val -type f -name '*.tar.gz' | xargs -P 8 -I{} bash -c 'mkdir -p $TMPDIR/tmp_{} && tar xzf {} -C $TMPDIR/tmp_{} && mv $TMPDIR/tmp_{}/processed_scenarios_validation/* $TMPDIR/processed_scenarios_validation'
+find $STORAGE_DIR/archives_val -type f -name '*.tar.gz' | xargs -P 8 -I{} bash -c 'rm -rf $TMPDIR/tmp_{}'
 cp $WORK/processed_scenarios_training_infos.pkl $TMPDIR/processed_scenarios_training_infos.pkl
 cp $WORK/processed_scenarios_val_infos.pkl $TMPDIR/processed_scenarios_val_infos.pkl
 
@@ -45,7 +54,7 @@ cd /home/atuin/v103fe/v103fe12/MTR_helma/MTR_with_poses/tools
 
 export OMP_NUM_THREADS=128
 
-torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_loss_trial_vit.yaml --batch_size=48 --epochs=150 --extra_tag=Training_1_1_0001_150_Vit_Helma --tcp_port=$PORT --workers=16 --max_ckpt_save_num=150 --ckpt_save_interval=2 --set DATA_CONFIG.DATA_ROOT $TMPDIR
+torchrun --nproc_per_node=4 --rdzv_endpoint=localhost:${PORT} train.py --launcher pytorch --cfg_file /home/atuin/v103fe/v103fe12/MTR/tools/cfgs/waymo/jepa_loss_trial_vit.yaml --batch_size=48 --epochs=150 --extra_tag=Training_1_1_0001_150_Vit_Helma_New --tcp_port=$PORT --workers=16 --max_ckpt_save_num=150 --ckpt_save_interval=2 --set DATA_CONFIG.DATA_ROOT $TMPDIR
 
 # Deactivate the virtual environment at the end
 deactivate

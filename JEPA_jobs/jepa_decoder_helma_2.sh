@@ -20,8 +20,17 @@ source $WORK/mtr_venv_helma/bin/activate
 # find the data
 STORAGE_DIR="$(ws_find jepa_data)"
 # the -P parameter defines the number of parallel processes, something like 4-8 should work well
-ls -1 $STORAGE_DIR/archives_val | xargs -P 1 -I{} tar xzf $STORAGE_DIR/archives_val/{} -C $TMPDIR
-ls -1 $STORAGE_DIR/archives_train | xargs -P 1 -I{} tar xzf $STORAGE_DIR/archives_train/{} -C $TMPDIR
+#ls -1 $STORAGE_DIR/archives_val | xargs -P 1 -I{} tar xzf $STORAGE_DIR/archives_val/{} -C $TMPDIR
+#ls -1 $STORAGE_DIR/archives_train | xargs -P 1 -I{} tar xzf $STORAGE_DIR/archives_train/{} -C $TMPDIR
+
+mkdir $TMPDIR/processed_scenarios_training
+mkdir $TMPDIR/processed_scenarios_validation
+
+find $STORAGE_DIR/archives_train -type f -name '*.tar.gz' | xargs -P 8 -I{} bash -c 'mkdir -p $TMPDIR/tmp_{} && tar xzf {} -C $TMPDIR/tmp_{} && mv $TMPDIR/tmp_{}/processed_scenarios_training/* $TMPDIR/processed_scenarios_training'
+find $STORAGE_DIR/archives_train -type f -name '*.tar.gz' | xargs -P 8 -I{} bash -c 'rm -rf $TMPDIR/tmp_{}'
+
+find $STORAGE_DIR/archives_val -type f -name '*.tar.gz' | xargs -P 8 -I{} bash -c 'mkdir -p $TMPDIR/tmp_{} && tar xzf {} -C $TMPDIR/tmp_{} && mv $TMPDIR/tmp_{}/processed_scenarios_validation/* $TMPDIR/processed_scenarios_validation'
+find $STORAGE_DIR/archives_val -type f -name '*.tar.gz' | xargs -P 8 -I{} bash -c 'rm -rf $TMPDIR/tmp_{}'
 
 cp $WORK/processed_scenarios_training_infos.pkl $TMPDIR/processed_scenarios_training_infos.pkl
 cp $WORK/processed_scenarios_val_infos.pkl $TMPDIR/processed_scenarios_val_infos.pkl
