@@ -873,6 +873,8 @@ class MTREncoder(nn.Module):
 
         self.attn_pooling = self.model_cfg.get('USE_ATTN_POOL', False)
 
+        self.copy_attn = self.model_cfg.get('COPY_ATTN', False)
+
         # build polyline encoders
         self.agent_polyline_encoder = self.build_polyline_encoder(
             in_channels=self.model_cfg.NUM_INPUT_ATTR_AGENT + 1,
@@ -1150,6 +1152,8 @@ class MTREncoder(nn.Module):
         # Attention Pooling
         if self.attn_pooling:
             batch_dict['pooled_attn'] = self.attention_pooling(obj_polylines_feature, obj_valid_mask) #obj_valid_mask
+            if self.copy_attn:
+                obj_polylines_feature[torch.arange(num_center_objects), track_index_to_predict] = batch_dict['pooled_attn']
 
 
         batch_dict['center_objects_feature'] = batch_dict['pooled_attn'] if self.attn_pooling else center_objects_feature
