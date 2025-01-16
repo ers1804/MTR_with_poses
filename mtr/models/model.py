@@ -41,7 +41,7 @@ def build_jepa_predictor(config):
 
 def build_map_predictor(config):
     hidden_dim = config.D_MODEL
-    map_predictor = common_layers.build_mlps_map(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim, hidden_dim], ret_before_act=True, without_norm=False)
+    map_predictor = common_layers.build_mlps_map(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim, hidden_dim, hidden_dim], ret_before_act=True, without_norm=False)
     return map_predictor
 
 
