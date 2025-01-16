@@ -266,7 +266,6 @@ class WarmupCosineSchedule(object):
         T_max,
         last_epoch=-1,
         final_lr=0.,
-        it=0
     ):
         self.optimizer = optimizer
         self.start_lr = start_lr
@@ -274,7 +273,7 @@ class WarmupCosineSchedule(object):
         self.final_lr = final_lr
         self.warmup_steps = warmup_steps
         self.T_max = T_max - warmup_steps
-        self._step = it#0.
+        self._step = 0.
 
     def step(self):
         self._step += 1
@@ -291,3 +290,34 @@ class WarmupCosineSchedule(object):
             group['lr'] = new_lr
 
         return new_lr
+
+
+class CosineWDSchedule(object):
+
+    def __init__(
+        self,
+        optimizer,
+        ref_wd,
+        T_max,
+        final_wd=0.
+    ):
+        self.optimizer = optimizer
+        self.ref_wd = ref_wd
+        self.final_wd = final_wd
+        self.T_max = T_max
+        self._step = 0.
+
+    def step(self):
+        self._step += 1
+        progress = self._step / self.T_max
+        new_wd = self.final_wd + (self.ref_wd - self.final_wd) * 0.5 * (1. + math.cos(math.pi * progress))
+
+        if self.final_wd <= self.ref_wd:
+            new_wd = max(self.final_wd, new_wd)
+        else:
+            new_wd = min(self.final_wd, new_wd)
+
+        for group in self.optimizer.param_groups:
+            if ('WD_exclude' not in group) or not group['WD_exclude']:
+                group['weight_decay'] = new_wd
+        return new_wd

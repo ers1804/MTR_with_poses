@@ -18,6 +18,33 @@ import math
 from functools import partial
 
 
+def build_jepa_predictor(config):
+    hidden_dim = config.D_MODEL
+    predictor_type = config.get('PREDICTOR', 'mlp')
+    if predictor_type == 'mlp':
+        predictor = common_layers.build_mlps(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim, hidden_dim], ret_before_act=True, without_norm=False)
+    elif predictor_type == 'bottleneck':
+        predictor = common_layers.build_mlps(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim // 2, (hidden_dim // 2) // 2, hidden_dim // 2, hidden_dim], ret_before_act=True, without_norm=False)
+    elif predictor_type == 'noise':
+        predictor = common_layers.build_mlps_with_noise(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim, hidden_dim], ret_before_act=True, without_norm=False, mean=0.0, std=0.1)
+    elif predictor_type == 'noise_bottleneck':
+        predictor = common_layers.build_mlps_with_noise(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim // 2, (hidden_dim // 2) // 2, hidden_dim // 2, hidden_dim], ret_before_act=True, without_norm=False, mean=0.0, std=0.1)
+    elif predictor_type == 'VIT':
+        predictor = vision_transformer.TrajectoryTransformerPredictor(
+            embed_dim=config.D_MODEL,
+            predictor_embed_dim=config.PREDICTOR_EMBED_DIM,
+            num_heads=config.PREDICTOR_NUM_HEADS,
+            mlp_ratio=4, qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6),
+        )
+    return predictor
+
+
+def build_map_predictor(config):
+    hidden_dim = config.D_MODEL
+    map_predictor = common_layers.build_mlps_map(c_in=hidden_dim, mlp_channels=[hidden_dim, hidden_dim, hidden_dim, hidden_dim], ret_before_act=True, without_norm=False)
+    return map_predictor
+
+
 def deepcopy_batch_dict(batch_dict):
     new_batch_dict = {}
     for key, value in batch_dict.items():
