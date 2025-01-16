@@ -121,13 +121,13 @@ def train_one_epoch(model, optimizer, train_loader, accumulated_iter, optim_cfg,
                             tb_log.add_scalar('train_grad/' + key, val.grad.abs().max().item(), accumulated_iter)
 
             time_past_this_epoch = pbar.format_dict['elapsed']
-            if time_past_this_epoch // ckpt_save_time_interval >= ckpt_save_cnt:
-                ckpt_name = ckpt_save_dir / 'latest_model'
-                save_checkpoint(
-                    checkpoint_state(model, optimizer, cur_epoch, accumulated_iter, scheduler=scheduler), filename=ckpt_name,
-                )
-                logger.info(f'Save latest model to {ckpt_name}')
-                ckpt_save_cnt += 1
+            # if time_past_this_epoch // ckpt_save_time_interval >= ckpt_save_cnt:
+            #     ckpt_name = ckpt_save_dir / 'latest_model'
+            #     save_checkpoint(
+            #         checkpoint_state(model, optimizer, cur_epoch, accumulated_iter, scheduler=scheduler), filename=ckpt_name,
+            #     )
+            #     logger.info(f'Save latest model to {ckpt_name}')
+            #     ckpt_save_cnt += 1
 
     if rank == 0:
         pbar.close()
