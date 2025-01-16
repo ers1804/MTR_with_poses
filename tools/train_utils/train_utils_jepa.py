@@ -205,9 +205,9 @@ def train_one_epoch(context_encoder, predictor, target_encoder, map_predictor, o
         with torch.no_grad():
             target_encoding, target_map_encoding = target_encoder(batch, target=True)
         if map_predictor is not None:
-            loss, single_losses = get_jepa_loss_with_map(predicted_obj_features, target_encoding, predicted_map_features, target_map_encoding, mse_coeff=optim_cfg.mse_coeff, std_coeff=optim_cfg.std_coeff, cov_coeff=optim_cfg.cov_coeff)
+            loss, single_losses = get_jepa_loss_with_map(predicted_obj_features, target_encoding, predicted_map_features, target_map_encoding, mse_coeff=cfg.MODEL.CONTEXT_ENCODER.mse_coeff, std_coeff=cfg.MODEL.CONTEXT_ENCODER.std_coeff, cov_coeff=cfg.MODEL.CONTEXT_ENCODER.cov_coeff)
         else:
-            loss, single_losses = get_jepa_loss(predicted_obj_features, target_encoding, mse_coeff=optim_cfg.mse_coeff, std_coeff=optim_cfg.std_coeff, cov_coeff=optim_cfg.cov_coeff)
+            loss, single_losses = get_jepa_loss(predicted_obj_features, target_encoding, mse_coeff=cfg.MODEL.CONTEXT_ENCODER.mse_coeff, std_coeff=cfg.MODEL.CONTEXT_ENCODER.std_coeff, cov_coeff=cfg.MODEL.CONTEXT_ENCODER.cov_coeff)
 
         if scaler is not None:
             scaler.scale(loss).backward()

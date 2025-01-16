@@ -168,7 +168,7 @@ def init_opt(
             }
         )
     logger.info('Generating optimizer...')
-    optimizer = torch.optim.AdamW(param_groups)
+    optimizer = torch.optim.AdamW(param_groups, lr=config.LR, weight_decay=config.get('WEIGHT_DECAY', 0))
     logger.info('Generating scheduler...')
     scheduler = build_scheduler(optimizer, config, num_epochs, iterations_per_epoch, -1, 0)
     logger.info('Generating weight decay scheduler...')
@@ -211,7 +211,7 @@ def main():
     if args.fix_random_seed:
         common_utils.set_random_seed(666)
 
-    output_dir = Path('/home/erik/NAS/personal/jepa_eval/evals') / 'output' / cfg.EXP_GROUP_PATH / cfg.TAG / args.extra_tag
+    output_dir = cfg.ROOT_DIR / 'output' / cfg.EXP_GROUP_PATH / cfg.TAG / args.extra_tag
     ckpt_dir = output_dir / 'ckpt'
     output_dir.mkdir(parents=True, exist_ok=True)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
@@ -279,8 +279,8 @@ def main():
         map_predictor.cuda()
 
     target_encoder = copy.deepcopy(context_encoder)
-    for p in target_encoder.parameters():
-        p.requires_grad = False
+    # for p in target_encoder.parameters():
+    #     p.requires_grad = False
 
     total_params = sum(p.numel() for p in context_encoder.parameters())
     print(f"Total number of parameters in context encoder: {total_params}")
@@ -352,6 +352,8 @@ def main():
             map_predictor = nn.parallel.DistributedDataParallel(map_predictor, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()], static_graph=True)
             map_predictor.train()
         target_encoder = nn.parallel.DistributedDataParallel(target_encoder, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()])
+        for p in target_encoder.parameters():
+            p.requires_grad = False
         target_encoder.eval()
     logger.info('Context Encoder: ')
     logger.info(context_encoder)

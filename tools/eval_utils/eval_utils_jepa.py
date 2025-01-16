@@ -51,9 +51,9 @@ def eval_one_epoch(cfg, context_encoder,
                 predicted_map_features = map_predictor(batch['map_feature'])
             target_encoding, target_map_encoding = target_encoder(batch, target=True)
             if map_predictor is not None:
-                loss, single_losses = get_jepa_loss_with_map(predicted_obj_features, target_encoding, predicted_map_features, target_map_encoding, mse_coeff=cfg.OPTIMIZATION.mse_coeff, std_coeff=cfg.OPTIMIZATION.std_coeff, cov_coeff=cfg.OPTIMIZATION.cov_coeff)
+                loss, single_losses = get_jepa_loss_with_map(predicted_obj_features, target_encoding, predicted_map_features, target_map_encoding, mse_coeff=cfg.MODEL.CONTEXT_ENCODER.mse_coeff, std_coeff=cfg.MODEL.CONTEXT_ENCODER.std_coeff, cov_coeff=cfg.MODEL.CONTEXT_ENCODER.cov_coeff)
             else:
-                loss, single_losses = get_jepa_loss(predicted_obj_features, target_encoding, mse_coeff=cfg.OPTIMIZATION.mse_coeff, std_coeff=cfg.OPTIMIZATION.std_coeff, cov_coeff=cfg.OPTIMIZATION.cov_coeff)
+                loss, single_losses = get_jepa_loss(predicted_obj_features, target_encoding, mse_coeff=cfg.MODEL.CONTEXT_ENCODER.mse_coeff, std_coeff=cfg.MODEL.CONTEXT_ENCODER.std_coeff, cov_coeff=cfg.MODEL.CONTEXT_ENCODER.cov_coeff)
         sum_loss += loss.item()
         sum_mse += single_losses[0].item()
         sum_std += single_losses[1].item()
