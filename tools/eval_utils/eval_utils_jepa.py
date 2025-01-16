@@ -45,11 +45,11 @@ def eval_one_epoch(cfg, context_encoder,
     sum_map_loss = 0.0
     for i, batch_dict in enumerate(dataloader):
         with torch.no_grad():
-            batch = context_encoder(batch)
-            predicted_obj_features = predictor(batch['center_objects_feature'])
+            batch_dict = context_encoder(batch_dict)
+            predicted_obj_features = predictor(batch_dict['center_objects_feature'])
             if map_predictor is not None:
-                predicted_map_features = map_predictor(batch['map_feature'])
-            target_encoding, target_map_encoding = target_encoder(batch, target=True)
+                predicted_map_features = map_predictor(batch_dict['map_feature'])
+            target_encoding, target_map_encoding = target_encoder(batch_dict, target=True)
             if map_predictor is not None:
                 loss, single_losses = get_jepa_loss_with_map(predicted_obj_features, target_encoding, predicted_map_features, target_map_encoding, mse_coeff=cfg.MODEL.CONTEXT_ENCODER.mse_coeff, std_coeff=cfg.MODEL.CONTEXT_ENCODER.std_coeff, cov_coeff=cfg.MODEL.CONTEXT_ENCODER.cov_coeff)
             else:

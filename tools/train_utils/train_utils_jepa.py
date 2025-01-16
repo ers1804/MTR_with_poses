@@ -134,11 +134,11 @@ def get_jepa_loss(predicted_encodings, target_encodings, mse_coeff, std_coeff, c
     return loss, (mse_coeff * mse_loss, std_coeff * std_loss, cov_coeff * cov_loss)
 
 
-def get_jepa_loss_with_map(self, predicted_encodings, target_encodings, predicted_map_encodings, map_target_encodings, mse_coeff=1.0, std_coeff=1.0, cov_coeff=0.04):
+def get_jepa_loss_with_map(predicted_encodings, target_encodings, predicted_map_encodings, map_target_encodings, mse_coeff=1.0, std_coeff=1.0, cov_coeff=0.04):
     num_center_objects, d_model = predicted_encodings.shape
     # MSE loss
-    mse_loss = self.smooth_l1_loss(predicted_encodings, target_encodings)
-    map_mse_loss = self.smooth_l1_loss(predicted_map_encodings, map_target_encodings)
+    mse_loss = torch.nn.functional.smooth_l1_loss(predicted_encodings, target_encodings)
+    map_mse_loss = torch.nn.functional.smooth_l1_loss(predicted_map_encodings, map_target_encodings)
     #mse_loss = (mse_loss + map_mse_loss) / 2
     #mse_loss = AllReduce.apply(mse_loss)
 
@@ -205,9 +205,18 @@ def train_one_epoch(context_encoder, predictor, target_encoder, map_predictor, o
         with torch.no_grad():
             target_encoding, target_map_encoding = target_encoder(batch, target=True)
         if map_predictor is not None:
-            loss, single_losses = get_jepa_loss_with_map(predicted_obj_features, target_encoding, predicted_map_features, target_map_encoding, mse_coeff=cfg.MODEL.CONTEXT_ENCODER.mse_coeff, std_coeff=cfg.MODEL.CONTEXT_ENCODER.std_coeff, cov_coeff=cfg.MODEL.CONTEXT_ENCODER.cov_coeff)
+            loss, single_losses = get_jepa_loss_with_map(predicted_obj_features,
+                                                         target_encoding,
+                                                         predicted_map_features,
+                                                         target_map_encoding,
+                                                         mse_coeff=cfg.MODEL.CONTEXT_ENCODER.mse_coeff,
+                                                         std_coeff=cfg.MODEL.CONTEXT_ENCODER.std_coeff,
+                                                         cov_coeff=cfg.MODEL.CONTEXT_ENCODER.cov_coeff
+                                                         )
         else:
             loss, single_losses = get_jepa_loss(predicted_obj_features, target_encoding, mse_coeff=cfg.MODEL.CONTEXT_ENCODER.mse_coeff, std_coeff=cfg.MODEL.CONTEXT_ENCODER.std_coeff, cov_coeff=cfg.MODEL.CONTEXT_ENCODER.cov_coeff)
+            
+        loss = AllReduce.apply(loss)
 
         if scaler is not None:
             scaler.scale(loss).backward()

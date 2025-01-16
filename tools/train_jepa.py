@@ -160,7 +160,10 @@ def init_opt(
             {
                 'params': (p for n, p in map_predictor.named_parameters()
                             if ('bias' not in n) and (len(p.shape) != 1))
-            }, {
+            }
+        )
+        param_groups.append(
+            {
                 'params': (p for n, p in map_predictor.named_parameters()
                             if ('bias' in n) or (len(p.shape) == 1)),
                 'WD_exclude': True,
@@ -176,7 +179,7 @@ def init_opt(
         optimizer,
         ref_wd=config.WEIGHT_DECAY,
         T_max=int(ipe_scale * num_epochs * iterations_per_epoch),
-        final_wd=config.get('FINAL_WD', config.WEIGHT_DECAY)
+        final_wd=config.get('FINAL_WEIGHT_DECAY', config.WEIGHT_DECAY)
     )
     if config.get('use_scaler', False):
         scaler = build_scaler()
@@ -282,15 +285,17 @@ def main():
     # for p in target_encoder.parameters():
     #     p.requires_grad = False
 
-    total_params = sum(p.numel() for p in context_encoder.parameters())
-    print(f"Total number of parameters in context encoder: {total_params}")
+    if cfg.LOCAL_RANK == 0:
 
-    total_params = sum(p.numel() for p in predictor.parameters())
-    print(f"Total number of parameters in predictor: {total_params}")
+        total_params = sum(p.numel() for p in context_encoder.parameters())
+        print(f"Total number of parameters in context encoder: {total_params}")
 
-    if map_predictor is not None:
-        total_params = sum(p.numel() for p in map_predictor.parameters())
-        print(f"Total number of parameters in map predictor: {total_params}")
+        total_params = sum(p.numel() for p in predictor.parameters())
+        print(f"Total number of parameters in predictor: {total_params}")
+
+        if map_predictor is not None:
+            total_params = sum(p.numel() for p in map_predictor.parameters())
+            print(f"Total number of parameters in map predictor: {total_params}")
 
     ################################### Build Optimizer ###################################
 
@@ -355,15 +360,16 @@ def main():
         for p in target_encoder.parameters():
             p.requires_grad = False
         target_encoder.eval()
-    logger.info('Context Encoder: ')
-    logger.info(context_encoder)
-    logger.info('Predictor: ')
-    logger.info(predictor)
-    logger.info('Target Encoder: ')
-    logger.info(target_encoder)
-    if map_predictor is not None:
-        logger.info('Map Predictor: ')
-        logger.info(map_predictor)
+    if cfg.LOCAL_RANK == 0:
+        logger.info('Context Encoder: ')
+        logger.info(context_encoder)
+        logger.info('Predictor: ')
+        logger.info(predictor)
+        logger.info('Target Encoder: ')
+        logger.info(target_encoder)
+        if map_predictor is not None:
+            logger.info('Map Predictor: ')
+            logger.info(map_predictor)
 
     
     ################################### Eval Loader ###################################
