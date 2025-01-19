@@ -312,6 +312,31 @@ def main():
 
     momentum_scheduler = (cfg.OPTIMIZATION.ema[0] + i * (cfg.OPTIMIZATION.ema[1] - cfg.OPTIMIZATION.ema[0]) / (ipe * args.epochs * cfg.OPTIMIZATION.ipe_scale) for i in range(int(ipe*args.epochs*cfg.OPTIMIZATION.ipe_scale)+1))
 
+    ################################### Wrap DDP ###################################
+    
+    if dist_train:
+        context_encoder = nn.parallel.DistributedDataParallel(context_encoder, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()], static_graph=True)
+        context_encoder.train()
+        predictor = nn.parallel.DistributedDataParallel(predictor, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()], static_graph=True)
+        predictor.train()
+        if map_predictor is not None:
+            map_predictor = nn.parallel.DistributedDataParallel(map_predictor, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()], static_graph=True)
+            map_predictor.train()
+        target_encoder = nn.parallel.DistributedDataParallel(target_encoder, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()])
+        for p in target_encoder.parameters():
+            p.requires_grad = False
+        target_encoder.eval()
+    if cfg.LOCAL_RANK == 0:
+        logger.info('Context Encoder: ')
+        logger.info(context_encoder)
+        logger.info('Predictor: ')
+        logger.info(predictor)
+        logger.info('Target Encoder: ')
+        logger.info(target_encoder)
+        if map_predictor is not None:
+            logger.info('Map Predictor: ')
+            logger.info(map_predictor)
+
     ################################### Load Checkpoint ###################################
 
     # load checkpoint if it is possible
@@ -345,31 +370,6 @@ def main():
                 break
             except:
                 ckpt_list = ckpt_list[:-1]
-
-    ################################### Wrap DDP ###################################
-    
-    if dist_train:
-        context_encoder = nn.parallel.DistributedDataParallel(context_encoder, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()], static_graph=True)
-        context_encoder.train()
-        predictor = nn.parallel.DistributedDataParallel(predictor, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()], static_graph=True)
-        predictor.train()
-        if map_predictor is not None:
-            map_predictor = nn.parallel.DistributedDataParallel(map_predictor, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()], static_graph=True)
-            map_predictor.train()
-        target_encoder = nn.parallel.DistributedDataParallel(target_encoder, device_ids=[cfg.LOCAL_RANK % torch.cuda.device_count()])
-        for p in target_encoder.parameters():
-            p.requires_grad = False
-        target_encoder.eval()
-    if cfg.LOCAL_RANK == 0:
-        logger.info('Context Encoder: ')
-        logger.info(context_encoder)
-        logger.info('Predictor: ')
-        logger.info(predictor)
-        logger.info('Target Encoder: ')
-        logger.info(target_encoder)
-        if map_predictor is not None:
-            logger.info('Map Predictor: ')
-            logger.info(map_predictor)
 
     
     ################################### Eval Loader ###################################

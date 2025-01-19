@@ -22,43 +22,42 @@ def load_checkpoint(
         logger,
         map_predictor=None,
 ):
-    try:
-        checkpoint = torch.load(path, map_location=torch.device('cpu'))
-        epoch = checkpoint['epoch']
+    # try:
+    checkpoint = torch.load(path, map_location=torch.device('cpu'))
+    epoch = checkpoint['epoch']
 
-        # -- loading encoder
-        pretrained_dict = checkpoint['encoder']
-        msg = encoder.load_state_dict(pretrained_dict)
-        logger.info(f'loaded pretrained context encoder from epoch {epoch} with msg: {msg}')
+    # -- loading encoder
+    pretrained_dict = checkpoint['encoder']
+    encoder.load_state_dict(pretrained_dict)
+    logger.info(f'loaded pretrained context encoder from epoch {epoch}')
 
-        # -- loading predictor
-        pretrained_dict = checkpoint['predictor']
-        msg = predictor.load_state_dict(pretrained_dict)
-        logger.info(f'loaded pretrained predictor from epoch {epoch} with msg: {msg}')
+    # -- loading predictor
+    pretrained_dict = checkpoint['predictor']
+    predictor.load_state_dict(pretrained_dict)
+    logger.info(f'loaded pretrained predictor from epoch {epoch}')
 
-        # -- loading target_encoder
-        if target_encoder is not None:
-            print(list(checkpoint.keys()))
-            pretrained_dict = checkpoint['target_encoder']
-            msg = target_encoder.load_state_dict(pretrained_dict)
-            logger.info(f'loaded pretrained target encoder from epoch {epoch} with msg: {msg}')
-        
-        if map_predictor is not None:
-            pretrained_dict = checkpoint['map_predictor']
-            msg = map_predictor.load_state_dict(pretrained_dict)
-            logger.info(f'loaded pretrained map predictor from epoch {epoch} with msg: {msg}')
+    # -- loading target_encoder
+    if target_encoder is not None:
+        pretrained_dict = checkpoint['target_encoder']
+        target_encoder.load_state_dict(pretrained_dict)
+        logger.info(f'loaded pretrained target encoder from epoch {epoch}')
+    
+    if map_predictor is not None:
+        pretrained_dict = checkpoint['map_predictor']
+        map_predictor.load_state_dict(pretrained_dict)
+        logger.info(f'loaded pretrained map predictor from epoch {epoch}')
 
-        # -- loading optimizer
-        optimizer.load_state_dict(checkpoint['opt'])
-        if scaler is not None:
-            scaler.load_state_dict(checkpoint['scaler'])
-        logger.info(f'loaded optimizers from epoch {epoch}')
-        logger.info(f'read-path: {path}')
-        del checkpoint
+    # -- loading optimizer
+    optimizer.load_state_dict(checkpoint['opt'])
+    if scaler is not None:
+        scaler.load_state_dict(checkpoint['scaler'])
+    logger.info(f'loaded optimizers from epoch {epoch}')
+    logger.info(f'read-path: {path}')
+    del checkpoint
 
-    except Exception as e:
-        logger.info(f'Encountered exception when loading checkpoint {e}')
-        epoch = 0
+    # except Exception as e:
+    #     logger.info(f'Encountered exception when loading checkpoint {e}')
+    #     epoch = 0
     
     return encoder, predictor, target_encoder, map_predictor, optimizer, scaler, epoch
 
@@ -361,7 +360,7 @@ def train_model(context_encoder, predictor, target_encoder, map_predictor, optim
                     for cur_file_idx in range(0, len(ckpt_list) - max_ckpt_save_num + 1):
                         os.remove(ckpt_list[cur_file_idx])
 
-                ckpt_name = ckpt_save_dir / ('checkpoint_epoch_%d' % trained_epoch)
+                ckpt_name = ckpt_save_dir / ('checkpoint_epoch_%d.pth' % trained_epoch)
                 save_checkpoint(
                     context_encoder,
                     predictor,
