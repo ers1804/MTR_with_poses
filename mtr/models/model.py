@@ -370,23 +370,37 @@ class MotionTransformer(nn.Module):
         return it, epoch
     
 
-    def load_encoder_params_from_file(self, ckpt_path, logger, to_cpu=False):
+    def load_encoder_params_from_file(self, ckpt_path, logger, to_cpu=False, new_checkpoint=True):
         if not os.path.isfile(ckpt_path):
             raise FileNotFoundError
         
         loc_type = torch.device('cpu') if to_cpu else None
         checkpoint = torch.load(ckpt_path, map_location=loc_type, weights_only=True)
-        complete_model_state = checkpoint['model_state']
+        if new_checkpoint:
+        #complete_model_state = checkpoint['model_state']
+            complete_model_state = checkpoint['encoder']
+        else:
+            complete_model_state = checkpoint['model_state']
 
         # Filter out state_dict of context_encoder weights:
         encoder_dict = dict()
-        for k,v in complete_model_state.items():
-            if 'context_encoder.agent_polyline_encoder' in k or 'context_encoder.map_polyline_encoder' in k or 'context_encoder.self_attn_layers' in k:
-                encoder_dict[k.replace('context_encoder.', '')] = v
-            elif 'context_encoder.attention_pooling' in k and self.model_cfg.CONTEXT_ENCODER.get('USE_ATTN_POOL', False):
-                encoder_dict[k.replace('context_encoder.', '')] = v
-            else:
-                continue
+        test = self.context_encoder.state_dict()
+        if new_checkpoint:
+            for k,v in complete_model_state.items():
+                if 'module.agent_polyline_encoder' in k or 'module.map_polyline_encoder' in k or 'module.self_attn_layers' in k:
+                    encoder_dict[k.replace('module.', '')] = v
+                elif 'module.attention_pooling' in k and self.model_cfg.CONTEXT_ENCODER.get('USE_ATTN_POOL', False):
+                    encoder_dict[k.replace('module.', '')] = v
+                else:
+                    continue
+        else:
+            for k,v in complete_model_state.items():
+                if 'context_encoder.agent_polyline_encoder' in k or 'context_encoder.map_polyline_encoder' in k or 'context_encoder.self_attn_layers' in k:
+                    encoder_dict[k.replace('context_encoder.', '')] = v
+                elif 'context_encoder.attention_pooling' in k and self.model_cfg.CONTEXT_ENCODER.get('USE_ATTN_POOL', False):
+                    encoder_dict[k.replace('context_encoder.', '')] = v
+                else:
+                    continue
         self.context_encoder.load_state_dict(encoder_dict, strict=True)
 
 
