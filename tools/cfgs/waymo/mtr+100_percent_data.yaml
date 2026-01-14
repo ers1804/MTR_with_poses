@@ -78,10 +78,13 @@ MODEL:
         LOSS_WEIGHTS: {
             'cls': 1.0, 
             'reg': 1.0, 
-            'vel': 0.5
+            'vel': 0.5,
+            'mpjpe': 1.0,
+            'geo': 1.0
         }
 
         NMS_DIST_THRESH: 2.5
+        SMPL_MODEL_DIR: '/home/erik/ssd2/gitprojects/MTR_with_poses/models'
 
 
 OPTIMIZATION:

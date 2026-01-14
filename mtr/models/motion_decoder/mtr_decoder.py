@@ -16,6 +16,8 @@ from mtr.models.utils import common_layers
 from mtr.utils import common_utils, loss_utils, motion_utils
 from mtr.config import cfg
 
+from smplpytorch.pytorch.smpl_layer import SMPL_Layer
+
 
 class MTRDecoder(nn.Module):
     def __init__(self, in_channels, config):
@@ -77,13 +79,16 @@ class MTRDecoder(nn.Module):
             in_channels=self.d_model, hidden_size=self.d_model, num_decoder_layers=self.num_decoder_layers
         )
 
-        self.pose_head = nn.Sequential(
-            nn.Linear(self.d_model, self.d_model),
-            nn.ReLU(),
-            nn.Linear(self.d_model, self.num_future_frames * 144 * 2)
+        self.pose_heads = self.build_pose_head(
+            in_channels=self.d_model, hidden_size=self.d_model, num_decoder_layers=self.num_decoder_layers
         )
 
         self.pose_score_regularizer = nn.Softplus()
+
+        self.smpl_layer = SMPL_Layer(
+        center_idx=0,
+        gender='neutral',
+        model_root=self.model_cfg.SMPL_MODEL_DIR)
 
         self.forward_ret_dict = {}
 
@@ -153,6 +158,16 @@ class MTRDecoder(nn.Module):
         motion_cls_heads = nn.ModuleList([copy.deepcopy(motion_cls_head) for _ in range(num_decoder_layers)])
         motion_vel_heads = None 
         return motion_reg_heads, motion_cls_heads, motion_vel_heads
+    
+
+    def build_pose_head(self, in_channels, hidden_size, num_decoder_layers):
+        pose_head =  common_layers.build_mlps(
+            c_in=in_channels,
+            mlp_channels=[hidden_size, hidden_size, self.num_future_frames * 144 * 2], ret_before_act=True
+        )
+
+        pose_heads = nn.ModuleList([copy.deepcopy(pose_head) for _ in range(num_decoder_layers)])
+        return pose_heads
 
     def apply_dense_future_prediction(self, obj_feature, obj_mask, obj_pos):
         num_center_objects, num_objects, _ = obj_feature.shape
@@ -362,7 +377,7 @@ class MTRDecoder(nn.Module):
             else:
                 pred_trajs = self.motion_reg_heads[layer_idx](query_content_t).view(num_center_objects, num_query, self.num_future_frames, 7)
             
-            pred_pose_and_score = self.pose_head(query_content_t).view(num_center_objects, num_query, self.num_future_frames, 144*2)
+            pred_pose_and_score = self.pose_heads[layer_idx](query_content_t).view(num_center_objects, num_query, self.num_future_frames, 144*2)
 
             pred_pose = pred_pose_and_score[..., :144]  # (num_center_objects, num_query, num_future_frames, 144)
             pred_pose_score = self.pose_score_regularizer(pred_pose_and_score[..., 144:])  # (num_center_objects, num_query, num_future_frames, 144)
@@ -379,11 +394,71 @@ class MTRDecoder(nn.Module):
         assert len(pred_list) == self.num_decoder_layers
         return pred_list
 
+    
+    def get_mpjpe_loss(self, pred_joints, gt_joints):
+        """ Mean Per Joint Position Error (MPJPE)
+        Args:
+            pred_joints: (num_center_objects, num_future_frames, 24, 3)
+            gt_joints: (num_center_objects, num_future_frames, 24, 3)
+        """
+        loss_mpjpe = F.l1_loss(pred_joints, gt_joints, reduction='none')
+        loss_mpjpe = loss_mpjpe.mean(dim=-1).mean(dim=-1)  # (num_center_objects, num_future_frames)
+        loss_mpjpe = loss_mpjpe.mean()
+        return loss_mpjpe
+
+
+    def geodesic_loss(self, R_pred: torch.Tensor,
+                  R_gt: torch.Tensor,
+                  eps: float = 1e-6,
+                  reduction: str = "mean") -> torch.Tensor:
+        """
+        Numerically stable geodesic loss on SO(3).
+
+        Args:
+            R_pred: (..., 3, 3) predicted rotation matrices
+            R_gt:   (..., 3, 3) ground-truth rotation matrices
+            eps:    small constant for numerical stability
+            reduction: 'mean', 'sum', or 'none'
+
+        Returns:
+            Scalar loss (or per-sample loss if reduction='none')
+        """
+
+        # Relative rotation: R_rel = R_pred^T R_gt
+        R_rel = torch.matmul(R_pred.transpose(-1, -2), R_gt)
+
+        # Trace
+        trace = R_rel[..., 0, 0] + R_rel[..., 1, 1] + R_rel[..., 2, 2]
+
+        # Compute cosine of angle
+        cos_theta = (trace - 1.0) * 0.5
+
+        # Clamp for numerical stability
+        cos_theta = torch.clamp(cos_theta, -1.0 + eps, 1.0 - eps)
+
+        # Geodesic distance (angle in radians)
+        theta = torch.acos(cos_theta)
+
+        if reduction == "mean":
+            return theta.mean()
+        elif reduction == "sum":
+            return theta.sum()
+        elif reduction == "none":
+            return theta
+        else:
+            raise ValueError(f"Invalid reduction: {reduction}")
+
+
+
     def get_decoder_loss(self, tb_pre_tag=''):
         center_gt_trajs = self.forward_ret_dict['center_gt_trajs'].cuda()
         center_gt_trajs_mask = self.forward_ret_dict['center_gt_trajs_mask'].cuda()
         center_gt_final_valid_idx = self.forward_ret_dict['center_gt_final_valid_idx'].long()
         assert center_gt_trajs.shape[-1] == 4
+
+        pose_gt = self.forward_ret_dict['center_gt_poses'].cuda()  # (num_center_objects, num_future_frames, 144)
+        shape_params = self.forward_ret_dict['center_shape_params'].cuda()  # (num_center_objects, 10)
+        _, pose_gt_joints = self.smpl_layer(pose=pose_gt, betas=shape_params)
 
         pred_list = self.forward_ret_dict['pred_list']
         intention_points = self.forward_ret_dict['intention_points']  # (num_center_objects, num_query, 2)
@@ -404,9 +479,18 @@ class MTRDecoder(nn.Module):
             if self.use_place_holder:
                 raise NotImplementedError
 
-            pred_scores, pred_trajs = pred_list[layer_idx]
+            pred_scores, pred_trajs, pred_pose_scores, pred_pose = pred_list[layer_idx]
             assert pred_trajs.shape[-1] == 7
             pred_trajs_gmm, pred_vel = pred_trajs[:, :, :, 0:5], pred_trajs[:, :, :, 5:7]
+
+            _, pred_pose_joints = self.smpl_layer(pose=pred_pose, betas=shape_params)
+
+            loss_mpjpe = self.get_mpjpe_loss(
+                pred_joints=pred_pose_joints,
+                gt_joints=pose_gt_joints
+            )
+
+            loss_geo = F.mse_loss(pose_gt, pred_pose, reduction='mean')
 
             loss_reg_gmm, center_gt_positive_idx = loss_utils.nll_loss_gmm_direct(
                 pred_scores=pred_scores, pred_trajs=pred_trajs_gmm,
@@ -425,14 +509,18 @@ class MTRDecoder(nn.Module):
             weight_cls = self.model_cfg.LOSS_WEIGHTS.get('cls', 1.0)
             weight_reg = self.model_cfg.LOSS_WEIGHTS.get('reg', 1.0)
             weight_vel = self.model_cfg.LOSS_WEIGHTS.get('vel', 0.2)
+            weight_mpjpe = self.model_cfg.LOSS_WEIGHTS.get('mpjpe', 1.0)
+            weight_geo = self.model_cfg.LOSS_WEIGHTS.get('geo', 1.0)
 
-            layer_loss = loss_reg_gmm * weight_reg + loss_reg_vel * weight_vel + loss_cls.sum(dim=-1) * weight_cls
+            layer_loss = loss_reg_gmm * weight_reg + loss_reg_vel * weight_vel + loss_cls.sum(dim=-1) * weight_cls + loss_mpjpe * weight_mpjpe + loss_geo * weight_geo
             layer_loss = layer_loss.mean()
             total_loss += layer_loss
             tb_dict[f'{tb_pre_tag}loss_layer{layer_idx}'] = layer_loss.item()
             tb_dict[f'{tb_pre_tag}loss_layer{layer_idx}_reg_gmm'] = loss_reg_gmm.mean().item() * weight_reg
             tb_dict[f'{tb_pre_tag}loss_layer{layer_idx}_reg_vel'] = loss_reg_vel.mean().item() * weight_vel
             tb_dict[f'{tb_pre_tag}loss_layer{layer_idx}_cls'] = loss_cls.mean().item() * weight_cls
+            tb_dict[f'{tb_pre_tag}loss_layer{layer_idx}_mpjpe'] = loss_mpjpe.mean().item() * weight_mpjpe
+            tb_dict[f'{tb_pre_tag}loss_layer{layer_idx}_geo'] = loss_geo.mean().item() * weight_geo
 
             if layer_idx + 1 == self.num_decoder_layers:
                 layer_tb_dict_ade = motion_utils.get_ade_of_each_category(
@@ -501,7 +589,7 @@ class MTRDecoder(nn.Module):
         return total_loss, tb_dict, disp_dict
 
     def generate_final_prediction(self, pred_list, batch_dict):
-        pred_scores, pred_trajs = pred_list[-1]
+        pred_scores, pred_trajs, _, _ = pred_list[-1]
         pred_scores = torch.softmax(pred_scores, dim=-1)  # (num_center_objects, num_query)
 
         num_center_objects, num_query, num_future_timestamps, num_feat = pred_trajs.shape
