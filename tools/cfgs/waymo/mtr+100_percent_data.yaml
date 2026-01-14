@@ -51,6 +51,10 @@ MODEL:
 
         USE_LOCAL_ATTN: True
 
+        NUM_LAYER_IN_POSE_GRU: 2
+        DROPOUT_OF_POSE_GRU: 0.1
+        DROPOUT_OF_POSE_FUSER: 0.1
+
     MOTION_DECODER:
         NAME: MTRDecoder
 

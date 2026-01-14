@@ -7,6 +7,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+from torchvision.ops import MLP
 
 
 from mtr.models.utils.transformer import transformer_encoder_layer, position_encoding_utils
@@ -33,6 +34,20 @@ class MTREncoder(nn.Module):
             num_layers=self.model_cfg.NUM_LAYER_IN_MLP_MAP,
             num_pre_layers=self.model_cfg.NUM_LAYER_IN_PRE_MLP_MAP,
             out_channels=self.model_cfg.D_MODEL
+        )
+        # build pose encoder
+        self.pose_encoder = torch.nn.GRU(
+            input_size=144,
+            hidden_size=self.model_cfg.D_MODEL,
+            num_layers=self.model_cfg.NUM_LAYER_IN_POSE_GRU,
+            dropout=self.model_cfg.get('DROPOUT_OF_POSE_GRU', 0.0),
+            batch_first=True
+        )
+
+        self.pose_fuser = MLP(
+            in_channels=self.model_cfg.D_MODEL * 2,
+            hidden_channels=[self.model_cfg.D_MODEL, self.model_cfg.D_MODEL],
+            dropout=self.model_cfg.get('DROPOUT_OF_POSE_FUSER', 0.0),
         )
 
         # build transformer encoder layers
@@ -151,7 +166,9 @@ class MTREncoder(nn.Module):
         """
         input_dict = batch_dict['input_dict']
         obj_trajs, obj_trajs_mask = input_dict['obj_trajs'].cuda(), input_dict['obj_trajs_mask'].cuda() 
-        map_polylines, map_polylines_mask = input_dict['map_polylines'].cuda(), input_dict['map_polylines_mask'].cuda() 
+        map_polylines, map_polylines_mask = input_dict['map_polylines'].cuda(), input_dict['map_polylines_mask'].cuda()
+
+        obj_poses, obj_poses_mask = input_dict['obj_poses'].cuda(), input_dict['obj_poses_mask'].cuda() 
 
         obj_trajs_last_pos = input_dict['obj_trajs_last_pos'].cuda() 
         map_polylines_center = input_dict['map_polylines_center'].cuda() 
@@ -167,6 +184,19 @@ class MTREncoder(nn.Module):
         obj_polylines_feature = self.agent_polyline_encoder(obj_trajs_in, obj_trajs_mask)  # (num_center_objects, num_objects, C)
         map_polylines_feature = self.map_polyline_encoder(map_polylines, map_polylines_mask)  # (num_center_objects, num_polylines, C)
 
+        # Apply Pose Encoder
+        combined_mask = torch.logical_and(obj_trajs_mask, obj_poses_mask)
+        combined_valid_mask = (combined_mask.sum(dim=-1) > 0)  # (num_center_objects, num_objects)
+        obj_poses_buffer = obj_poses.new_zeros(num_center_objects * num_objects, self.model_cfg.D_MODEL)
+        _, final_hidden = self.pose_encoder(obj_poses.reshape(-1, num_timestamps, obj_poses.shape[-1]))  # (N, T, C), (num_layers, N, C)
+        if len(final_hidden.shape) == 3:
+            final_hidden = final_hidden[-1]  # (N, C)
+        obj_poses_buffer[combined_valid_mask.view(-1)] = final_hidden[combined_valid_mask.view(-1)]
+        obj_poses_feature = obj_poses_buffer.view(num_center_objects, num_objects, self.model_cfg.D_MODEL)
+        # fuse pose feature and polyline feature
+        fused_obj_feature = torch.cat((obj_polylines_feature, obj_poses_feature), dim=-1)
+        obj_polylines_feature = self.pose_fuser(fused_obj_feature)
+        
         # apply self-attn
         obj_valid_mask = (obj_trajs_mask.sum(dim=-1) > 0)  # (num_center_objects, num_objects)
         map_valid_mask = (map_polylines_mask.sum(dim=-1) > 0)  # (num_center_objects, num_polylines)
