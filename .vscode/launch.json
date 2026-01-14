@@ -1,0 +1,27 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Training MTR",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/erik/anaconda3/envs/mtr_smpl/bin/torchrun",
+            "python": "/home/erik/anaconda3/envs/mtr_smpl/bin/python",
+            "justMyCode": false,
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/tools",
+            "args": [
+                "--nproc_per_node=1",
+                "train.py",
+                "--launcher", "pytorch",
+                "--cfg_file", "cfgs/waymo/mtr+100_percent_data.yaml",
+                "--batch_size", "2",
+                "--epochs", "30",
+                "--extra_tag", "Testing_1",
+            ]
+        }
+    ]
+}

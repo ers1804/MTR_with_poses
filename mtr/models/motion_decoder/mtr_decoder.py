@@ -77,6 +77,14 @@ class MTRDecoder(nn.Module):
             in_channels=self.d_model, hidden_size=self.d_model, num_decoder_layers=self.num_decoder_layers
         )
 
+        self.pose_head = nn.Sequential(
+            nn.Linear(self.d_model, self.d_model),
+            nn.ReLU(),
+            nn.Linear(self.d_model, self.num_future_frames * 144 * 2)
+        )
+
+        self.pose_score_regularizer = nn.Softplus()
+
         self.forward_ret_dict = {}
 
     def build_dense_future_prediction_layers(self, hidden_dim, num_future_frames):
@@ -353,8 +361,13 @@ class MTRDecoder(nn.Module):
                 pred_trajs = torch.cat((pred_trajs, pred_vel), dim=-1)
             else:
                 pred_trajs = self.motion_reg_heads[layer_idx](query_content_t).view(num_center_objects, num_query, self.num_future_frames, 7)
+            
+            pred_pose_and_score = self.pose_head(query_content_t).view(num_center_objects, num_query, self.num_future_frames, 144*2)
 
-            pred_list.append([pred_scores, pred_trajs])
+            pred_pose = pred_pose_and_score[..., :144]  # (num_center_objects, num_query, num_future_frames, 144)
+            pred_pose_score = self.pose_score_regularizer(pred_pose_and_score[..., 144:])  # (num_center_objects, num_query, num_future_frames, 144)
+
+            pred_list.append([pred_scores, pred_trajs, pred_pose_score, pred_pose])
 
             # update
             pred_waypoints = pred_trajs[:, :, :, 0:2]
@@ -526,7 +539,7 @@ class MTRDecoder(nn.Module):
         # dense future prediction
         obj_feature, pred_dense_future_trajs = self.apply_dense_future_prediction(
             obj_feature=obj_feature, obj_mask=obj_mask, obj_pos=obj_pos
-        )
+        ) # (num_center_objects, num_objects, C), (num_center_objects, num_objects, num_future_frames, 7)
         # decoder layers
         pred_list = self.apply_transformer_decoder(
             center_objects_feature=center_objects_feature,
