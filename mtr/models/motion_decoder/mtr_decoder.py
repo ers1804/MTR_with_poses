@@ -79,11 +79,11 @@ class MTRDecoder(nn.Module):
             in_channels=self.d_model, hidden_size=self.d_model, num_decoder_layers=self.num_decoder_layers
         )
 
-        self.pose_heads = self.build_pose_head(
+        self.pose_heads, self.pose_cls_heads = self.build_pose_heads(
             in_channels=self.d_model, hidden_size=self.d_model, num_decoder_layers=self.num_decoder_layers
         )
 
-        self.pose_score_regularizer = nn.Softplus()
+        #self.pose_score_regularizer = nn.Softplus()
 
         self.smpl_layer = SMPL_Layer(
         center_idx=0,
@@ -163,12 +163,17 @@ class MTRDecoder(nn.Module):
     def build_pose_head(self, in_channels, hidden_size, num_decoder_layers):
         pose_head =  common_layers.build_mlps(
             c_in=in_channels,
-            mlp_channels=[hidden_size, hidden_size, self.num_future_frames * 144 * 2], ret_before_act=True
+            mlp_channels=[hidden_size, hidden_size, self.num_future_frames * 144], ret_before_act=True
+        )
+        pose_cls_head = common_layers.build_mlps(
+            c_in=in_channels,
+            mlp_channels=[hidden_size, hidden_size, 1], ret_before_act=True
         )
 
         pose_heads = nn.ModuleList([copy.deepcopy(pose_head) for _ in range(num_decoder_layers)])
-        return pose_heads
-
+        pose_cls_heads = nn.ModuleList([copy.deepcopy(pose_cls_head) for _ in range(num_decoder_layers)])
+        return pose_heads, pose_cls_heads
+    
     def apply_dense_future_prediction(self, obj_feature, obj_mask, obj_pos):
         num_center_objects, num_objects, _ = obj_feature.shape
 
@@ -377,10 +382,9 @@ class MTRDecoder(nn.Module):
             else:
                 pred_trajs = self.motion_reg_heads[layer_idx](query_content_t).view(num_center_objects, num_query, self.num_future_frames, 7)
             
-            pred_pose_and_score = self.pose_heads[layer_idx](query_content_t).view(num_center_objects, num_query, self.num_future_frames, 144*2)
-
-            pred_pose = pred_pose_and_score[..., :144]  # (num_center_objects, num_query, num_future_frames, 144)
-            pred_pose_score = self.pose_score_regularizer(pred_pose_and_score[..., 144:])  # (num_center_objects, num_query, num_future_frames, 144)
+            pred_pose = self.pose_heads[layer_idx](query_content_t).view(num_center_objects, num_query, self.num_future_frames, 144)
+            pred_pose_score = self.pose_cls_heads[layer_idx](query_content_t).view(num_center_objects, num_query)
+            #pred_pose_score = self.pose_score_regularizer(pred_pose_score)
 
             pred_list.append([pred_scores, pred_trajs, pred_pose_score, pred_pose])
 
@@ -490,7 +494,8 @@ class MTRDecoder(nn.Module):
                 gt_joints=pose_gt_joints
             )
 
-            loss_geo = F.mse_loss(pose_gt, pred_pose, reduction='mean')
+            #loss_geo = F.mse_loss(pose_gt, pred_pose, reduction='mean')
+            loss_geo = loss_utils.geodesic_distance_6d(pred_pose, pose_gt)
 
             loss_reg_gmm, center_gt_positive_idx = loss_utils.nll_loss_gmm_direct(
                 pred_scores=pred_scores, pred_trajs=pred_trajs_gmm,
@@ -499,11 +504,20 @@ class MTRDecoder(nn.Module):
                 timestamp_loss_weight=None, use_square_gmm=False,
             )
 
+            loss_pose_reg_gmm, pose_gt_positive_idx = loss_utils.nll_loss_pose_gmm(
+                pred_poses=pred_pose,
+                gt_poses=pose_gt,
+                pred_scores=pred_pose_scores,
+                gt_valid_mask=center_gt_trajs_mask,
+            )
+
             pred_vel = pred_vel[torch.arange(num_center_objects), center_gt_positive_idx]
             loss_reg_vel = F.l1_loss(pred_vel, center_gt_trajs[:, :, 2:4], reduction='none')
             loss_reg_vel = (loss_reg_vel * center_gt_trajs_mask[:, :, None]).sum(dim=-1).sum(dim=-1)
 
             loss_cls = F.cross_entropy(input=pred_scores, target=center_gt_positive_idx, reduction='none')
+
+            loss_cls_pose = F.cross_entropy(input=pred_pose_scores, target=pose_gt_positive_idx, reduction='none')
 
             # total loss
             weight_cls = self.model_cfg.LOSS_WEIGHTS.get('cls', 1.0)
@@ -511,8 +525,10 @@ class MTRDecoder(nn.Module):
             weight_vel = self.model_cfg.LOSS_WEIGHTS.get('vel', 0.2)
             weight_mpjpe = self.model_cfg.LOSS_WEIGHTS.get('mpjpe', 1.0)
             weight_geo = self.model_cfg.LOSS_WEIGHTS.get('geo', 1.0)
+            weight_cls_pose = self.model_cfg.LOSS_WEIGHTS.get('cls_pose', 1.0)
+            weight_gmm_pose = self.model_cfg.LOSS_WEIGHTS.get('gmm_pose', 1.0)
 
-            layer_loss = loss_reg_gmm * weight_reg + loss_reg_vel * weight_vel + loss_cls.sum(dim=-1) * weight_cls + loss_mpjpe * weight_mpjpe + loss_geo * weight_geo
+            layer_loss = loss_reg_gmm * weight_reg + loss_reg_vel * weight_vel + loss_cls.sum(dim=-1) * weight_cls + loss_mpjpe * weight_mpjpe + loss_geo * weight_geo + loss_cls_pose.sum(dim=-1) * weight_cls_pose + loss_pose_reg_gmm * weight_gmm_pose
             layer_loss = layer_loss.mean()
             total_loss += layer_loss
             tb_dict[f'{tb_pre_tag}loss_layer{layer_idx}'] = layer_loss.item()
@@ -521,6 +537,8 @@ class MTRDecoder(nn.Module):
             tb_dict[f'{tb_pre_tag}loss_layer{layer_idx}_cls'] = loss_cls.mean().item() * weight_cls
             tb_dict[f'{tb_pre_tag}loss_layer{layer_idx}_mpjpe'] = loss_mpjpe.mean().item() * weight_mpjpe
             tb_dict[f'{tb_pre_tag}loss_layer{layer_idx}_geo'] = loss_geo.mean().item() * weight_geo
+            tb_dict[f'{tb_pre_tag}loss_layer{layer_idx}_cls_pose'] = loss_cls_pose.mean().item() * weight_cls_pose
+            tb_dict[f'{tb_pre_tag}loss_layer{layer_idx}_gmm_pose'] = loss_pose_reg_gmm.mean().item() * weight_gmm_pose
 
             if layer_idx + 1 == self.num_decoder_layers:
                 layer_tb_dict_ade = motion_utils.get_ade_of_each_category(

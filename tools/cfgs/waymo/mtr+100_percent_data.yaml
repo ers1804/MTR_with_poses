@@ -80,7 +80,9 @@ MODEL:
             'reg': 1.0, 
             'vel': 0.5,
             'mpjpe': 1.0,
-            'geo': 1.0
+            'geo': 1.0,
+            'cls_pose': 1.0,
+            'gmm_pose': 1.0
         }
 
         NMS_DIST_THRESH: 2.5
