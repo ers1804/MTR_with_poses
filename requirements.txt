@@ -1,6 +1,6 @@
 numpy
 torch>=1.1
-tensorboardX
+wandb
 easydict
 pyyaml
 scikit-image

@@ -36,12 +36,12 @@ def train_one_epoch(model, optimizer, train_loader, accumulated_iter, optim_cfg,
         if scheduler is not None:
             try:
                 scheduler.step(accumulated_iter)
-            except:
+            except TypeError:
                 scheduler.step()
 
         try:
             cur_lr = float(optimizer.lr)
-        except:
+        except (AttributeError, TypeError):
             cur_lr = optimizer.param_groups[0]['lr']
 
         model.train()
@@ -63,7 +63,7 @@ def train_one_epoch(model, optimizer, train_loader, accumulated_iter, optim_cfg,
         accumulated_iter += 1
         disp_dict.update({'loss': loss.item(), 'lr': cur_lr})
 
-        # log to console and tensorboard
+        # log to console and wandb
         if rank == 0:
             if accumulated_iter % logger_iter_interval == 0 or cur_it == start_it or cur_it + 1 == total_it_each_epoch:
                 trained_time_past_all = tbar.format_dict['elapsed']
@@ -82,14 +82,13 @@ def train_one_epoch(model, optimizer, train_loader, accumulated_iter, optim_cfg,
                             f'{disp_str}')
 
             if tb_log is not None:
-                tb_log.add_scalar('meta_data/learning_rate', cur_lr, accumulated_iter)
-                for key, val in tb_dict.items():
-                    tb_log.add_scalar('train/' + key, val, accumulated_iter)
-                tb_log.add_scalar('train/total_norm', total_norm, accumulated_iter)
+                log_dict = {'meta_data/learning_rate': cur_lr, 'train/total_norm': total_norm}
+                log_dict.update({f'train/{key}': val for key, val in tb_dict.items()})
                 if show_grad_curve:
                     for key, val in model.named_parameters():
                         key = key.replace('.', '/')
-                        tb_log.add_scalar('train_grad/' + key, val.grad.abs().max().item(), accumulated_iter)
+                        log_dict[f'train_grad/{key}'] = val.grad.abs().max().item()
+                tb_log.log(log_dict, step=accumulated_iter)
 
             time_past_this_epoch = pbar.format_dict['elapsed']
             if time_past_this_epoch // ckpt_save_time_interval >= ckpt_save_cnt:
@@ -181,28 +180,45 @@ def train_model(model, optimizer, train_loader, optim_cfg,
                     result_dir=eval_output_dir, save_to_file=False, logger_iter_interval=max(logger_iter_interval // 5, 1)
                 )
                 if cfg.LOCAL_RANK == 0:
-                    for key, val in tb_dict.items():
-                        tb_log.add_scalar('eval/' + key, val, trained_epoch)
+                    tb_log.log({f'eval/{key}': val for key, val in tb_dict.items()}, step=trained_epoch)
 
-                    if 'mAP' in tb_dict:
+                    # Pick the primary metric for best-model tracking.
+                    # Prefer 'mAP' (Waymo eval), fall back to 'minADE' or first numeric key.
+                    primary_metric = None
+                    for _m in ['mAP', 'minADE']:
+                        if _m in tb_dict:
+                            primary_metric = _m
+                            break
+                    if primary_metric is None:
+                        for _m in tb_dict:
+                            if isinstance(tb_dict[_m], (int, float)):
+                                primary_metric = _m
+                                break
+
+                    if primary_metric is not None:
+                        higher_is_better = (primary_metric == 'mAP')
                         best_record_file = eval_output_dir / ('best_eval_record.txt')
 
                         try:
                             with open(best_record_file, 'r') as f:
                                 best_src_data = f.readlines()
 
-                            best_performance = best_src_data[-1].strip().split(' ')[-1]  # best_epoch_xx MissRate 0.xx
+                            best_performance = best_src_data[-1].strip().split(' ')[-1]
                             best_performance = float(best_performance)
-                        except:
+                        except (IOError, IndexError, ValueError):
                             with open(best_record_file, 'a') as f:
                                 pass
                             best_performance = -1
 
-
                         with open(best_record_file, 'a') as f:
-                            print(f'epoch_{trained_epoch} mAP {tb_dict["mAP"]}', file=f)
+                            print(f'epoch_{trained_epoch} {primary_metric} {tb_dict[primary_metric]}', file=f)
 
-                        if best_performance == -1 or tb_dict['mAP'] > float(best_performance):
+                        cur_perf = tb_dict[primary_metric]
+                        is_better = (best_performance == -1) or \
+                                    (higher_is_better and cur_perf > best_performance) or \
+                                    (not higher_is_better and cur_perf < best_performance)
+
+                        if is_better:
                             ckpt_name = ckpt_save_dir / 'best_model'
                             save_checkpoint(
                                 checkpoint_state(model, epoch=cur_epoch, it=accumulated_iter), filename=ckpt_name,
@@ -210,12 +226,10 @@ def train_model(model, optimizer, train_loader, optim_cfg,
                             logger.info(f'Save best model to {ckpt_name}')
 
                             with open(best_record_file, 'a') as f:
-                                print(f'best_epoch_{trained_epoch} mAP {tb_dict["mAP"]}', file=f)
+                                print(f'best_epoch_{trained_epoch} {primary_metric} {cur_perf}', file=f)
                         else:
                             with open(best_record_file, 'a') as f:
                                 print(f'{best_src_data[-1].strip()}', file=f)
-                    else:
-                        raise NotImplementedError
 
 
 def model_state_to_cpu(model_state):
@@ -238,18 +252,12 @@ def checkpoint_state(model=None, optimizer=None, epoch=None, it=None):
     try:
         import mtr
         version = 'mtr+' + mtr.__version__
-    except:
+    except Exception:
         version = 'none'
 
     return {'epoch': epoch, 'it': it, 'model_state': model_state, 'optimizer_state': optim_state, 'version': version}
 
 
 def save_checkpoint(state, filename='checkpoint'):
-    if False and 'optimizer_state' in state:
-        optimizer_state = state['optimizer_state']
-        state.pop('optimizer_state', None)
-        optimizer_filename = '{}_optim.pth'.format(filename)
-        torch.save({'optimizer_state': optimizer_state}, optimizer_filename)
-
     filename = '{}.pth'.format(filename)
     torch.save(state, filename)

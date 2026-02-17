@@ -32,7 +32,7 @@ def cfg_from_list(cfg_list, config):
         assert subkey in d, 'NotFoundKey: %s' % subkey
         try:
             value = literal_eval(v)
-        except:
+        except (ValueError, SyntaxError):
             value = v
 
         if type(value) != type(d[subkey]) and isinstance(d[subkey], EasyDict):
@@ -58,7 +58,7 @@ def merge_new_config(config, new_config):
         with open(new_config['_BASE_CONFIG_'], 'r') as f:
             try:
                 yaml_config = yaml.load(f, Loader=yaml.FullLoader)
-            except:
+            except Exception:
                 yaml_config = yaml.load(f)
         config.update(EasyDict(yaml_config))
 
@@ -77,7 +77,7 @@ def cfg_from_yaml_file(cfg_file, config):
     with open(cfg_file, 'r') as f:
         try:
             new_config = yaml.load(f, Loader=yaml.FullLoader)
-        except:
+        except Exception:
             new_config = yaml.load(f)
 
         merge_new_config(config=config, new_config=new_config)

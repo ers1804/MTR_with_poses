@@ -13,10 +13,59 @@ import torch.nn.functional as F
 from mtr.models.utils.transformer import transformer_decoder_layer
 from mtr.models.utils.transformer import position_encoding_utils
 from mtr.models.utils import common_layers
-from mtr.utils import common_utils, loss_utils, motion_utils
+from mtr.utils import loss_utils, motion_utils
 from mtr.config import cfg
 
 from smplpytorch.pytorch.smpl_layer import SMPL_Layer
+
+
+def rotation_6d_to_matrix(d6):
+    """Convert 6D rotation representation to 3x3 rotation matrix via Gram-Schmidt.
+
+    Args:
+        d6: (..., 6) 6D rotation vectors.
+    Returns:
+        rot_mat: (..., 3, 3) rotation matrices.
+    """
+    a1 = F.normalize(d6[..., :3], dim=-1)
+    a2 = d6[..., 3:6]
+    b2 = a2 - (a1 * a2).sum(dim=-1, keepdim=True) * a1
+    b2 = F.normalize(b2, dim=-1)
+    b3 = torch.cross(a1, b2, dim=-1)
+    return torch.stack([a1, b2, b3], dim=-1)  # (..., 3, 3)
+
+
+def rotation_matrix_to_axis_angle(rot_mat):
+    """Convert rotation matrices to axis-angle representation.
+
+    Args:
+        rot_mat: (..., 3, 3) rotation matrices.
+    Returns:
+        axis_angle: (..., 3) axis-angle vectors.
+    """
+    batch_shape = rot_mat.shape[:-2]
+    rot_flat = rot_mat.reshape(-1, 3, 3)
+
+    trace = rot_flat[:, 0, 0] + rot_flat[:, 1, 1] + rot_flat[:, 2, 2]
+    cos_angle = ((trace - 1.0) / 2.0).clamp(-1.0 + 1e-7, 1.0 - 1e-7)
+    angle = torch.acos(cos_angle)  # (N,)
+
+    # Axis from skew-symmetric part of R
+    axis = torch.stack([
+        rot_flat[:, 2, 1] - rot_flat[:, 1, 2],
+        rot_flat[:, 0, 2] - rot_flat[:, 2, 0],
+        rot_flat[:, 1, 0] - rot_flat[:, 0, 1],
+    ], dim=-1)  # (N, 3)
+
+    axis_norm = axis.norm(dim=-1, keepdim=True).clamp(min=1e-8)
+    axis = axis / axis_norm
+
+    # For near-zero angles, use identity axis (gradient-safe)
+    small_mask = angle.abs() < 1e-6
+    axis[small_mask] = torch.tensor([1.0, 0.0, 0.0], device=rot_mat.device, dtype=rot_mat.dtype)
+
+    axis_angle = axis * angle[:, None]
+    return axis_angle.reshape(batch_shape + (3,))
 
 
 class MTRDecoder(nn.Module):
@@ -79,7 +128,7 @@ class MTRDecoder(nn.Module):
             in_channels=self.d_model, hidden_size=self.d_model, num_decoder_layers=self.num_decoder_layers
         )
 
-        self.pose_heads, self.pose_cls_heads = self.build_pose_heads(
+        self.pose_heads, self.pose_cls_heads = self.build_pose_head(
             in_channels=self.d_model, hidden_size=self.d_model, num_decoder_layers=self.num_decoder_layers
         )
 
@@ -90,7 +139,25 @@ class MTRDecoder(nn.Module):
         gender='neutral',
         model_root=self.model_cfg.SMPL_MODEL_DIR)
 
+        # Freeze SMPL layer — it should not be trained
+        for param in self.smpl_layer.parameters():
+            param.requires_grad = False
+
         self.forward_ret_dict = {}
+
+    def _pose_6d_to_axis_angle(self, pose_6d):
+        """Convert 6D rotation poses to axis-angle for SMPL.
+
+        Args:
+            pose_6d: (..., 144) = 24 joints × 6D rotation.
+        Returns:
+            axis_angle: (N, 72) = 24 joints × 3, flattened for SMPL.
+        """
+
+        flat = pose_6d.reshape(-1, 24, 6)  # (N, 24, 6)
+        rot_mat = rotation_6d_to_matrix(flat)  # (N, 24, 3, 3)
+        aa = rotation_matrix_to_axis_angle(rot_mat)  # (N, 24, 3)
+        return aa.reshape(-1, 72)  # (N, 72)
 
     def build_dense_future_prediction_layers(self, hidden_dim, num_future_frames):
         self.obj_pos_encoding_layer = common_layers.build_mlps(
@@ -462,13 +529,21 @@ class MTRDecoder(nn.Module):
 
         pose_gt = self.forward_ret_dict['center_gt_poses'].cuda()  # (num_center_objects, num_future_frames, 144)
         shape_params = self.forward_ret_dict['center_shape_params'].cuda()  # (num_center_objects, 10)
-        _, pose_gt_joints = self.smpl_layer(pose=pose_gt, betas=shape_params)
 
         pred_list = self.forward_ret_dict['pred_list']
         intention_points = self.forward_ret_dict['intention_points']  # (num_center_objects, num_query, 2)
 
         num_center_objects = center_gt_trajs.shape[0]
         center_gt_goals = center_gt_trajs[torch.arange(num_center_objects), center_gt_final_valid_idx, 0:2]  # (num_center_objects, 2)
+
+        # Expand betas for all future frames: (num_center_objects * num_future_frames, 10)
+        betas_expanded = shape_params[:, None, :].expand(-1, self.num_future_frames, -1).reshape(-1, 10)
+
+        # Compute GT joints once (no grad needed for GT)
+        with torch.no_grad():
+            pose_gt_aa = self._pose_6d_to_axis_angle(pose_gt)  # (B*T, 72)
+            _, pose_gt_joints = self.smpl_layer(pose_gt_aa, betas_expanded)
+            pose_gt_joints = pose_gt_joints.reshape(num_center_objects, self.num_future_frames, -1, 3)
 
         if not self.use_place_holder:
             dist = (center_gt_goals[:, None, :] - intention_points).norm(dim=-1)  # (num_center_objects, num_query)
@@ -487,16 +562,7 @@ class MTRDecoder(nn.Module):
             assert pred_trajs.shape[-1] == 7
             pred_trajs_gmm, pred_vel = pred_trajs[:, :, :, 0:5], pred_trajs[:, :, :, 5:7]
 
-            _, pred_pose_joints = self.smpl_layer(pose=pred_pose, betas=shape_params)
-
-            loss_mpjpe = self.get_mpjpe_loss(
-                pred_joints=pred_pose_joints,
-                gt_joints=pose_gt_joints
-            )
-
-            #loss_geo = F.mse_loss(pose_gt, pred_pose, reduction='mean')
-            loss_geo = loss_utils.geodesic_distance_6d(pred_pose, pose_gt)
-
+            # --- Motion losses ---
             loss_reg_gmm, center_gt_positive_idx = loss_utils.nll_loss_gmm_direct(
                 pred_scores=pred_scores, pred_trajs=pred_trajs_gmm,
                 gt_trajs=center_gt_trajs[:, :, 0:2], gt_valid_mask=center_gt_trajs_mask,
@@ -504,12 +570,32 @@ class MTRDecoder(nn.Module):
                 timestamp_loss_weight=None, use_square_gmm=False,
             )
 
+            # --- Pose mode selection (winner-takes-all L1) ---
             loss_pose_reg_gmm, pose_gt_positive_idx = loss_utils.nll_loss_pose_gmm(
                 pred_poses=pred_pose,
                 gt_poses=pose_gt,
                 pred_scores=pred_pose_scores,
                 gt_valid_mask=center_gt_trajs_mask,
             )
+
+            # --- Select best pose mode for MPJPE and geodesic losses ---
+            batch_idxs = torch.arange(num_center_objects, device=pred_pose.device)
+            pred_pose_best = pred_pose[batch_idxs, pose_gt_positive_idx]  # (B, T, 144)
+
+            # MPJPE loss: convert best mode 6D → axis-angle → SMPL joints
+            pred_pose_aa = self._pose_6d_to_axis_angle(pred_pose_best)  # (B*T, 72)
+            _, pred_pose_joints_raw = self.smpl_layer(pred_pose_aa, betas_expanded)
+            pred_pose_joints = pred_pose_joints_raw.reshape(num_center_objects, self.num_future_frames, -1, 3)
+
+            loss_mpjpe = self.get_mpjpe_loss(
+                pred_joints=pred_pose_joints,
+                gt_joints=pose_gt_joints
+            )
+
+            # Geodesic loss on 6D representations (per-joint)
+            pred_6d = pred_pose_best.reshape(num_center_objects, self.num_future_frames, 24, 6)
+            gt_6d = pose_gt.reshape(num_center_objects, self.num_future_frames, 24, 6)
+            loss_geo = loss_utils.geodesic_distance_6d(pred_6d, gt_6d).mean()
 
             pred_vel = pred_vel[torch.arange(num_center_objects), center_gt_positive_idx]
             loss_reg_vel = F.l1_loss(pred_vel, center_gt_trajs[:, :, 2:4], reduction='none')
@@ -669,5 +755,8 @@ class MTRDecoder(nn.Module):
             self.forward_ret_dict['obj_trajs_future_mask'] = input_dict['obj_trajs_future_mask']
 
             self.forward_ret_dict['center_objects_type'] = input_dict['center_objects_type']
+
+            self.forward_ret_dict['center_gt_poses'] = input_dict['center_gt_poses']
+            self.forward_ret_dict['center_shape_params'] = input_dict['center_shape_params']
 
         return batch_dict

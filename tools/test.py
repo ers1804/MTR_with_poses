@@ -14,7 +14,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from tensorboardX import SummaryWriter
+import wandb
 
 from eval_utils import eval_utils
 from mtr.config import cfg, cfg_from_list, cfg_from_yaml_file, log_config_to_file
@@ -99,9 +99,17 @@ def repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir
     with open(ckpt_record_file, 'a'):
         pass
 
-    # tensorboard log
-    if cfg.LOCAL_RANK == 0:
-        tb_log = SummaryWriter(log_dir=str(eval_output_dir / 'tensorboard_val'))
+    # wandb log (only init if not already initialized, e.g. when called from train.py)
+    if cfg.LOCAL_RANK == 0 and wandb.run is None:
+        wandb.init(
+            entity="erik_hm",
+            project="MTR-SMPL",
+            name=args.extra_tag,
+            id=args.extra_tag,
+            config=cfg,
+            resume="allow",
+            dir=str(eval_output_dir),
+        )
     total_time = 0
     first_eval = True
 
@@ -134,8 +142,7 @@ def repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir
         )
 
         if cfg.LOCAL_RANK == 0:
-            for key, val in tb_dict.items():
-                tb_log.add_scalar('eval/' + key, val, cur_epoch_id)
+            wandb.log({f'eval/{key}': val for key, val in tb_dict.items()}, step=int(float(cur_epoch_id)))
 
         # record this epoch which has been evaluated
         with open(ckpt_record_file, 'a') as f:

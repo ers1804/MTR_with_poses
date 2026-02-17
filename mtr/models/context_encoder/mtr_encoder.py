@@ -4,7 +4,6 @@
 # All Rights Reserved
 
 
-import numpy as np
 import torch
 import torch.nn as nn
 from torchvision.ops import MLP
@@ -94,7 +93,6 @@ class MTREncoder(nn.Module):
 
         batch_size, N, d_model = x.shape
         x_t = x.permute(1, 0, 2)
-        x_mask_t = x_mask.permute(1, 0, 2)
         x_pos_t = x_pos.permute(1, 0, 2)
  
         pos_embedding = position_encoding_utils.gen_sineembed_for_position(x_pos_t, hidden_dim=d_model)
@@ -102,7 +100,7 @@ class MTREncoder(nn.Module):
         for k in range(len(self.self_attn_layers)):
             x_t = self.self_attn_layers[k](
                 src=x_t,
-                src_key_padding_mask=~x_mask_t,
+                src_key_padding_mask=~x_mask,
                 pos=pos_embedding
             )
         x_out = x_t.permute(1, 0, 2)  # (batch_size, N, d_model)
@@ -189,8 +187,7 @@ class MTREncoder(nn.Module):
         combined_valid_mask = (combined_mask.sum(dim=-1) > 0)  # (num_center_objects, num_objects)
         obj_poses_buffer = obj_poses.new_zeros(num_center_objects * num_objects, self.model_cfg.D_MODEL)
         _, final_hidden = self.pose_encoder(obj_poses.reshape(-1, num_timestamps, obj_poses.shape[-1]))  # (N, T, C), (num_layers, N, C)
-        if len(final_hidden.shape) == 3:
-            final_hidden = final_hidden[-1]  # (N, C)
+        final_hidden = final_hidden[-1]  # Take last layer output: (N, C)
         obj_poses_buffer[combined_valid_mask.view(-1)] = final_hidden[combined_valid_mask.view(-1)]
         obj_poses_feature = obj_poses_buffer.view(num_center_objects, num_objects, self.model_cfg.D_MODEL)
         # fuse pose feature and polyline feature

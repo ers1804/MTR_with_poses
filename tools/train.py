@@ -8,13 +8,13 @@ import argparse
 import datetime
 import glob
 import os
+import shutil
 from pathlib import Path
-import math
 
 import torch
 import torch.nn as nn
 import torch.optim.lr_scheduler as lr_sched
-from tensorboardX import SummaryWriter
+import wandb
 
 from mtr.datasets import build_dataloader
 from mtr.config import cfg, cfg_from_list, cfg_from_yaml_file, log_config_to_file
@@ -151,8 +151,19 @@ def main():
         logger.info('{:16} {}'.format(key, val))
     log_config_to_file(cfg, logger=logger)
     if cfg.LOCAL_RANK == 0:
-        os.system('cp %s %s' % (args.cfg_file, output_dir))
-    tb_log = SummaryWriter(log_dir=str(output_dir / 'tensorboard')) if cfg.LOCAL_RANK == 0 else None
+        shutil.copy2(args.cfg_file, str(output_dir))
+    if cfg.LOCAL_RANK == 0:
+
+        wandb.init(
+            entity="erik_hm",
+            project="MTR-SMPL",
+            name=args.extra_tag,
+            id=args.extra_tag,
+            config=cfg,
+            resume="allow",
+            dir=str(output_dir),
+        )
+    tb_log = wandb if cfg.LOCAL_RANK == 0 else None
 
     train_set, train_loader, train_sampler = build_dataloader(
         dataset_cfg=cfg.DATA_CONFIG,
@@ -199,7 +210,7 @@ def main():
                     )
                     last_epoch = start_epoch + 1
                     break
-                except:
+                except Exception:
                     ckpt_list = ckpt_list[:-1]
 
     scheduler = build_scheduler(
@@ -260,7 +271,7 @@ def main():
     eval_output_dir = output_dir / 'eval' / 'eval_with_train'
     eval_output_dir.mkdir(parents=True, exist_ok=True)
     args.start_epoch = max(args.epochs - 0, 0)  # Only evaluate the last 10 epochs
-    cfg.DATA_CONFIG.SAMPLE_INTERVAL.val = 1
+    cfg.DATA_CONFIG.SAMPLE_INTERVAL.test = 1
 
     test_set, test_loader, sampler = build_dataloader(
         dataset_cfg=cfg.DATA_CONFIG,
@@ -268,7 +279,7 @@ def main():
         dist=dist_train, workers=args.workers, logger=logger, training=False
     )
 
-    from test import repeat_eval_ckpt, eval_single_ckpt
+    from test import repeat_eval_ckpt
     repeat_eval_ckpt(
         model.module if dist_train else model,
         test_loader, args, eval_output_dir, logger, ckpt_dir,
