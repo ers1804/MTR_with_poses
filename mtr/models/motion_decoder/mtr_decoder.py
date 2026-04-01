@@ -139,6 +139,13 @@ class MTRDecoder(nn.Module):
         gender='neutral',
         model_root=self.model_cfg.SMPL_MODEL_DIR)
 
+        # Truncate shape blend dirs to standard 10 betas (pkl may have 300)
+        num_betas = 10
+        if self.smpl_layer.th_shapedirs.shape[2] != num_betas:
+            self.smpl_layer.th_shapedirs = self.smpl_layer.th_shapedirs[:, :, :num_betas].contiguous()
+        if self.smpl_layer.th_betas.shape[1] != num_betas:
+            self.smpl_layer.th_betas = self.smpl_layer.th_betas[:, :num_betas].contiguous()
+
         # Freeze SMPL layer — it should not be trained
         for param in self.smpl_layer.parameters():
             param.requires_grad = False

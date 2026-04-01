@@ -201,6 +201,11 @@ class WaymoPoseDataset(DatasetTemplate):
         return len(self.infos)
 
     def __getitem__(self, index):
+        for _ in range(10):
+            try:
+                return self.create_scene_level_data(index)
+            except (ValueError, IndexError):
+                index = np.random.randint(0, len(self.infos))
         return self.create_scene_level_data(index)
 
     def _load_pedestrian(self, npz_path):
@@ -216,7 +221,7 @@ class WaymoPoseDataset(DatasetTemplate):
         root_orient = data['root_orient'].astype(np.float32)  # (N, 3)
         pose_body = data['pose_body'].astype(np.float32)   # (N, 69)
         betas = data['betas'].astype(np.float32)           # (10,)
-        timestamps = data['waymo_timestamps'].astype(np.float64)  # (N,)
+        timestamps = data['waymo_timestamps'].astype(np.float64) / 1e6  # (N,) convert µs → seconds
 
         N = len(timestamps)
 
@@ -410,12 +415,12 @@ class WaymoPoseDataset(DatasetTemplate):
                 track_index_to_predict_selected.append(obj_idx)
 
         if len(center_objects_list) == 0:
-            # Fallback: use the first object with any valid timestep
+            # Fallback: use the first object with at least one valid PAST timestep
             for obj_idx in range(len(obj_trajs_full)):
-                if obj_trajs_full[obj_idx, :, -1].sum() > 0:
-                    # Use the last valid timestep as the "current" state
-                    valid_times = np.where(obj_trajs_full[obj_idx, :, -1] > 0)[0]
-                    last_valid = min(valid_times[-1], current_time_index)
+                past_valid = obj_trajs_full[obj_idx, :current_time_index + 1, -1].sum() > 0
+                if past_valid:
+                    valid_times = np.where(obj_trajs_full[obj_idx, :current_time_index + 1, -1] > 0)[0]
+                    last_valid = valid_times[-1]
                     center_objects_list.append(obj_trajs_full[obj_idx, last_valid])
                     track_index_to_predict_selected.append(obj_idx)
                     break

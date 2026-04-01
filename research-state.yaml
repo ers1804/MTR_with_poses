@@ -1,0 +1,103 @@
+project:
+  title: "MTR with SMPL Poses"
+  question: "Does conditioning on past SMPL body poses improve pedestrian trajectory prediction in MTR, and what is the best pose-trajectory joint learning strategy?"
+  status: active
+  started: "2026-04-01"
+  domain: "trajectory prediction, human pose estimation, autonomous driving"
+
+literature:
+  key_papers:
+    - id: "shi2022mtr"
+      title: "Motion Transformer with Global Intention Localization and Local Movement Refinement"
+      authors: "Shi et al."
+      year: 2022
+      relevance: "Base model — MTR for multimodal trajectory prediction on Waymo Open Motion"
+    - id: "loper2015smpl"
+      title: "SMPL: A Skinned Multi-Person Linear Model"
+      authors: "Loper et al."
+      year: 2015
+      relevance: "Parametric human body model used for pose representation"
+    - id: "zhou2019continuity"
+      title: "On the Continuity of Rotation Representations in Neural Networks"
+      authors: "Zhou et al."
+      year: 2019
+      relevance: "6D rotation representation used for pose encoding (avoids gimbal lock)"
+  open_problems:
+    - "No existing work jointly models pedestrian trajectory + full-body SMPL pose in an end-to-end transformer"
+    - "It is unclear whether pose information helps or hurts trajectory prediction (different agents, noise in SMPL estimates)"
+    - "Multimodal pose prediction (6 modes) needs a proper GMM loss on SO(3)"
+  evidence_gaps:
+    - "MPJPE vs geodesic loss trade-off for SMPL pose supervision"
+    - "Whether GRU+MLP fusion is sufficient or cross-attention is needed for pose encoding"
+
+hypotheses:
+  - id: H0
+    statement: "The data loading pipeline works correctly: timestamps are in microseconds and must be divided by 1e6 before mapping to the Waymo time grid."
+    status: supported
+    motivation: "Critical sanity check — waymo_timestamps are [0, 100020, 200010, ...] µs, not seconds. Without fixing this, all pose data maps to wrong timesteps."
+    priority: high
+
+  - id: H1
+    statement: "A baseline MTR+pose model (GRU encoder + MPJPE + geodesic + NLL loss) can be successfully trained on the extracted Waymo pose dataset and converge within 30 epochs."
+    status: running
+    run_tag: "H1_pose_all_losses"
+    started: "2026-04-01T14:19"
+    motivation: "Must establish that the full pipeline (data loading → encoding → decoding → loss) is bug-free before ablating components."
+    priority: high
+
+  - id: H2
+    statement: "Conditioning on past SMPL poses improves pedestrian minADE/minFDE/mAP vs. a trajectory-only baseline (ablation: GRU pose encoder disabled, all pose losses zeroed)."
+    status: pending
+    motivation: "Core research question. Pose reveals walking direction, gait phase, and interaction context that trajectory alone cannot capture."
+    priority: high
+
+  - id: H3
+    statement: "MPJPE + geodesic combined loss outperforms either loss alone for pose supervision quality."
+    status: pending
+    motivation: "MPJPE operates in joint position space; geodesic in rotation space. They are complementary supervisory signals."
+    priority: medium
+
+  - id: H4
+    statement: "Pose mode classification loss (cls_pose) is necessary for sharp multimodal pose prediction; removing it degrades MPJPE."
+    status: pending
+    motivation: "Without mode selection supervision, all modes collapse to the mean pose."
+    priority: medium
+
+  - id: H5
+    statement: "The current GRU+MLP pose encoding is a bottleneck; replacing it with cross-attention between pose tokens and agent features improves both trajectory and pose metrics."
+    status: pending
+    motivation: "GRU compresses the entire past pose sequence into one vector before fusion. Cross-attention could attend to relevant timesteps."
+    priority: low
+
+experiments:
+  proxy_metric: "minADE_TYPE_PEDESTRIAN (minADE over 6 modes at final layer, lower is better)"
+  baseline_value: null
+  best_value: null
+  total_runs: 1
+  trajectory:
+    - run_id: "run_001"
+      tag: "H1_pose_all_losses"
+      hypothesis: "H1"
+      status: "running"
+      started: "2026-04-01T14:19"
+      config: "tools/cfgs/waymo/mtr+pose_data.yaml"
+      batch_size: 10
+      epochs: 30
+      losses: [cls, reg, vel, mpjpe, geo, cls_pose, gmm_pose]
+      notes: "Full pose model. All bugs fixed. First successful training run."
+
+outer_loop:
+  cycle: 0
+  last_direction: null
+  last_reflection: "Bootstrap — setting up workspace, fixing data bugs, preparing first training run."
+
+workspace:
+  findings: "findings.md"
+  log: "research-log.md"
+  literature_dir: "literature/"
+  experiments_dir: "experiments/"
+  to_human_dir: "to_human/"
+  paper_dir: "paper/"
+  data_root: "/home/erik/NAS/publicdatasets/waymo_motion/v_1_3_0/uncompressed/generated_motion/final_10fps"
+  config_pose: "tools/cfgs/waymo/mtr+pose_data.yaml"
+  smpl_models: "models/"
