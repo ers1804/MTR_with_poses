@@ -250,6 +250,34 @@ experiments:
       minADE_by_eval: [2.0209, 1.7540, 1.3268, 0.9699, 0.7982, 0.7116, 0.6655, 0.6860, 0.6413, 0.6856, 0.6876, 0.6530, 0.6712, 0.6511, 0.6539, 0.6415, 0.6281, 0.6497, 0.6405, 0.6231, 0.6379, 0.6379]
       notes: "VALID: Geodesic-only supervision. Best minADE=0.6231 (Δ=-7.6%) — NEW BEST. Better than full model (0.6532). Rotation-space loss in SO(3) is the dominant supervision signal. MPJPE conflicts with geo when combined."
 
+    - run_id: "run_011"
+      tag: "H3_geo_w05"
+      hypothesis: "H3_geo_weight"
+      status: "complete"
+      started: "2026-04-02T13:05"
+      finished: "2026-04-02T13:18"
+      config: "tools/cfgs/waymo/mtr+pose_data_geo_w05.yaml"
+      batch_size: 10
+      epochs: 30
+      losses: [cls, reg, vel, geo, gmm_pose]
+      loss_weights: {cls: 1.0, reg: 1.0, vel: 0.5, mpjpe: 0.0, geo: 0.05, cls_pose: 0.0, gmm_pose: 0.05}
+      best_minADE: 0.6786
+      best_epoch: 24
+      minADE_by_eval: [1.2562, 0.9761, 0.9588, 0.7215, 0.7194, 0.7884, 0.6955, 0.6953, 0.6985, 0.7128, 0.7379, 0.7429, 0.6786, 0.6939, 0.7256, 0.7069, 0.7158, 0.7021, 0.7060]
+      notes: "VALID: Geo weight w=0.05. Best minADE=0.6786 (Δ=-1.5% vs baseline, -8.9% vs w=0.1 geo_only). Too weak — geodesic signal needs sufficient weight to drive GRU encoder. Much worse than w=0.1 (0.6231). Optimal is clearly w=0.1 or above."
+
+    - run_id: "run_012"
+      tag: "H3_geo_w2"
+      hypothesis: "H3_geo_weight"
+      status: "in_progress"
+      started: "2026-04-02T14:04"
+      config: "tools/cfgs/waymo/mtr+pose_data_geo_w2.yaml"
+      batch_size: 10
+      epochs: 30
+      losses: [cls, reg, vel, geo, gmm_pose]
+      loss_weights: {cls: 1.0, reg: 1.0, vel: 0.5, mpjpe: 0.0, geo: 0.2, cls_pose: 0.0, gmm_pose: 0.2}
+      notes: "Running: geo weight w=0.2. Will determine if higher weight improves on w=0.1 (0.6231)."
+
 outer_loop:
   cycle: 6
   last_direction: "DEEPEN — geodesic loss is the dominant signal; explore geo weight tuning and cross-attention encoder (H5)"
