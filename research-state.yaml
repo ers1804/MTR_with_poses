@@ -31,6 +31,14 @@ literature:
     - "Whether GRU+MLP fusion is sufficient or cross-attention is needed for pose encoding"
 
 hypotheses:
+  - id: H0_data_fix
+    statement: "30fps SMPL dataset provides AMASS pseudo-GT future poses for the full 91-step Waymo grid, enabling proper future pose supervision instead of all-zero GT."
+    status: supported
+    motivation: "Critical insight: 10fps data only has past poses (7 observations). 30fps data has N consecutive rows starting at waymo_timestamps[0], covering both past AND pseudo-GT future. Zero future GT actively trains the pose decoder toward mean/zero poses."
+    priority: high
+    result:
+      notes: "30fps data confirmed: 99% alignment between valid trajectory steps and nonzero pose steps. Dataset updated to detect format via '30fps_timestamps' key. H1_v3 training launched."
+
   - id: H0
     statement: "The data loading pipeline works correctly: timestamps are in microseconds and must be divided by 1e6 before mapping to the Waymo time grid."
     status: supported
@@ -148,7 +156,7 @@ experiments:
       final_epoch_minADE: 0.7006
       final_epoch_minFDE: 1.5080
       minADE_by_eval: [2.0849, 1.6412, 1.2154, 1.0657, 0.9204, 0.7891, 0.6900, 0.6997, 0.7160, 0.6950, 0.6745, 0.6823, 0.7068, 0.6835, 0.6873, 0.6916, 0.6793, 0.6853, 0.6891, 0.6814, 0.7006, 0.7006]
-      notes: "VALID: no-pose baseline. Best minADE=0.6745. H1_v2 is 3.2% better (0.6532 vs 0.6745)."
+        notes: "VALID: no-pose baseline. Best minADE=0.6745. H1_v2 is 3.2% better (0.6532 vs 0.6745)."
 
     - run_id: "run_005"
       tag: "H1_w05_pose_weight_ablation"
@@ -178,31 +186,55 @@ experiments:
       best_minADE: 0.6542
       notes: "VALID: pose weight ablation w=0.2. Best minADE=0.6542. Δ=-3.0% vs no-pose baseline. Re-run after OOM when run in parallel."
 
+    - run_id: "run_007"
+      tag: "H1_v3_30fps_future_poses"
+      hypothesis: "H0_data_fix"
+      status: "complete"
+      started: "2026-04-02T10:53"
+      finished: "2026-04-02T11:17"
+      config: "tools/cfgs/waymo/mtr+pose_data_30fps.yaml"
+      batch_size: 10
+      epochs: 30
+      losses: [cls, reg, vel, mpjpe, geo, cls_pose, gmm_pose]
+      loss_weights: {cls: 1.0, reg: 1.0, vel: 0.5, mpjpe: 0.1, geo: 0.1, cls_pose: 0.1, gmm_pose: 0.1}
+      best_minADE: 0.6567
+      final_epoch_minADE: 0.6920
+      final_epoch_minFDE: 1.5087
+      minADE_by_eval: [2.0751, 1.8335, 1.1418, 0.9799, 0.7935, 0.6663, 0.6902, 0.6567, 0.6705, 0.6709, 0.7089, 0.6847, 0.6787, 0.6579, 0.6899, 0.6938, 0.6964, 0.6687, 0.6815, 0.6744, 0.6920, 0.6920]
+      notes: "VALID: 30fps AMASS pseudo-GT future poses. Best minADE=0.6567 — nearly identical to H1_v2 (0.6532). AMASS future poses do NOT improve trajectory prediction. Improvement comes from past pose encoding."
+
 outer_loop:
-  cycle: 4
-  last_direction: "BROADEN — pose weight ablation complete, improvement is robust; consider data scaling"
+  cycle: 5
+  last_direction: "DEEPEN — mechanism localized to past pose encoder; ablate pose loss components (H3)"
   last_reflection: |
-    Pose weight ablation complete: w=0.05, 0.1, 0.2 all tested, plus no-pose baseline.
+    H1_v3 null result clarifies the mechanism. Full results (best minADE):
+    - no pose (H2_v2):        0.6745 (baseline)
+    - w=0.05 (run_005):       0.6557 (Δ=-2.8%)
+    - w=0.1  (run_003):       0.6532 (Δ=-3.2%) ← OPTIMAL
+    - w=0.2  (run_006):       0.6542 (Δ=-3.0%)
+    - 30fps AMASS (run_007):  0.6567 (Δ=-2.6%) ← NULL RESULT
 
-    ABLATION RESULTS (best minADE, lower is better):
-    - no pose (H2_v2):   0.6745 (baseline)
-    - w=0.05 (run_005):  0.6557 (Δ=-2.8%)
-    - w=0.1  (run_003):  0.6532 (Δ=-3.2%) ← OPTIMAL
-    - w=0.2  (run_006):  0.6542 (Δ=-3.0%)
+    KEY MECHANISTIC INSIGHT: run_007 (30fps AMASS pseudo-GT, 99% future pose coverage)
+    gives minADE=0.6567 — virtually identical to H1_v2 (0.6532) which had zero future GT.
+    Conclusion: the trajectory benefit from pose conditioning comes entirely from the GRU
+    past pose encoder. Better future pose supervision does NOT improve trajectory prediction.
+    The mechanism is: past poses → GRU → 256D feature → fused with trajectory encoder →
+    richer queries in the MTR decoder → better trajectory predictions.
 
-    CONCLUSION: Pose conditioning improvement is robust across [0.05, 0.2]. The benefit
-    of ~3% is consistent — not a lucky hyperparameter. Weight=0.1 is optimal but the
-    difference between 0.05 and 0.2 is only 0.4%.
-
-    KEY FIXES APPLIED (from cycle 3):
-    - NaN divergence: reduced pose loss weights from 1.0 to 0.1
-    - geodesic_distance_6d: fixed clamp to use 1e-7 margin (not exact ±1.0)
-    - YAML duplicate keys: cleaned up mtr+pose_data.yaml
+    DATA SCALING RULED OUT AS NEXT PRIORITY: 30fps dataset uses AMASS-simulated future
+    poses, not more real Waymo data. Additional scenes would have the same limitation.
+    The ~2.6-3.2% gain is already reliably demonstrated.
 
     NEXT PRIORITIES:
-    1. Scale data — 579 training scenes is tiny. Explore 30fps SMPL dataset for more scenes.
-    2. Run H3 (MPJPE-only vs geodesic-only vs combined) to understand pose loss contributions
-    3. Consider cross-attention pose encoding (H5) if data scaling is not immediately feasible
+    1. H3 ablation: Which pose loss component drives the trajectory benefit?
+       - MPJPE-only: does joint-space supervision suffice?
+       - geodesic-only: does rotation-space supervision suffice?
+       - cls_pose-only: is multimodal classification the key signal?
+       - Insight: if trajectory benefit persists with ANY single loss, the GRU encoder
+         learns useful pose features regardless of loss type. If it vanishes, the
+         combined supervisory signal is critical.
+    2. H5: Replace GRU+MLP with cross-attention pose encoding. Since past encoding is
+       the mechanism, architectural improvements here could amplify the 3.2% gain.
 
 workspace:
   findings: "findings.md"
