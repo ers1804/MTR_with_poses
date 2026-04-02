@@ -3,6 +3,7 @@
 
 
 import numpy as np
+import pickle
 from pathlib import Path
 import torch
 
@@ -166,6 +167,15 @@ class WaymoPoseDataset(DatasetTemplate):
 
         self.without_hdmap = self.dataset_cfg.get('WITHOUT_HDMAP', True)
 
+        # Path to preprocessed Waymo scenario pkl files with real 91-step trajectories.
+        # When set, real Waymo future trajectories replace SMPL-estimated ones.
+        proc_path = self.dataset_cfg.get('PROCESSED_SCENARIOS_PATH', None)
+        if proc_path is not None:
+            split = self.dataset_cfg.SPLIT_DIR[self.mode]  # 'training' or 'validation'
+            self.processed_scenarios_path = Path(proc_path) / f'processed_scenarios_{split}'
+        else:
+            self.processed_scenarios_path = None
+
         self.infos = self._build_scene_index()
         self.logger.info(f'Total scenes: {len(self.infos)} | Mode: {self.mode}')
 
@@ -208,16 +218,39 @@ class WaymoPoseDataset(DatasetTemplate):
                 index = np.random.randint(0, len(self.infos))
         return self.create_scene_level_data(index)
 
-    def _load_pedestrian(self, npz_path):
+    def _load_scene_waymo_trajs(self, scene_id):
+        """Load processed Waymo scenario to get real 91-step agent trajectories.
+
+        Returns:
+            id_to_traj: dict mapping int(object_id) -> (91, 10) float32 trajectory
+                        or None if the processed scenario file is not found.
+        """
+        if self.processed_scenarios_path is None:
+            return None
+        pkl_path = self.processed_scenarios_path / f'sample_{scene_id}_0.pkl'
+        if not pkl_path.exists():
+            return None
+        with open(pkl_path, 'rb') as f:
+            scenario = pickle.load(f)
+        ti = scenario['track_infos']
+        trajs = ti['trajs']  # (num_agents, 91, 10)
+        return {int(oid): trajs[i] for i, oid in enumerate(ti['object_id'])}
+
+    def _load_pedestrian(self, npz_path, waymo_traj=None):
         """Load a single pedestrian .npz file and map to the standard Waymo time grid.
+
+        Args:
+            npz_path: path to the SMPL .npz file
+            waymo_traj: optional (91, 10) real Waymo trajectory. When provided,
+                        it replaces the SMPL-estimated trajectory (but SMPL poses
+                        are still extracted from the npz for pose conditioning).
 
         Returns:
             traj_full: (total_timestamps, 10) [cx, cy, cz, dx, dy, dz, heading, vx, vy, valid]
-            pose_6d_full: (total_timestamps, 144) 6D rotation representation
+            pose_6d_full: (total_timestamps, 144) 6D rotation representation (past only; future=0)
             betas: (10,) shape parameters
         """
         data = np.load(npz_path)
-        trans = data['trans'].astype(np.float32)           # (N, 3)
         root_orient = data['root_orient'].astype(np.float32)  # (N, 3)
         pose_body = data['pose_body'].astype(np.float32)   # (N, 69)
         betas = data['betas'].astype(np.float32)           # (10,)
@@ -228,28 +261,32 @@ class WaymoPoseDataset(DatasetTemplate):
         # Build the standard time grid
         time_grid = np.arange(self.total_timestamps) * self.dt  # [0.0, 0.1, ..., 9.0]
 
-        # Map each observed timestamp to the nearest grid index
-        traj_full = np.zeros((self.total_timestamps, 10), dtype=np.float32)
         pose_6d_full = np.zeros((self.total_timestamps, 144), dtype=np.float32)
 
-        # Convert pose params to 6D
+        # Convert pose params to 6D (past observations only)
         pose_6d = smpl_params_to_6d(root_orient, pose_body)  # (N, 144)
-
-        # Compute heading and velocity from positions
-        heading = compute_heading_from_positions(trans)  # (N,)
-        velocity = compute_velocity_from_positions(trans, dt=self.dt)  # (N, 2)
-
-        # For each observed timestep, find closest grid slot
         for i in range(N):
             grid_idx = np.argmin(np.abs(time_grid - timestamps[i]))
             if grid_idx < self.total_timestamps:
-                traj_full[grid_idx, 0:3] = trans[i]  # cx, cy, cz
-                traj_full[grid_idx, 3:6] = PEDESTRIAN_SIZE  # dx, dy, dz
-                traj_full[grid_idx, 6] = heading[i]  # heading
-                traj_full[grid_idx, 7:9] = velocity[i]  # vx, vy
-                traj_full[grid_idx, 9] = 1.0  # valid
-
                 pose_6d_full[grid_idx] = pose_6d[i]
+
+        if waymo_traj is not None:
+            # Use real Waymo trajectory — real past AND future ground truth
+            traj_full = waymo_traj.copy()
+        else:
+            # Fall back: build trajectory from SMPL translation (past window only)
+            trans = data['trans'].astype(np.float32)  # (N, 3)
+            heading = compute_heading_from_positions(trans)  # (N,)
+            velocity = compute_velocity_from_positions(trans, dt=self.dt)  # (N, 2)
+            traj_full = np.zeros((self.total_timestamps, 10), dtype=np.float32)
+            for i in range(N):
+                grid_idx = np.argmin(np.abs(time_grid - timestamps[i]))
+                if grid_idx < self.total_timestamps:
+                    traj_full[grid_idx, 0:3] = trans[i]
+                    traj_full[grid_idx, 3:6] = PEDESTRIAN_SIZE
+                    traj_full[grid_idx, 6] = heading[i]
+                    traj_full[grid_idx, 7:9] = velocity[i]
+                    traj_full[grid_idx, 9] = 1.0
 
         return traj_full, pose_6d_full, betas
 
@@ -263,6 +300,9 @@ class WaymoPoseDataset(DatasetTemplate):
         npz_files = info['npz_files']
         num_objects = len(npz_files)
 
+        # Load real Waymo trajectories if processed scenarios are configured
+        waymo_traj_map = self._load_scene_waymo_trajs(scene_id)  # int(ped_id) -> (91, 10) or None
+
         # Load all pedestrians in the scene
         obj_trajs_full_list = []
         pose_6d_full_list = []
@@ -270,7 +310,9 @@ class WaymoPoseDataset(DatasetTemplate):
         obj_ids = []
 
         for npz_path in npz_files:
-            traj_full, pose_6d_full, betas = self._load_pedestrian(npz_path)
+            ped_id = int(Path(npz_path).stem)
+            waymo_traj = waymo_traj_map.get(ped_id) if waymo_traj_map is not None else None
+            traj_full, pose_6d_full, betas = self._load_pedestrian(npz_path, waymo_traj=waymo_traj)
             obj_trajs_full_list.append(traj_full)
             pose_6d_full_list.append(pose_6d_full)
             betas_list.append(betas)

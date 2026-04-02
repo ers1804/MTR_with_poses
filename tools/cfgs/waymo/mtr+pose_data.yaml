@@ -18,6 +18,10 @@ DATA_CONFIG:
     NUM_FUTURE_TIMESTAMPS: 80
     DT: 0.1
 
+    # Path to preprocessed Waymo scenario pkl files for real future trajectory GT.
+    # Pattern: <PROCESSED_SCENARIOS_PATH>/<split>/sample_<scene_id>_0.pkl
+    PROCESSED_SCENARIOS_PATH: '/home/erik/NAS/personal/waymo_agent_batch'
+
     # No HD map in this dataset
     WITHOUT_HDMAP: True
 
