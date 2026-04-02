@@ -239,6 +239,12 @@ class WaymoPoseDataset(DatasetTemplate):
     def _load_pedestrian(self, npz_path, waymo_traj=None):
         """Load a single pedestrian .npz file and map to the standard Waymo time grid.
 
+        Supports two data formats:
+        - 10fps format (final_10fps): trans/root_orient/pose_body shape (N, *) where N is the
+          number of waymo_timestamps observations (typically 7, past-only). Poses mapped to grid.
+        - 30fps format (final_30fps): trans/root_orient/pose_body shape (91, *), already aligned
+          to the full 91-step Waymo grid. Includes AMASS pseudo-GT for future timesteps.
+
         Args:
             npz_path: path to the SMPL .npz file
             waymo_traj: optional (91, 10) real Waymo trajectory. When provided,
@@ -247,46 +253,74 @@ class WaymoPoseDataset(DatasetTemplate):
 
         Returns:
             traj_full: (total_timestamps, 10) [cx, cy, cz, dx, dy, dz, heading, vx, vy, valid]
-            pose_6d_full: (total_timestamps, 144) 6D rotation representation (past only; future=0)
+            pose_6d_full: (total_timestamps, 144) 6D rotation representation
             betas: (10,) shape parameters
         """
         data = np.load(npz_path)
-        root_orient = data['root_orient'].astype(np.float32)  # (N, 3)
-        pose_body = data['pose_body'].astype(np.float32)   # (N, 69)
+        root_orient = data['root_orient'].astype(np.float32)
+        pose_body = data['pose_body'].astype(np.float32)
         betas = data['betas'].astype(np.float32)           # (10,)
-        timestamps = data['waymo_timestamps'].astype(np.float64) / 1e6  # (N,) convert µs → seconds
-
-        N = len(timestamps)
-
-        # Build the standard time grid
-        time_grid = np.arange(self.total_timestamps) * self.dt  # [0.0, 0.1, ..., 9.0]
 
         pose_6d_full = np.zeros((self.total_timestamps, 144), dtype=np.float32)
 
-        # Convert pose params to 6D (past observations only)
-        pose_6d = smpl_params_to_6d(root_orient, pose_body)  # (N, 144)
-        for i in range(N):
-            grid_idx = np.argmin(np.abs(time_grid - timestamps[i]))
-            if grid_idx < self.total_timestamps:
-                pose_6d_full[grid_idx] = pose_6d[i]
+        if '30fps_timestamps' in data:
+            # 30fps format: root_orient/pose_body have N consecutive rows starting at
+            # waymo_timestamps[0]. Row i maps to Waymo 10fps grid step (start_idx + i).
+            timestamps = data['waymo_timestamps'].astype(np.float64) / 1e6  # µs → s
+            start_idx = int(round(timestamps[0] / self.dt))
+            N = root_orient.shape[0]
+            pose_6d = smpl_params_to_6d(root_orient, pose_body)  # (N, 144)
+            end_idx = min(start_idx + N, self.total_timestamps)
+            n_copy = end_idx - start_idx
+            pose_6d_full[start_idx:end_idx] = pose_6d[:n_copy]
+        else:
+            # 10fps format: sparse observations, map to grid by timestamp.
+            timestamps = data['waymo_timestamps'].astype(np.float64) / 1e6  # (N,) µs → seconds
+            N = len(timestamps)
+            time_grid = np.arange(self.total_timestamps) * self.dt
+            pose_6d = smpl_params_to_6d(root_orient, pose_body)  # (N, 144)
+            for i in range(N):
+                grid_idx = np.argmin(np.abs(time_grid - timestamps[i]))
+                if grid_idx < self.total_timestamps:
+                    pose_6d_full[grid_idx] = pose_6d[i]
 
         if waymo_traj is not None:
             # Use real Waymo trajectory — real past AND future ground truth
             traj_full = waymo_traj.copy()
         else:
-            # Fall back: build trajectory from SMPL translation (past window only)
-            trans = data['trans'].astype(np.float32)  # (N, 3)
-            heading = compute_heading_from_positions(trans)  # (N,)
-            velocity = compute_velocity_from_positions(trans, dt=self.dt)  # (N, 2)
-            traj_full = np.zeros((self.total_timestamps, 10), dtype=np.float32)
-            for i in range(N):
-                grid_idx = np.argmin(np.abs(time_grid - timestamps[i]))
-                if grid_idx < self.total_timestamps:
-                    traj_full[grid_idx, 0:3] = trans[i]
-                    traj_full[grid_idx, 3:6] = PEDESTRIAN_SIZE
-                    traj_full[grid_idx, 6] = heading[i]
-                    traj_full[grid_idx, 7:9] = velocity[i]
-                    traj_full[grid_idx, 9] = 1.0
+            # Fall back: build trajectory from SMPL translation.
+            trans = data['trans'].astype(np.float32)
+            if '30fps_timestamps' in data:
+                # 30fps format: trans has N consecutive rows starting at start_idx
+                timestamps = data['waymo_timestamps'].astype(np.float64) / 1e6
+                start_idx = int(round(timestamps[0] / self.dt))
+                N = trans.shape[0]
+                heading = compute_heading_from_positions(trans)
+                velocity = compute_velocity_from_positions(trans, dt=self.dt)
+                traj_full = np.zeros((self.total_timestamps, 10), dtype=np.float32)
+                end_idx = min(start_idx + N, self.total_timestamps)
+                n_copy = end_idx - start_idx
+                traj_full[start_idx:end_idx, 0:3] = trans[:n_copy]
+                traj_full[start_idx:end_idx, 3:6] = PEDESTRIAN_SIZE
+                traj_full[start_idx:end_idx, 6] = heading[:n_copy]
+                traj_full[start_idx:end_idx, 7:9] = velocity[:n_copy]
+                traj_full[start_idx:end_idx, 9] = 1.0
+            else:
+                # 10fps format: sparse observations
+                timestamps = data['waymo_timestamps'].astype(np.float64) / 1e6
+                N = len(timestamps)
+                time_grid = np.arange(self.total_timestamps) * self.dt
+                heading = compute_heading_from_positions(trans)
+                velocity = compute_velocity_from_positions(trans, dt=self.dt)
+                traj_full = np.zeros((self.total_timestamps, 10), dtype=np.float32)
+                for i in range(N):
+                    grid_idx = np.argmin(np.abs(time_grid - timestamps[i]))
+                    if grid_idx < self.total_timestamps:
+                        traj_full[grid_idx, 0:3] = trans[i]
+                        traj_full[grid_idx, 3:6] = PEDESTRIAN_SIZE
+                        traj_full[grid_idx, 6] = heading[i]
+                        traj_full[grid_idx, 7:9] = velocity[i]
+                        traj_full[grid_idx, 9] = 1.0
 
         return traj_full, pose_6d_full, betas
 
