@@ -137,7 +137,7 @@ def geodesic_distance_6d(pred_6d, gt_6d, reduction='none'):
     # Trace-based geodesic distance: θ = arccos((trace(R) - 1) / 2)
     trace = rel_rot[..., 0, 0] + rel_rot[..., 1, 1] + rel_rot[..., 2, 2]
     cos_angle = (trace - 1) / 2
-    cos_angle = torch.clamp(cos_angle, -1.0, 1.0)  # Numerical stability
+    cos_angle = torch.clamp(cos_angle, -1.0 + 1e-7, 1.0 - 1e-7)  # Numerical stability (avoid inf grad at boundary)
     angle = torch.acos(cos_angle)
     
     return angle

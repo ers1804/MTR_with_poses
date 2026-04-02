@@ -39,17 +39,23 @@ hypotheses:
 
   - id: H1
     statement: "A baseline MTR+pose model (GRU encoder + MPJPE + geodesic + NLL loss) can be successfully trained on the extracted Waymo pose dataset and converge within 30 epochs."
-    status: running
-    run_tag: "H1_pose_all_losses"
-    started: "2026-04-01T14:19"
+    status: in_progress
+    run_tag: "H1_v2_real_traj"
+    started: "2026-04-02T08:45"
     motivation: "Must establish that the full pipeline (data loading → encoding → decoding → loss) is bug-free before ablating components."
     priority: high
+    result:
+      epoch_1_loss: 161.170
+      epoch_1_ade: 0.762
+      notes: "Re-running with real Waymo future trajectories (dataset fix). Training in progress."
 
   - id: H2
-    statement: "Conditioning on past SMPL poses improves pedestrian minADE/minFDE/mAP vs. a trajectory-only baseline (ablation: GRU pose encoder disabled, all pose losses zeroed)."
+    statement: "Conditioning on past SMPL poses improves pedestrian minADE/minFDE vs. a trajectory-only baseline (ablation: GRU pose encoder disabled, all pose losses zeroed)."
     status: pending
+    run_tag: "H2_v2_real_traj"
     motivation: "Core research question. Pose reveals walking direction, gait phase, and interaction context that trajectory alone cannot capture."
     priority: high
+    notes: "Will run after H1_v2 completes."
 
   - id: H3
     statement: "MPJPE + geodesic combined loss outperforms either loss alone for pose supervision quality."
@@ -69,27 +75,90 @@ hypotheses:
     motivation: "GRU compresses the entire past pose sequence into one vector before fusion. Cross-attention could attend to relevant timesteps."
     priority: low
 
+# DATA FIX (resolved 2026-04-02):
+# PROBLEM: final_10fps SMPL data has observations ONLY in the past window (grid indices 0-10).
+#          Future window (indices 11-90) is always zero → zero training signal → mAP=0.
+# SOLUTION FOUND: /home/erik/NAS/personal/waymo_agent_batch/processed_scenarios_{split}/
+#                 sample_{scene_id}_0.pkl contains REAL 91-step Waymo tracking trajectories
+#                 for ALL agents (shape: num_agents × 91 × 10).
+# JOIN KEY: SMPL file stem (int) == Waymo object_id (int) in track_infos.
+# COVERAGE: ~80% of SMPL pedestrians have real future data. Avg 52/80 future timesteps valid.
+# STATUS: Dataset fix implemented, committed (6b5084d). H1_v2 training running with real data.
+
 experiments:
   proxy_metric: "minADE_TYPE_PEDESTRIAN (minADE over 6 modes at final layer, lower is better)"
-  baseline_value: null
-  best_value: null
-  total_runs: 1
+  baseline_value: null    # H2_v2 not yet completed (real-data run)
+  best_value: null        # H1_v2 not yet completed (real-data run)
+  total_runs: 4           # 2 unreliable (zero-future) + 2 current real-data runs
   trajectory:
     - run_id: "run_001"
       tag: "H1_pose_all_losses"
       hypothesis: "H1"
-      status: "running"
+      status: "invalid"
       started: "2026-04-01T14:19"
       config: "tools/cfgs/waymo/mtr+pose_data.yaml"
       batch_size: 10
       epochs: 30
       losses: [cls, reg, vel, mpjpe, geo, cls_pose, gmm_pose]
-      notes: "Full pose model. All bugs fixed. First successful training run."
+      best_minADE: 0.6114
+      best_epoch: 1
+      notes: "INVALID: future GT was all-zeros, only 8 val samples had any future data."
+
+    - run_id: "run_002"
+      tag: "H2_no_pose"
+      hypothesis: "H2"
+      status: "invalid"
+      started: "2026-04-01T16:04"
+      config: "tools/cfgs/waymo/mtr+pose_data_no_pose.yaml"
+      batch_size: 10
+      epochs: 30
+      losses: [cls, reg, vel]
+      best_minADE: 0.7724
+      best_epoch: 5
+      notes: "INVALID: future GT was all-zeros, only 8 val samples had any future data."
+
+    - run_id: "run_003"
+      tag: "H1_v2_real_traj"
+      hypothesis: "H1"
+      status: "running"
+      started: "2026-04-02T09:02"
+      config: "tools/cfgs/waymo/mtr+pose_data.yaml"
+      batch_size: 10
+      epochs: 30
+      losses: [cls, reg, vel, mpjpe, geo, cls_pose, gmm_pose]
+      loss_weights: {cls: 1.0, reg: 1.0, vel: 0.5, mpjpe: 0.1, geo: 0.1, cls_pose: 0.1, gmm_pose: 0.1}
+      progress:
+        epoch_7_minADE: 0.7682
+        epoch_9_minADE: 0.8315
+        best_minADE: 0.7682
+        best_epoch: 7
+      notes: "VALID: fixed NaN divergence by reducing pose loss weights to 0.1. Fixed geodesic clamp to use 1e-7 margin. Training stable through epoch 11+. No NaN."
+
+    - run_id: "run_004"
+      tag: "H2_v2_real_traj"
+      hypothesis: "H2"
+      status: "queued"
+      started: null
+      config: "tools/cfgs/waymo/mtr+pose_data_no_pose.yaml"
+      batch_size: 10
+      epochs: 30
+      losses: [cls, reg, vel]
+      notes: "VALID: will run after H1_v2 completes. Same data fix applied."
 
 outer_loop:
-  cycle: 0
-  last_direction: null
-  last_reflection: "Bootstrap — setting up workspace, fixing data bugs, preparing first training run."
+  cycle: 2
+  last_direction: "PIVOT → DEEPEN — fixed data pipeline, re-running H1+H2 with real GT"
+  last_reflection: |
+    The critical zero-future-GT bug has been fixed. The processed_scenarios PKL files
+    contain real 91-step Waymo tracking trajectories for all agents. After joining
+    by object_id, 80% of SMPL pedestrians have real future data (avg 52/80 steps valid).
+
+    H1_v2 training is running. First epoch shows:
+    - loss: 1138 → 161 across 57 batches (dropping fast)
+    - ade: 0.95 → 0.76 (non-zero! real trajectory signal)
+
+    Previous H1/H2 results (minADE 0.61 vs 0.77) are INVALID due to 8-sample eval.
+    Once H1_v2 and H2_v2 complete, we will have our first reliable comparison.
 
 workspace:
   findings: "findings.md"
@@ -99,5 +168,7 @@ workspace:
   to_human_dir: "to_human/"
   paper_dir: "paper/"
   data_root: "/home/erik/NAS/publicdatasets/waymo_motion/v_1_3_0/uncompressed/generated_motion/final_10fps"
+  processed_scenarios_path: "/home/erik/NAS/personal/waymo_agent_batch"
   config_pose: "tools/cfgs/waymo/mtr+pose_data.yaml"
+  config_no_pose: "tools/cfgs/waymo/mtr+pose_data_no_pose.yaml"
   smpl_models: "models/"

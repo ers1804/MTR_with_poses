@@ -84,10 +84,10 @@ MODEL:
             'cls': 1.0,
             'reg': 1.0,
             'vel': 0.5,
-            'mpjpe': 1.0,
-            'geo': 1.0,
-            'cls_pose': 1.0,
-            'gmm_pose': 1.0
+            'mpjpe': 0.1,
+            'geo': 0.1,
+            'cls_pose': 0.1,
+            'gmm_pose': 0.1
         }
 
         NMS_DIST_THRESH: 2.5
@@ -103,11 +103,8 @@ OPTIMIZATION:
     WEIGHT_DECAY: 0.01
 
     SCHEDULER: lambdaLR
-    DECAY_STEP_LIST: [22, 24, 26, 28]
+    DECAY_STEP_LIST: [10, 20, 25]
     LR_DECAY: 0.5
     LR_CLIP: 0.000001
 
-    GRAD_NORM_CLIP: 1000.0
-    LR_CLIP: 0.000001
-    DECAY_STEP_LIST: [10, 20, 25]
     GRAD_NORM_CLIP: 1.0
