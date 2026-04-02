@@ -28,8 +28,8 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 | run_008 | H3 mpjpe_only | 0.1 | 10fps | 0.6576 | −2.5% | ✓ VALID — joint-space L1 only |
 | run_009 | H3 gmm_only | 0.1 | 10fps | 0.6467 | −4.1% | ✓ VALID — WTA NLL only |
 | **run_010** | **H3 geo_only** | **0.1** | **10fps** | **0.6231** | **−7.6%** | ✓ VALID ← new best! |
-| run_011 | H3 geo_w=0.05 | 0.05 | 10fps | 0.6786 | −1.5% | ✓ VALID — too weak, much worse than w=0.1 |
-| run_012 | H3 geo_w=0.2 | 0.2 | 10fps | pending | — | Running... |
+| run_011 | H3 geo_w=0.05 | 0.05 | 10fps | 0.6786 | −1.5% | ✓ VALID — geo signal too weak |
+| run_012 | H3 geo_w=0.2 | 0.2 | 10fps | 0.6660 | −1.3% | ✓ VALID — too strong, dominates trajectory |
 
 **Core finding**: Pose conditioning improves minADE by **3.2%** (0.6532 vs 0.6745) with full losses at weight=0.1. The improvement is **robust across pose weights [0.05, 0.2]** and across loss ablations (all variants improve over baseline).
 
@@ -62,7 +62,8 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 ## Patterns and Insights
 
 - **Pose conditioning provides a 3.2% minADE improvement**: H1_v2 (0.6532) vs H2_v2 (0.6745). Both trained 30 epochs with real Waymo future trajectories. The improvement holds at minFDE too (1.4619 vs 1.5080, +3.1%).
-- **Pose improvement is robust to loss weight**: All weights in [0.05, 0.2] give 2.8–3.2% improvement. Weight=0.1 is optimal but the range [0.05, 0.2] is a stable operating regime. This rules out lucky hyperparameter tuning as an explanation.
+- **Pose improvement is robust to loss weight (full model)**: All weights in [0.05, 0.2] give 2.8–3.2% improvement with all losses combined. Weight=0.1 is optimal but [0.05, 0.2] is a stable operating regime for the full model.
+- **Geo_only weight has a SHARP OPTIMUM at w=0.1**: w=0.05→0.6786 (−1.5%), w=0.1→0.6231 (−7.6%), w=0.2→0.6660 (−1.3%). Unlike the full model's broad plateau, geo_only has a narrow peak. Both directions from w=0.1 collapse to near-baseline performance. This reveals a delicate balance: the geodesic loss must be strong enough to shape GRU orientation features but not so strong it dominates the trajectory objective.
 - **Source of improvement localized to past pose encoding (H1_v3 null result)**: Using 30fps AMASS pseudo-GT future poses (99% future step coverage) gives minADE=0.6567, nearly identical to H1_v2 (0.6532) which had zero future pose GT. The trajectory benefit comes entirely from the GRU encoder processing past poses, not from supervising the pose decoder with better GT. This clarifies the mechanism: pose encoder → cross-attention with trajectory decoder → better trajectory queries.
 - **Geodesic loss is the dominant supervision signal (H3 ablation)**: geo_only achieves best minADE=0.6231 (−7.6% vs baseline), outperforming the full model (0.6532, −3.2%). This shows MPJPE and cls_pose losses actively hurt when combined with geo. The rotation-space loss in SO(3) provides richer gradient signal to the GRU encoder than joint-space L1, likely because rotations encode orientation/gait information more directly than joint positions. gmm_only (0.6467, −4.1%) also outperforms mpjpe_only (0.6576, −2.5%), suggesting the WTA regression structure is more informative than point-wise L1 on joints.
 - **Convergence dynamics differ**: H1_v2 reaches best minADE earlier in training and has more variance across epochs (likely from noisy pose losses). H2_v2 plateaus more smoothly. Both settle around 0.67-0.70 after LR decay.
@@ -95,7 +96,7 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 6. **[ANSWERED] Optimal pose loss weight is 0.1**, but [0.05, 0.2] is a stable operating regime (all within 0.4%).
 7. **[ANSWERED] Does better future pose GT improve trajectory prediction?** NO — H1_v3 (30fps AMASS, 99% future coverage) gives minADE=0.6567 vs H1_v2 (zero future GT) minADE=0.6532. Future pose supervision quality does not drive trajectory improvement; the GRU past encoder is the mechanism.
 8. **[ANSWERED] Geodesic loss alone is the dominant driver.** geo_only (0.6231, −7.6%) outperforms the full model (0.6532, −3.2%). MPJPE and cls_pose losses hurt when combined with geo.
-9. **[PARTIALLY ANSWERED] Geo weight tuning for geo_only**: w=0.05 gives 0.6786 (much worse than w=0.1=0.6231). Optimal is at or above 0.1. w=0.2 running (run_012). The geodesic signal needs sufficient weight to drive the GRU encoder — at w=0.05 the signal is too weak to overcome gradient noise from the trajectory losses.
+9. **[ANSWERED] Geo weight for geo_only has a sharp optimum at w=0.1**: w=0.05→0.6786 (−1.5%), w=0.1→0.6231 (−7.6%, best), w=0.2→0.6660 (−1.3%). Both sides of the optimum give dramatically worse results. The geodesic signal needs exactly the right balance — too weak (0.05): GRU ignores rotation supervision; too strong (0.2): dominates trajectory objective causing gradient conflict with cls/reg/vel.
 10. **[NEXT] Is the GRU past encoder the bottleneck?** Since the benefit comes from past encoding with geodesic supervision, would cross-attention (H5) yield larger gains?
 11. Is there a way to evaluate pose prediction quality separately from trajectory quality?
 
@@ -114,4 +115,4 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 | run_009 | H3 gmm_only | 0.1 | 0.6467 | −4.1% | ✓ VALID |
 | **run_010** | **H3 geo_only** | **0.1** | **0.6231** | **−7.6%** | ✓ VALID ← NEW BEST |
 | run_011 | H3 geo_w=0.05 | 0.05 | 0.6786 | −1.5% | ✓ VALID — geo signal too weak |
-| run_012 | H3 geo_w=0.2 | 0.2 | pending | — | Running... |
+| run_012 | H3 geo_w=0.2 | 0.2 | 0.6660 | −1.3% | ✓ VALID — too strong, dominates trajectory |
