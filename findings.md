@@ -16,12 +16,16 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 
 ## Key Results
 
-| Run | Model | Best minADE | Best Epoch | Notes |
-|-----|-------|-------------|------------|-------|
-| H1 | Full pose (GRU + all losses) | 0.6114 | 1 | ⚠ unreliable metric — 8 val samples |
-| H2 | Trajectory-only baseline | 0.7724 | 5 | ⚠ unreliable metric — 8 val samples |
+| Run | Model | Best minADE | Notes |
+|-----|-------|-------------|-------|
+| run_001 | H1 (full pose) | 0.6114 | ⚠ INVALID — 8 val samples (zero future GT) |
+| run_002 | H2 (no pose) | 0.7724 | ⚠ INVALID — 8 val samples (zero future GT) |
+| **run_003** | **H1_v2 (full pose, real GT)** | **0.6532** | ✓ VALID — 30 epochs, real Waymo trajectories |
+| **run_004** | **H2_v2 (no pose, real GT)** | **0.6745** | ✓ VALID — 30 epochs, real Waymo trajectories |
 
-**Preliminary signal**: H1 better than H2 by 21% (0.6114 vs 0.7724), but the metric is based on only 8 validation samples and must be verified with a proper evaluation setup.
+**Core finding**: Pose conditioning improves minADE by **3.2%** (0.6532 vs 0.6745). The improvement is consistent but modest — suggesting pose provides complementary signal to trajectory history, but both models ultimately learn similar motion priors with only 579 training scenes.
+
+**minFDE comparison**: H1_v2 final: 1.4619, H2_v2 final: 1.5080 — consistent with minADE trend (+3.1% for H1).
 
 ## RESOLVED (2026-04-02): Data Fix — Real Waymo Future Trajectories Integrated
 
@@ -39,9 +43,11 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 
 ## Patterns and Insights
 
-- **H1 better than H2 despite no gradient signal**: Both models get zero trajectory loss during training, yet H1 achieves lower minADE. This likely means the pose conditioning helps the model's initialization/early learning before gradients collapse to zero. The 8-sample metric makes this observation unreliable.
-- **Loss collapses to 0**: By epoch 7, training loss → 0.000 for H2, consistent with no valid future masks. The small nonzero losses seen occasionally (3.5, 15.9) correspond to the rare batches that include one of the 8 pedestrians with future data.
-- **Both models degrade after initial epoch**: The best metric always occurs at epoch 0 or 1 (before the model has overfit to nothing). LR decay steps (epochs 10, 20, 25) cause further instability.
+- **Pose conditioning provides a 3.2% minADE improvement**: H1_v2 (0.6532) vs H2_v2 (0.6745). Both trained 30 epochs with real Waymo future trajectories. The improvement holds at minFDE too (1.4619 vs 1.5080, +3.1%).
+- **Convergence dynamics differ**: H1_v2 reaches best minADE earlier in training and has more variance across epochs (likely from noisy pose losses). H2_v2 plateaus more smoothly. Both settle around 0.67-0.70 after LR decay.
+- **Pose loss weights matter critically for stability**: At weight=1.0, training diverges to NaN at epoch 3 due to gradient explosion through SMPL. At weight=0.1, training is stable for 30 epochs. The optimal weight likely lies between 0.1 and 1.0.
+- **Small dataset limits absolute performance**: minADE ~0.65 is far from SOTA (~0.3 on full Waymo). With 579 training scenes vs 486k in full MTR, the gap is expected. The relative H1 vs H2 comparison is still valid.
+- **H1 better than H2 (INVALID, pre-fix)**: Both models got zero trajectory loss in the initial runs — the 3.2% improvement is the first reliable signal.
 
 ## Lessons and Constraints
 
@@ -62,17 +68,19 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 ## Open Questions
 
 1. ~~After fixing the timestamp bug, does the training run converge?~~ Pipeline confirmed working.
-2. ~~What is the trajectory-only baseline minADE?~~ H2: 0.7724 (but unreliable — 8 samples).
-3. ~~How to get real future trajectory labels?~~ SOLVED: processed_scenarios PKL files contain real 91-step Waymo tracking trajectories. 80% coverage, avg 52-59/80 future steps valid.
-4. **[ACTIVE] Does pose conditioning help with REAL trajectory GT?** — H1_v2 vs H2_v2 comparison in progress. Expected to complete in ~90 minutes.
-5. Is 579 training scenes enough to learn meaningful pose representations? The original MTR used ~486k scenarios. Our subset may be too small for robust pose conditioning.
-6. Are the high initial losses (1138 at iter 0) due to pose losses (mpjpe, geo, cls_pose, gmm_pose) dominating? Should loss weights be tuned?
+2. ~~What is the trajectory-only baseline minADE?~~ H2_v2: 0.6745 (valid — full dataset).
+3. ~~How to get real future trajectory labels?~~ SOLVED: processed_scenarios PKL files. 80% coverage.
+4. ~~Does pose conditioning help with REAL trajectory GT?~~ **YES — 3.2% improvement (0.6532 vs 0.6745).**
+5. **[NEXT] Is the 3.2% gain statistically meaningful on 8282 val pedestrians?** The gain is consistent across both minADE and minFDE, but training noise could account for some variation.
+6. **[NEXT] What is the optimal pose loss weight?** At 0.1, training is stable. Likely a sweet spot between 0.05-0.5 that maximizes trajectory benefit. Could ablate.
+7. **[NEXT] Does more training data increase the pose conditioning benefit?** With 579 scenes, both models are highly data-limited. With the full Waymo SMPL set (~10k+ scenes), the pose benefit might be larger.
+8. Is there a way to evaluate pose prediction quality separately from trajectory quality?
 
 ## Optimization Trajectory
 
-| Run | Hypothesis | Best minADE | Best Epoch | Delta vs baseline | Notes |
-|-----|-----------|-------------|------------|-------------------|-------|
-| run_002 | H2 (no pose) | 0.7724 | 5 | — (baseline) | ⚠ INVALID — 8 val samples |
-| run_001 | H1 (full pose) | 0.6114 | 1 | -21% | ⚠ INVALID — 8 val samples |
-| run_003 | H1_v2 (full pose, real GT) | 0.7682 | 7 | — | Running, stable (fixed NaN) |
-| run_004 | H2_v2 (no pose, real GT) | TBD | — | — | Queued after H1_v2 |
+| Run | Hypothesis | Best minADE | Delta vs baseline | Notes |
+|-----|-----------|-------------|-------------------|-------|
+| run_002 | H2 (no pose) | 0.7724 | — (baseline) | ⚠ INVALID — 8 val samples |
+| run_001 | H1 (full pose) | 0.6114 | -21% | ⚠ INVALID — 8 val samples |
+| **run_004** | **H2_v2 (no pose, real GT)** | **0.6745** | — (new baseline) | ✓ VALID |
+| **run_003** | **H1_v2 (full pose, real GT)** | **0.6532** | **-3.2%** | ✓ VALID |

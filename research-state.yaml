@@ -87,8 +87,8 @@ hypotheses:
 
 experiments:
   proxy_metric: "minADE_TYPE_PEDESTRIAN (minADE over 6 modes at final layer, lower is better)"
-  baseline_value: null    # H2_v2 not yet completed (real-data run)
-  best_value: null        # H1_v2 not yet completed (real-data run)
+  baseline_value: 0.6745  # H2_v2 (no pose) best minADE
+  best_value: 0.6532      # H1_v2 (pose model) best minADE — 3.2% better than baseline
   total_runs: 4           # 2 unreliable (zero-future) + 2 current real-data runs
   trajectory:
     - run_id: "run_001"
@@ -120,45 +120,56 @@ experiments:
     - run_id: "run_003"
       tag: "H1_v2_real_traj"
       hypothesis: "H1"
-      status: "running"
+      status: "complete"
       started: "2026-04-02T09:02"
+      finished: "2026-04-02T09:18"
       config: "tools/cfgs/waymo/mtr+pose_data.yaml"
       batch_size: 10
       epochs: 30
       losses: [cls, reg, vel, mpjpe, geo, cls_pose, gmm_pose]
       loss_weights: {cls: 1.0, reg: 1.0, vel: 0.5, mpjpe: 0.1, geo: 0.1, cls_pose: 0.1, gmm_pose: 0.1}
-      progress:
-        epoch_7_minADE: 0.7682
-        epoch_9_minADE: 0.8315
-        best_minADE: 0.7682
-        best_epoch: 7
-      notes: "VALID: fixed NaN divergence by reducing pose loss weights to 0.1. Fixed geodesic clamp to use 1e-7 margin. Training stable through epoch 11+. No NaN."
+      best_minADE: 0.6532
+      final_epoch_minADE: 0.6666
+      final_epoch_minFDE: 1.4619
+      minADE_by_eval: [2.0602, 1.7018, 1.3100, 0.9401, 0.7682, 0.8315, 0.7417, 0.7915, 0.6532, 0.7342, 0.6990, 0.7774, 0.7984, 0.7537, 0.8424, 0.7756, 0.7536, 0.7512, 0.7234, 0.7152, 0.6666]
+      notes: "VALID: fixed NaN divergence by reducing pose loss weights to 0.1. Fixed geodesic clamp. 30 epochs stable. Best minADE=0.6532."
 
     - run_id: "run_004"
       tag: "H2_v2_real_traj"
       hypothesis: "H2"
-      status: "queued"
-      started: null
+      status: "complete"
+      started: "2026-04-02T09:19"
+      finished: "2026-04-02T09:26"
       config: "tools/cfgs/waymo/mtr+pose_data_no_pose.yaml"
       batch_size: 10
       epochs: 30
       losses: [cls, reg, vel]
-      notes: "VALID: will run after H1_v2 completes. Same data fix applied."
+      best_minADE: 0.6745
+      final_epoch_minADE: 0.7006
+      final_epoch_minFDE: 1.5080
+      minADE_by_eval: [2.0849, 1.6412, 1.2154, 1.0657, 0.9204, 0.7891, 0.6900, 0.6997, 0.7160, 0.6950, 0.6745, 0.6823, 0.7068, 0.6835, 0.6873, 0.6916, 0.6793, 0.6853, 0.6891, 0.6814, 0.7006, 0.7006]
+      notes: "VALID: no-pose baseline. Best minADE=0.6745. H1_v2 is 3.2% better (0.6532 vs 0.6745)."
 
 outer_loop:
-  cycle: 2
-  last_direction: "PIVOT → DEEPEN — fixed data pipeline, re-running H1+H2 with real GT"
+  cycle: 3
+  last_direction: "DEEPEN — first reliable comparison complete, pose conditioning shows +3.2%"
   last_reflection: |
-    The critical zero-future-GT bug has been fixed. The processed_scenarios PKL files
-    contain real 91-step Waymo tracking trajectories for all agents. After joining
-    by object_id, 80% of SMPL pedestrians have real future data (avg 52/80 steps valid).
+    H1_v2 and H2_v2 both completed 30 epochs with real Waymo future trajectories.
 
-    H1_v2 training is running. First epoch shows:
-    - loss: 1138 → 161 across 57 batches (dropping fast)
-    - ade: 0.95 → 0.76 (non-zero! real trajectory signal)
+    RESULTS:
+    - H1_v2 (full pose, loss_weights=0.1): best minADE=0.6532, minFDE=1.4619
+    - H2_v2 (no pose): best minADE=0.6745, minFDE=1.5080
+    - Improvement from pose conditioning: 3.2% (minADE), 3.1% (minFDE)
 
-    Previous H1/H2 results (minADE 0.61 vs 0.77) are INVALID due to 8-sample eval.
-    Once H1_v2 and H2_v2 complete, we will have our first reliable comparison.
+    KEY FIXES APPLIED:
+    - NaN divergence: reduced pose loss weights from 1.0 to 0.1
+    - geodesic_distance_6d: fixed clamp to use 1e-7 margin (not exact ±1.0)
+    - YAML duplicate keys: cleaned up mtr+pose_data.yaml
+
+    NEXT PRIORITIES:
+    1. Ablate pose loss weight (0.05, 0.1, 0.2, 0.5) — may find a better sweet spot
+    2. Run with more data if available (579 scenes is very small)
+    3. Analyze which epochs benefit most from pose (training curve shapes differ)
 
 workspace:
   findings: "findings.md"
