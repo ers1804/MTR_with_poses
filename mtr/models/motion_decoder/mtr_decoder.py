@@ -543,14 +543,28 @@ class MTRDecoder(nn.Module):
         num_center_objects = center_gt_trajs.shape[0]
         center_gt_goals = center_gt_trajs[torch.arange(num_center_objects), center_gt_final_valid_idx, 0:2]  # (num_center_objects, 2)
 
+        # Extract loss weights once (used to gate computations that can produce NaN when weight=0)
+        weight_cls = self.model_cfg.LOSS_WEIGHTS.get('cls', 1.0)
+        weight_reg = self.model_cfg.LOSS_WEIGHTS.get('reg', 1.0)
+        weight_vel = self.model_cfg.LOSS_WEIGHTS.get('vel', 0.2)
+        weight_mpjpe = self.model_cfg.LOSS_WEIGHTS.get('mpjpe', 1.0)
+        weight_geo = self.model_cfg.LOSS_WEIGHTS.get('geo', 1.0)
+        weight_cls_pose = self.model_cfg.LOSS_WEIGHTS.get('cls_pose', 1.0)
+        weight_gmm_pose = self.model_cfg.LOSS_WEIGHTS.get('gmm_pose', 1.0)
+        compute_pose_losses = weight_mpjpe > 0 or weight_geo > 0 or weight_cls_pose > 0 or weight_gmm_pose > 0
+
         # Expand betas for all future frames: (num_center_objects * num_future_frames, 10)
         betas_expanded = shape_params[:, None, :].expand(-1, self.num_future_frames, -1).reshape(-1, 10)
 
-        # Compute GT joints once (no grad needed for GT)
-        with torch.no_grad():
-            pose_gt_aa = self._pose_6d_to_axis_angle(pose_gt)  # (B*T, 72)
-            _, pose_gt_joints = self.smpl_layer(pose_gt_aa, betas_expanded)
-            pose_gt_joints = pose_gt_joints.reshape(num_center_objects, self.num_future_frames, -1, 3)
+        # Compute GT joints once (no grad needed). Skip if all pose losses are zero to avoid NaN
+        # from degenerate (all-zero) pose vectors in gram_schmidt_orthogonalization.
+        if weight_mpjpe > 0:
+            with torch.no_grad():
+                pose_gt_aa = self._pose_6d_to_axis_angle(pose_gt)  # (B*T, 72)
+                _, pose_gt_joints = self.smpl_layer(pose_gt_aa, betas_expanded)
+                pose_gt_joints = pose_gt_joints.reshape(num_center_objects, self.num_future_frames, -1, 3)
+        else:
+            pose_gt_joints = None
 
         if not self.use_place_holder:
             dist = (center_gt_goals[:, None, :] - intention_points).norm(dim=-1)  # (num_center_objects, num_query)
@@ -577,49 +591,46 @@ class MTRDecoder(nn.Module):
                 timestamp_loss_weight=None, use_square_gmm=False,
             )
 
-            # --- Pose mode selection (winner-takes-all L1) ---
-            loss_pose_reg_gmm, pose_gt_positive_idx = loss_utils.nll_loss_pose_gmm(
-                pred_poses=pred_pose,
-                gt_poses=pose_gt,
-                pred_scores=pred_pose_scores,
-                gt_valid_mask=center_gt_trajs_mask,
-            )
+            # --- Pose losses (skipped when all weights are zero to avoid NaN) ---
+            zero = loss_reg_gmm.new_zeros(num_center_objects)
+            if compute_pose_losses:
+                loss_pose_reg_gmm, pose_gt_positive_idx = loss_utils.nll_loss_pose_gmm(
+                    pred_poses=pred_pose,
+                    gt_poses=pose_gt,
+                    pred_scores=pred_pose_scores,
+                    gt_valid_mask=center_gt_trajs_mask,
+                )
+                batch_idxs = torch.arange(num_center_objects, device=pred_pose.device)
+                pred_pose_best = pred_pose[batch_idxs, pose_gt_positive_idx]  # (B, T, 144)
 
-            # --- Select best pose mode for MPJPE and geodesic losses ---
-            batch_idxs = torch.arange(num_center_objects, device=pred_pose.device)
-            pred_pose_best = pred_pose[batch_idxs, pose_gt_positive_idx]  # (B, T, 144)
+                if weight_mpjpe > 0:
+                    pred_pose_aa = self._pose_6d_to_axis_angle(pred_pose_best)  # (B*T, 72)
+                    _, pred_pose_joints_raw = self.smpl_layer(pred_pose_aa, betas_expanded)
+                    pred_pose_joints = pred_pose_joints_raw.reshape(num_center_objects, self.num_future_frames, -1, 3)
+                    loss_mpjpe = self.get_mpjpe_loss(pred_joints=pred_pose_joints, gt_joints=pose_gt_joints)
+                else:
+                    loss_mpjpe = zero
 
-            # MPJPE loss: convert best mode 6D → axis-angle → SMPL joints
-            pred_pose_aa = self._pose_6d_to_axis_angle(pred_pose_best)  # (B*T, 72)
-            _, pred_pose_joints_raw = self.smpl_layer(pred_pose_aa, betas_expanded)
-            pred_pose_joints = pred_pose_joints_raw.reshape(num_center_objects, self.num_future_frames, -1, 3)
+                if weight_geo > 0:
+                    pred_6d = pred_pose_best.reshape(num_center_objects, self.num_future_frames, 24, 6)
+                    gt_6d = pose_gt.reshape(num_center_objects, self.num_future_frames, 24, 6)
+                    loss_geo = loss_utils.geodesic_distance_6d(pred_6d, gt_6d).mean()
+                else:
+                    loss_geo = zero.mean()
 
-            loss_mpjpe = self.get_mpjpe_loss(
-                pred_joints=pred_pose_joints,
-                gt_joints=pose_gt_joints
-            )
-
-            # Geodesic loss on 6D representations (per-joint)
-            pred_6d = pred_pose_best.reshape(num_center_objects, self.num_future_frames, 24, 6)
-            gt_6d = pose_gt.reshape(num_center_objects, self.num_future_frames, 24, 6)
-            loss_geo = loss_utils.geodesic_distance_6d(pred_6d, gt_6d).mean()
+                loss_cls_pose = F.cross_entropy(input=pred_pose_scores, target=pose_gt_positive_idx, reduction='none') if weight_cls_pose > 0 else zero
+            else:
+                loss_pose_reg_gmm = zero
+                loss_mpjpe = zero
+                loss_geo = zero.mean()
+                loss_cls_pose = zero
+                pose_gt_positive_idx = torch.zeros(num_center_objects, dtype=torch.long, device=pred_pose.device)
 
             pred_vel = pred_vel[torch.arange(num_center_objects), center_gt_positive_idx]
             loss_reg_vel = F.l1_loss(pred_vel, center_gt_trajs[:, :, 2:4], reduction='none')
             loss_reg_vel = (loss_reg_vel * center_gt_trajs_mask[:, :, None]).sum(dim=-1).sum(dim=-1)
 
             loss_cls = F.cross_entropy(input=pred_scores, target=center_gt_positive_idx, reduction='none')
-
-            loss_cls_pose = F.cross_entropy(input=pred_pose_scores, target=pose_gt_positive_idx, reduction='none')
-
-            # total loss
-            weight_cls = self.model_cfg.LOSS_WEIGHTS.get('cls', 1.0)
-            weight_reg = self.model_cfg.LOSS_WEIGHTS.get('reg', 1.0)
-            weight_vel = self.model_cfg.LOSS_WEIGHTS.get('vel', 0.2)
-            weight_mpjpe = self.model_cfg.LOSS_WEIGHTS.get('mpjpe', 1.0)
-            weight_geo = self.model_cfg.LOSS_WEIGHTS.get('geo', 1.0)
-            weight_cls_pose = self.model_cfg.LOSS_WEIGHTS.get('cls_pose', 1.0)
-            weight_gmm_pose = self.model_cfg.LOSS_WEIGHTS.get('gmm_pose', 1.0)
 
             layer_loss = loss_reg_gmm * weight_reg + loss_reg_vel * weight_vel + loss_cls.sum(dim=-1) * weight_cls + loss_mpjpe * weight_mpjpe + loss_geo * weight_geo + loss_cls_pose.sum(dim=-1) * weight_cls_pose + loss_pose_reg_gmm * weight_gmm_pose
             layer_loss = layer_loss.mean()
