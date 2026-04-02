@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>MTR+Poses Research Progress — 2026-04-02</title>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; }
+h1 { color: #1a1a2e; border-bottom: 3px solid #4CAF50; padding-bottom: 10px; }
+h2 { color: #16213e; margin-top: 30px; }
+.result-box { background: #e8f5e9; border-left: 5px solid #4CAF50; padding: 15px 20px; margin: 20px 0; border-radius: 4px; }
+.warning-box { background: #fff3e0; border-left: 5px solid #FF9800; padding: 15px 20px; margin: 20px 0; border-radius: 4px; }
+.fix-box { background: #e3f2fd; border-left: 5px solid #2196F3; padding: 15px 20px; margin: 20px 0; border-radius: 4px; }
+table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+th, td { border: 1px solid #ddd; padding: 10px 14px; text-align: left; }
+th { background: #f5f5f5; font-weight: 600; }
+tr:nth-child(even) { background: #fafafa; }
+.best { background: #e8f5e9 !important; font-weight: bold; }
+img { width: 100%; max-width: 800px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
+code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+.metric-big { font-size: 2em; font-weight: bold; color: #4CAF50; }
+.metric-label { font-size: 0.9em; color: #666; }
+.metrics-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin: 20px 0; }
+.metric-card { text-align: center; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,0.1); }
+</style>
+</head>
+<body>
+
+<h1>MTR+SMPL Poses — Research Progress Report</h1>
+<p style="color: #666;">Generated: 2026-04-02 | Researcher: Erik | Branch: mtr_smpl</p>
+
+<h2>Research Question</h2>
+<p><strong>Does conditioning MTR on past SMPL body poses improve pedestrian trajectory prediction?</strong></p>
+
+<div class="result-box">
+<strong>✅ ANSWER: YES — pose conditioning improves minADE by 3.2%</strong><br>
+H1_v2 (pose): <strong>0.6532</strong> vs H2_v2 (no pose): <strong>0.6745</strong><br>
+First reliable comparison on full real Waymo future trajectories.
+</div>
+
+<h2>Key Metrics</h2>
+<div class="metrics-grid">
+  <div class="metric-card">
+    <div class="metric-big">0.6532</div>
+    <div class="metric-label">H1_v2 Best minADE (pose)</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-big">0.6745</div>
+    <div class="metric-label">H2_v2 Best minADE (no pose)</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-big" style="color:#2196F3">3.2%</div>
+    <div class="metric-label">Improvement from pose conditioning</div>
+  </div>
+</div>
+
+<h2>Training Convergence</h2>
+<img src="convergence_H1_vs_H2_v2.png" alt="Convergence plot">
+
+<h2>Experiment Summary</h2>
+<table>
+<tr><th>Run</th><th>Model</th><th>Best minADE</th><th>minFDE (epoch 30)</th><th>Status</th></tr>
+<tr class="warning"><td>run_001</td><td>H1 (pose, original)</td><td>0.6114</td><td>—</td><td>⚠ INVALID (zero future GT)</td></tr>
+<tr class="warning"><td>run_002</td><td>H2 (no pose, original)</td><td>0.7724</td><td>—</td><td>⚠ INVALID (zero future GT)</td></tr>
+<tr class="best"><td>run_003</td><td>H1_v2 (pose + real GT)</td><td><strong>0.6532</strong></td><td>1.4619</td><td>✅ VALID — 30 epochs complete</td></tr>
+<tr class="best"><td>run_004</td><td>H2_v2 (no pose + real GT)</td><td><strong>0.6745</strong></td><td>1.5080</td><td>✅ VALID — 30 epochs complete</td></tr>
+</table>
+
+<h2>Key Technical Fixes This Session</h2>
+
+<div class="fix-box">
+<strong>Fix 1 — Real Waymo Trajectories (Previous Session)</strong><br>
+<code>final_10fps</code> SMPL data had observations only in past window → zero future GT → only 8 val samples had any signal. Fixed by joining with <code>processed_scenarios_{split}/sample_{scene_id}_0.pkl</code> files containing real 91-step Waymo trajectories. 82% val pedestrian coverage, avg 59/80 future steps valid.
+</div>
+
+<div class="fix-box">
+<strong>Fix 2 — NaN Divergence (This Session)</strong><br>
+At pose loss weights=1.0, training diverged to NaN at epoch 3. Two root causes:
+<ol>
+  <li><code>geodesic_distance_6d</code> clamped to exactly ±1.0 → infinite gradient of acos at boundary. Fixed: use [-1+1e-7, 1-1e-7]</li>
+  <li>Gradient explosion through SMPL forward pass with diverging 6D rotations. Fixed: scale pose loss weights to 0.1</li>
+</ol>
+</div>
+
+<h2>Architecture</h2>
+<ul>
+  <li><strong>Base model</strong>: MTR (Motion Transformer, Shi et al. 2022)</li>
+  <li><strong>Pose encoder</strong>: 2-layer GRU on past 6D SMPL pose (144D per frame) → 256D feature</li>
+  <li><strong>Fusion</strong>: MLP fuses pose feature with agent trajectory feature</li>
+  <li><strong>Pose decoder</strong>: Per-decoder-layer pose prediction heads (144D × 6 modes)</li>
+  <li><strong>Pose losses</strong>: MPJPE + geodesic distance + GMM NLL + classification (all at weight 0.1)</li>
+</ul>
+
+<h2>Dataset Scale</h2>
+<ul>
+  <li>Training: 579 scenes, 1348 pedestrians, 57 batches/epoch (batch_size=10)</li>
+  <li>Validation: 5171 scenes, 8282 pedestrians, 518 batches/epoch</li>
+  <li>Full Waymo MTR used ~486k training scenes — we are 836× smaller</li>
+</ul>
+
+<h2>Interpretation</h2>
+<p>The 3.2% improvement is modest but consistent across both minADE and minFDE (+3.1%). At this scale, both models are data-limited. The fact that pose conditioning helps at all — despite noisy SMPL estimates, sparse past observations (7 frames), and compressed pose features — is encouraging.</p>
+
+<p>The convergence curves show H1_v2 has more variance early in training (pose losses add noise) but ultimately converges to a lower floor. This suggests the pose signal is providing useful inductive bias for the trajectory decoder.</p>
+
+<h2>Next Steps</h2>
+<ol>
+  <li><strong>Ablate pose loss weight</strong>: Try 0.05, 0.2, 0.5 — there may be a better trade-off</li>
+  <li><strong>More training data</strong>: If the full SMPL dataset has more scenes, scale up</li>
+  <li><strong>Analyze pose prediction quality</strong>: Are the predicted poses semantically meaningful?</li>
+  <li><strong>Cross-attention pose encoding</strong> (H5): Replace GRU+MLP with cross-attention — may extract more signal from sparse past poses</li>
+</ol>
+
+</body>
+</html>
