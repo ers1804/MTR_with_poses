@@ -101,7 +101,7 @@ hypotheses:
     result:
       best_minADE: 0.6337
       best_epoch: 24
-      notes: "PARTIALLY CONFIRMED — PE recovers 83% of GRU's advantage (0.6765→0.6337, Δ=-6.1% vs baseline). GRU still wins by 1.7% (0.6337 vs 0.6231). Revised interpretation: temporal ORDERING is the dominant requirement (PE captures this). Sequential INTEGRATION (GRU hidden state) provides an additional incremental gain. Both matter, but ordering dominates."
+      notes: "PARTIALLY CONFIRMED — PE recovers 79% of GRU's advantage (0.6765→0.6337, Δ=-6.0% vs baseline). GRU still wins by 1.6% (0.6337 vs 0.6231). Revised interpretation: temporal ORDERING is the dominant requirement (PE captures this). Sequential INTEGRATION (GRU hidden state) provides an additional incremental gain. Both matter, but ordering dominates."
 
 # DATA FIX (resolved 2026-04-02):
 # PROBLEM: final_10fps SMPL data has observations ONLY in the past window (grid indices 0-10).
@@ -335,7 +335,7 @@ experiments:
       best_minFDE: ~
       best_epoch: 24
       minADE_by_eval: [2.1271, 1.7347, null, 1.1778, null, 0.9001, null, 0.7585, null, 0.6970, null, 0.6964, null, 0.6982, null, 0.6644, null, 0.6758, null, 0.6365, 0.6491, 0.6498, 0.6447, 0.6337, 0.7420, 0.6559, 0.6436, 0.6401, 0.6517, 0.6751]
-      notes: "PARTIALLY CONFIRMED — PE recovers 83% of GRU's advantage (0.6765→0.6337). GRU still wins by 1.7% (0.6337 vs 0.6231). Temporal ordering (PE) is the dominant factor; sequential integration (GRU) provides incremental additional gain."
+      notes: "PARTIALLY CONFIRMED — PE recovers 79% of GRU's advantage (0.6765→0.6337). GRU still wins by 1.6% (0.6337 vs 0.6231). Temporal ordering (PE) is the dominant factor; sequential integration (GRU) provides incremental additional gain."
 
 outer_loop:
   cycle: 9
@@ -344,16 +344,16 @@ outer_loop:
     H5b cross-attention + sinusoidal PE results:
     - Baseline (no pose):       0.6745
     - H5 cross-attn (no PE):   0.6765 (Δ=+0.3% WORSE — bag-of-items failure)
-    - H5b cross-attn + PE:     0.6337 (Δ=-6.1% — PE recovers 83% of GRU advantage)
-    - GRU geo_only (best):     0.6231 (Δ=-7.6% — sequential integration adds final 1.7%)
+    - H5b cross-attn + PE:     0.6337 (Δ=-6.0% — PE recovers 79% of GRU advantage)
+    - GRU geo_only (best):     0.6231 (Δ=-7.6% — sequential integration adds final 1.6%)
 
     REVISED F5 INTERPRETATION:
     Temporal ordering (PE) is the dominant requirement for geodesic supervision to work.
     The original H5 failure was primarily due to treating frames as a bag-of-items,
     not because cross-attention fundamentally can't work. Adding sinusoidal PE
-    recovers 83% of the gap (0.0428 of 0.0514 total gain).
+    recovers 79% of the gap (0.0408 of 0.0514 total gain).
 
-    GRU's sequential integration adds a further 1.7% improvement, suggesting:
+    GRU's sequential integration adds a further 1.6% improvement, suggesting:
     - The GRU captures BOTH temporal ordering AND causal dependency structure
     - Cross-attention with PE captures ordering but not the causal "what came before"
       at each timestep — the GRU hidden state accumulates a running summary
@@ -364,8 +364,8 @@ outer_loop:
     2. Geodesic loss is the dominant signal — confirmed (geo_only beats all combinations)
     3. Geo weight has sharp optimum at w=0.1 — confirmed
     4. Mechanism is past pose encoding, not future supervision — confirmed
-    5. REVISED: Temporal ordering is critical (PE alone gives −6.1%); GRU's sequential
-       integration adds an incremental further −1.7%. Both matter; ordering dominates.
+    5. REVISED: Temporal ordering is critical (PE alone gives −6.0%); GRU's sequential
+       integration adds an incremental further −1.6%. Both matter; ordering dominates.
 
     Paper updated: F5 refined, Table 2 extended, Figure 3 updated with H5b curve.
     H5b limitation removed from paper; now an experiment result.
@@ -375,8 +375,8 @@ paper:
   venue: "ICLR 2026"
   file: "paper/iclr2026/main.tex"
   pdf: "paper/iclr2026/main.pdf"
-  page_count: 10
-  main_content_pages: 7
+  page_count: 11
+  main_content_pages: 8
   title: "Body Pose Conditioning Improves Pedestrian Trajectory Forecasting: Geodesic Rotation Supervision and Temporal Encoding are Key"
   citations: 12
   figures: 3
