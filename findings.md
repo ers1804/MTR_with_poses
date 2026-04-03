@@ -31,7 +31,7 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 | run_011 | H3 geo_w=0.05 | 0.05 | 10fps | 0.6786 | −1.5% | ✓ VALID — geo signal too weak |
 | run_012 | H3 geo_w=0.2 | 0.2 | 10fps | 0.6660 | −1.3% | ✓ VALID — too strong, dominates trajectory |
 | run_013 | H5 cross-attn | 0.1 | 10fps | 0.6765 | +0.3% | ✓ VALID — essentially baseline (no improvement) |
-| run_014 | H5b cross-attn+PE | 0.1 | 10fps | 0.6337 | −6.1% | ✓ VALID — PE recovers 83% of GRU advantage |
+| run_014 | H5b cross-attn+PE | 0.1 | 10fps | 0.6337 | −6.0% | ✓ VALID — PE recovers 79% of GRU advantage |
 
 **Core finding**: Pose conditioning improves minADE by **3.2%** (0.6532 vs 0.6745) with full losses at weight=0.1. The improvement is **robust across pose weights [0.05, 0.2]** and across loss ablations (all variants improve over baseline).
 
@@ -45,8 +45,8 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 
 **H5/H5b architecture ablation — temporal ordering dominates, sequential integration adds incrementally**:
 - H5 cross-attn (no PE): 0.6765 — essentially matches baseline (0.6745). Bag-of-items failure: without temporal ordering, cross-attention cannot learn gait dynamics from geodesic gradients.
-- H5b cross-attn + sinusoidal PE: **0.6337** — PE restores temporal ordering and recovers **83% of GRU's advantage** (0.0428 of 0.0514 total gain vs baseline).
-- GRU geo_only: 0.6231 — sequential hidden state integration adds a further **1.7% gain** on top of ordering alone.
+- H5b cross-attn + sinusoidal PE: **0.6337** — PE restores temporal ordering and recovers **79% of GRU's advantage** (0.0408 of 0.0514 total gain vs baseline).
+- GRU geo_only: 0.6231 — sequential hidden state integration adds a further **1.6% gain** on top of ordering alone.
 
 **Revised interpretation**: Temporal ordering is the *dominant* requirement (not sequential processing per se). Sinusoidal PE tells cross-attention WHEN each frame occurred; this is sufficient to capture most of the gait dynamics. The GRU's additional gain comes from its causal structure — each hidden state is a running summary of all prior frames, accumulating orientation history more efficiently than attention over all frames simultaneously. Both matter, but the ordering/temporal-context distinction is the key axis.
 
@@ -77,8 +77,8 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 - **Geodesic loss is the dominant supervision signal (H3 ablation)**: geo_only achieves best minADE=0.6231 (−7.6% vs baseline), outperforming the full model (0.6532, −3.2%). This shows MPJPE and cls_pose losses actively hurt when combined with geo. The rotation-space loss in SO(3) provides richer gradient signal to the GRU encoder than joint-space L1, likely because rotations encode orientation/gait information more directly than joint positions. gmm_only (0.6467, −4.1%) also outperforms mpjpe_only (0.6576, −2.5%), suggesting the WTA regression structure is more informative than point-wise L1 on joints.
 - **Temporal ordering is critical; sequential integration adds incrementally (H5 + H5b)**:
   - Cross-attn, no PE (H5): 0.6765 — bag-of-items fails, ≈ baseline.
-  - Cross-attn + sinusoidal PE (H5b): 0.6337 — PE recovers 83% of GRU's advantage.
-  - GRU geo_only: 0.6231 — sequential integration provides a further 1.7% gain.
+  - Cross-attn + sinusoidal PE (H5b): 0.6337 — PE recovers 79% of GRU's advantage.
+  - GRU geo_only: 0.6231 — sequential integration provides a further 1.6% gain.
   Temporal ordering is the dominant requirement for geodesic supervision to produce trajectory-useful features. GRU's causal accumulation (running hidden state) captures slightly more than PE alone.
 - **Convergence dynamics differ**: H1_v2 reaches best minADE earlier in training and has more variance across epochs (likely from noisy pose losses). H2_v2 plateaus more smoothly. Both settle around 0.67-0.70 after LR decay.
 - **Pose loss weights matter critically for stability**: At weight=1.0, training diverges to NaN at epoch 3 due to gradient explosion through SMPL. At weight=0.1, training is stable for 30 epochs.
@@ -111,7 +111,7 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 7. **[ANSWERED] Does better future pose GT improve trajectory prediction?** NO — H1_v3 (30fps AMASS, 99% future coverage) gives minADE=0.6567 vs H1_v2 (zero future GT) minADE=0.6532. Future pose supervision quality does not drive trajectory improvement; the GRU past encoder is the mechanism.
 8. **[ANSWERED] Geodesic loss alone is the dominant driver.** geo_only (0.6231, −7.6%) outperforms the full model (0.6532, −3.2%). MPJPE and cls_pose losses hurt when combined with geo.
 9. **[ANSWERED] Geo weight for geo_only has a sharp optimum at w=0.1**: w=0.05→0.6786 (−1.5%), w=0.1→0.6231 (−7.6%, best), w=0.2→0.6660 (−1.3%). Both sides of the optimum give dramatically worse results. The geodesic signal needs exactly the right balance — too weak (0.05): GRU ignores rotation supervision; too strong (0.2): dominates trajectory objective causing gradient conflict with cls/reg/vel.
-10. **[ANSWERED] Temporal ordering is the dominant requirement; GRU adds incrementally.** H5b (cross-attn + sinusoidal PE) achieves 0.6337 — recovering 83% of GRU's advantage over baseline. GRU geo_only (0.6231) adds a further 1.7% via causal sequential integration. Both temporal ordering and sequential processing contribute; ordering dominates.
+10. **[ANSWERED] Temporal ordering is the dominant requirement; GRU adds incrementally.** H5b (cross-attn + sinusoidal PE) achieves 0.6337 — recovering 79% of GRU's advantage over baseline. GRU geo_only (0.6231) adds a further 1.6% via causal sequential integration. Both temporal ordering and sequential processing contribute; ordering dominates.
 11. Is there a way to evaluate pose prediction quality separately from trajectory quality?
 
 ## Optimization Trajectory
@@ -131,4 +131,4 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 | run_011 | H3 geo_w=0.05 | 0.05 | 0.6786 | −1.5% | ✓ VALID — geo signal too weak |
 | run_012 | H3 geo_w=0.2 | 0.2 | 0.6660 | −1.3% | ✓ VALID — too strong, dominates trajectory |
 | run_013 | H5 cross-attn | 0.1 | 0.6765 | +0.3% | ✓ VALID — no improvement (≈ baseline) |
-| run_014 | H5b cross-attn+PE | 0.1 | 0.6337 | −6.1% | ✓ VALID — PE recovers 83% of GRU advantage |
+| run_014 | H5b cross-attn+PE | 0.1 | 0.6337 | −6.0% | ✓ VALID — PE recovers 79% of GRU advantage |
