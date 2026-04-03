@@ -50,7 +50,7 @@ a trajectory-only baseline---but only when the pose encoder is supervised with t
 \emph{geodesic distance} in SO(3), not with the commonly used joint-position MPJPE.
 Combining MPJPE with geodesic loss \emph{hurts} performance, while geodesic loss alone
 outperforms all other configurations. We further ablate the temporal encoding architecture: cross-attention \emph{without}
-positional encoding provides essentially no improvement (0.6765 vs.\ baseline 0.6745),
+positional encoding provides no improvement (0.6765 vs.\ baseline 0.6745),
 while cross-attention \emph{with} sinusoidal positional encoding recovers 79\% of the GRU's
 advantage (0.6337, $-$6.0\%).
 A GRU encoder, which accumulates a running hidden state through sequential frames,
@@ -76,9 +76,14 @@ Human gait encodes intent. A pedestrian who is turning to face a crosswalk will
 likely cross it; one whose torso is oriented away from traffic is unlikely to step
 into the road. A runner's body orientation predicts turns before the feet complete
 them. Modern perception systems increasingly provide body pose estimates
-\citep{zhu2022motionbert}, yet trajectory forecasting pipelines ignore these
-estimates entirely. This paper asks: \emph{does conditioning on past SMPL body
-poses improve pedestrian trajectory prediction, and if so, how?}
+\citep{zhu2022motionbert}. While recent work uses skeleton keypoints for
+pose-conditioned prediction in robot navigation and pedestrian benchmarks
+\citep{salzmann2023robots,saadatnejad2024socialtransmotion,gao2025socialpose},
+state-of-the-art autonomous driving forecasters operating on Waymo
+\citep{ettinger2021waymo} discard body pose entirely.
+This paper asks: \emph{does conditioning on past SMPL body poses improve
+pedestrian trajectory prediction within a SOTA AV forecasting framework,
+and if so, what design choices drive the gain?}
 
 We extend \mtr with a \emph{pose conditioning branch} that encodes the past 11
 timesteps of SMPL body pose \citep{loper2015smpl} using 6D rotation representations
@@ -108,10 +113,10 @@ Our experiments yield three principal findings:
 \end{itemize}
 
 A fourth finding clarifies the mechanism: using 30fps AMASS pseudo-ground-truth
-future poses (99\% step coverage vs.\ zero future supervision) gives essentially
-identical trajectory accuracy (0.6567 vs.\ 0.6532), confirming that the benefit
-arises entirely from the \emph{past} pose encoder, not from future pose prediction
-quality.
+future poses (99\% step coverage vs.\ zero future supervision) gives nearly
+identical trajectory accuracy (0.6567 vs.\ 0.6532, $\Delta{=}0.5\%$), confirming
+that the benefit arises entirely from the \emph{past} pose encoder, not from
+future pose prediction quality.
 
 These results have practical implications for the community: rotation-space
 supervision and sequential temporal encoding are often overlooked design choices,
@@ -599,6 +604,12 @@ multi-modal pedestrian prediction systems.
 \subsubsection*{Acknowledgments}
 The authors gratefully acknowledge access to GPU compute (RTX 4090) and the
 publicly available Waymo Open Motion Dataset.
+
+\subsubsection*{LLM Disclosure}
+The authors used large language model (LLM) assistance (Claude, Anthropic) during
+the preparation of this manuscript for writing drafts, code assistance, and
+literature search support. All experimental results, scientific analysis, and
+conclusions are the authors' own.
 
 \bibliography{references}
 \bibliographystyle{iclr2026_conference}
