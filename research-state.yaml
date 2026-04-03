@@ -335,6 +335,20 @@ outer_loop:
     The paper story is COMPLETE. Five findings, all well-supported, with mechanistic explanations.
     Next: write the paper.
 
+paper:
+  status: "draft_complete"
+  venue: "ICLR 2026"
+  file: "paper/iclr2026/main.tex"
+  pdf: "paper/iclr2026/main.pdf"
+  page_count: 10
+  main_content_pages: 7
+  title: "Body Pose Conditioning Improves Pedestrian Trajectory Forecasting: Geodesic Rotation Supervision and Temporal Encoding are Key"
+  citations: 12
+  figures: 3
+  tables: 4
+  completed: "2026-04-03"
+  notes: "7 pages main content (under 9-page limit). References (p.8) + appendix (pp.9-10) excluded from limit. All citations verified programmatically via CrossRef DOI API. Three figures: architecture diagram, ablation bar chart + weight sensitivity, training curves. PDF compiles cleanly with no errors."
+
 workspace:
   findings: "findings.md"
   log: "research-log.md"
