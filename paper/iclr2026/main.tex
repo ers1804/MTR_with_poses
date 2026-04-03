@@ -151,14 +151,20 @@ body pose to downstream trajectory prediction tasks.
 
 \subsection{Joint Pose and Trajectory Models}
 
-To our knowledge, no existing work jointly models SMPL full-body pose and
-trajectory prediction end-to-end within a state-of-the-art transformer
-forecasting framework. Pose-aware methods in computer vision typically use
-coarse orientation cues or skeleton keypoints for intent estimation in
-controlled single-camera settings, without connection to multimodal
-trajectory prediction in autonomous driving. Our work fills this gap and
-contributes a systematic ablation that isolates the contributions of pose
-supervision type, pose weight, temporal encoding, and future pose quality.
+Several recent works condition trajectory prediction on body pose.
+\citet{salzmann2023robots} leverage 3D skeletal keypoints from RGB-D cameras
+to improve trajectory prediction in robot navigation scenarios.
+\citet{saadatnejad2024socialtransmotion} integrate 2D/3D skeleton pose cues
+into a transformer-based predictor on pedestrian benchmarks, and
+\citet{gao2025socialpose} extend this line to social navigation datasets
+using skeleton-based body language features.
+In contrast, our work uses parametric SMPL body pose in 6D rotation space—a
+richer, anatomically-grounded representation—applied to the Waymo Open Motion
+Dataset within the state-of-the-art MTR transformer framework.
+We conduct the first systematic study of pose supervision type (geodesic vs.\
+MPJPE vs.\ GMM NLL), loss weight sensitivity, temporal encoding architecture
+(GRU vs.\ cross-attention with and without positional encoding), and future
+pose quality for joint trajectory--pose learning.
 
 % ===========================================================================
 \section{Method}
