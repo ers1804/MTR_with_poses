@@ -151,12 +151,14 @@ body pose to downstream trajectory prediction tasks.
 
 \subsection{Joint Pose and Trajectory Models}
 
-Prior work has linked body pose to pedestrian intent in controlled settings
-\citep{gupta2018socialgan}, but to our knowledge no existing work jointly models
-SMPL full-body pose and trajectory prediction end-to-end within a state-of-the-art
-transformer forecasting framework. Our work fills this gap and contributes a
-systematic ablation that isolates the contributions of pose supervision type,
-pose weight, temporal encoding, and future pose quality.
+To our knowledge, no existing work jointly models SMPL full-body pose and
+trajectory prediction end-to-end within a state-of-the-art transformer
+forecasting framework. Pose-aware methods in computer vision typically use
+coarse orientation cues or skeleton keypoints for intent estimation in
+controlled single-camera settings, without connection to multimodal
+trajectory prediction in autonomous driving. Our work fills this gap and
+contributes a systematic ablation that isolates the contributions of pose
+supervision type, pose weight, temporal encoding, and future pose quality.
 
 % ===========================================================================
 \section{Method}
@@ -252,20 +254,25 @@ forward kinematics pass and diverges to NaN; all stable runs use $w \leq 0.2$.
 \label{sec:cross_attn}
 
 To isolate the contribution of temporal ordering from sequential integration, we
-test two cross-attention pose encoder variants. In both, the MTR agent feature
-acts as a single query vector (projected to 256D) and the 11 pose frames act as
-keys/values (each 144D projected to 256D). The attended output is concatenated
-with the agent feature.
+test two cross-attention pose encoder variants. Let $\mathbf{q} \in \mathbb{R}^{256}$
+be the MTR agent feature (projected query) and $\mathbf{K}, \mathbf{V} \in \mathbb{R}^{11 \times 256}$
+be the 11 projected pose frames (keys and values). The cross-attention output is:
+\begin{equation}
+  \mathbf{c} = \operatorname{softmax}\!\left(\frac{\mathbf{q}\mathbf{K}^\top}{\sqrt{256}}\right)\mathbf{V},
+\end{equation}
+and $\mathbf{c}$ is concatenated with $\mathbf{q}$ and projected to 256D, replacing $\mathbf{h}_T$ in the fusion step.
 
-\textbf{H5 (no positional encoding).} No temporal information is injected before attention.
+\textbf{H5 (no positional encoding).} No temporal information is injected before attention:
+$\mathbf{K} = \{W_K \mathbf{p}_t\}_{t=1}^{11}$, $\mathbf{V} = \{W_V \mathbf{p}_t\}_{t=1}^{11}$.
 This treats pose frames as a permutation-invariant set and tests whether the
 raw content of each pose frame---absent any ordering---is sufficient to condition
 trajectory prediction.
 
 \textbf{H5b (sinusoidal positional encoding).} Standard sinusoidal positional encoding
-\citep{vaswani2017attention} is added to the projected pose keys/values before attention,
-injecting the frame index $t \in \{0, \ldots, 10\}$ as fixed (non-learned) sinusoidal
-features. This adds temporal ordering at zero extra parameter cost and tests whether
+\citep{vaswani2017attention} is added to the projected keys and values before attention:
+$\mathbf{K}' = \{W_K \mathbf{p}_t + \mathbf{e}_t\}_{t=1}^{11}$, where $\mathbf{e}_t$ is
+the fixed sinusoidal embedding for frame index $t \in \{0, \ldots, 10\}$.
+This injects temporal ordering at zero extra parameter cost and tests whether
 ordering alone is sufficient, without the causal accumulation structure of a GRU.
 
 % ===========================================================================
