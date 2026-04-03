@@ -89,6 +89,20 @@ hypotheses:
       best_epoch: 27
       notes: "REFUTED — cross-attention (0.6765) essentially matches the trajectory-only baseline (0.6745). NO improvement from cross-attention vs GRU which achieved 0.6231. Root cause: cross-attention without positional encoding treats 11 pose frames as a bag-of-items, losing temporal ordering. GRU's sequential inductive bias is critical for geodesic supervision of gait dynamics."
 
+  - id: H5b
+    statement: "Cross-attention + sinusoidal positional encoding closes the gap with GRU — temporal ordering is sufficient, sequential processing is not needed."
+    status: partially_confirmed
+    motivation: "H5 used cross-attention without PE, treating frames as a bag-of-items. Adding sinusoidal PE restores temporal ordering. If PE alone closes the gap, it implies ordering matters but the GRU's sequential integration is not the key ingredient."
+    priority: high
+    prediction: "If PE matters: minADE will improve over H5 (0.6765) toward GRU+geo (0.6231). If sequential integration is what matters: PE will provide minimal benefit and result will stay near baseline."
+    config: "mtr+pose_data_cross_attn_pe.yaml"
+    extra_tag: "H5b_cross_attn_pe_geo_only"
+    started: "2026-04-03"
+    result:
+      best_minADE: 0.6337
+      best_epoch: 24
+      notes: "PARTIALLY CONFIRMED — PE recovers 83% of GRU's advantage (0.6765→0.6337, Δ=-6.1% vs baseline). GRU still wins by 1.7% (0.6337 vs 0.6231). Revised interpretation: temporal ORDERING is the dominant requirement (PE captures this). Sequential INTEGRATION (GRU hidden state) provides an additional incremental gain. Both matter, but ordering dominates."
+
 # DATA FIX (resolved 2026-04-02):
 # PROBLEM: final_10fps SMPL data has observations ONLY in the past window (grid indices 0-10).
 #          Future window (indices 11-90) is always zero → zero training signal → mAP=0.
@@ -103,7 +117,7 @@ experiments:
   proxy_metric: "minADE_TYPE_PEDESTRIAN (minADE over 6 modes at final layer, lower is better)"
   baseline_value: 0.6745  # H2_v2 (no pose) best minADE
   best_value: 0.6231      # H3_geo_only — geodesic loss alone, 7.6% better than baseline
-  total_runs: 13          # 2 unreliable (zero-future) + 2 real-data + 2 weight ablation + 1 30fps + 3 loss ablation + 2 geo weight ablation + 1 cross-attn
+  total_runs: 14          # 2 unreliable (zero-future) + 2 real-data + 2 weight ablation + 1 30fps + 3 loss ablation + 2 geo weight ablation + 1 cross-attn + 1 cross-attn+PE
   trajectory:
     - run_id: "run_001"
       tag: "H1_pose_all_losses"
@@ -305,35 +319,56 @@ experiments:
       minADE_by_eval: [2.1170, 1.7228, 1.2051, 0.9088, 0.8141, 0.8101, 0.7746, 0.6908, 0.6837, 0.6793, 0.7466, 0.6952, 0.7294, 0.7304, 0.7301, 0.7108, 0.6889, 0.6765, 0.6777, 0.7199, 0.7002, 0.7002]
       notes: "REFUTED: Cross-attention (0.6765) essentially matches baseline (0.6745) — NO improvement. GRU geo_only achieved 0.6231 (7.6% better than baseline vs 0.3% worse for cross-attn). Critical difference: cross-attention without temporal PE treats 11 pose frames as bag-of-items, losing sequential gait dynamics that GRU captures. GRU's inductive bias (temporal ordering) is essential for geodesic supervision to work."
 
+    - run_id: "run_014"
+      tag: "H5b_cross_attn_pe_geo_only"
+      hypothesis: "H5b"
+      status: "complete"
+      started: "2026-04-03T13:18"
+      finished: "2026-04-03T13:28"
+      config: "tools/cfgs/waymo/mtr+pose_data_cross_attn_pe.yaml"
+      batch_size: 10
+      epochs: 30
+      losses: [cls, reg, vel, geo, gmm_pose]
+      loss_weights: {cls: 1.0, reg: 1.0, vel: 0.5, mpjpe: 0.0, geo: 0.1, cls_pose: 0.0, gmm_pose: 0.1}
+      architecture: "Cross-attention + sinusoidal PE: agent_feature (1 query) × pose_tokens_with_PE (11 keys/values, 144→256 projected, PE added before attn)"
+      best_minADE: 0.6337
+      best_minFDE: ~
+      best_epoch: 24
+      minADE_by_eval: [2.1271, 1.7347, null, 1.1778, null, 0.9001, null, 0.7585, null, 0.6970, null, 0.6964, null, 0.6982, null, 0.6644, null, 0.6758, null, 0.6365, 0.6491, 0.6498, 0.6447, 0.6337, 0.7420, 0.6559, 0.6436, 0.6401, 0.6517, 0.6751]
+      notes: "PARTIALLY CONFIRMED — PE recovers 83% of GRU's advantage (0.6765→0.6337). GRU still wins by 1.7% (0.6337 vs 0.6231). Temporal ordering (PE) is the dominant factor; sequential integration (GRU) provides incremental additional gain."
+
 outer_loop:
-  cycle: 8
-  last_direction: "CONCLUDE — H5 null result completes the architecture ablation; paper story is complete"
+  cycle: 9
+  last_direction: "CONCLUDE — H5b refines F5: temporal ordering dominates, sequential integration adds incrementally. Paper updated."
   last_reflection: |
-    H5 cross-attention pose encoder results:
-    - H5 cross-attn (run_013):  0.6765 (Δ=+0.3% WORSE than baseline 0.6745)
-    - GRU geo_only (run_010):   0.6231 (Δ=-7.6%) ← the best result
+    H5b cross-attention + sinusoidal PE results:
+    - Baseline (no pose):       0.6745
+    - H5 cross-attn (no PE):   0.6765 (Δ=+0.3% WORSE — bag-of-items failure)
+    - H5b cross-attn + PE:     0.6337 (Δ=-6.1% — PE recovers 83% of GRU advantage)
+    - GRU geo_only (best):     0.6231 (Δ=-7.6% — sequential integration adds final 1.7%)
 
-    KEY FINDING: Cross-attention WITHOUT temporal positional encoding provides essentially
-    NO improvement over the trajectory-only baseline. The cross-attention architecture
-    (agent feature as query, 11 pose frames as keys/values) treats pose frames as a
-    bag-of-items, losing temporal ordering information that the GRU captures explicitly.
+    REVISED F5 INTERPRETATION:
+    Temporal ordering (PE) is the dominant requirement for geodesic supervision to work.
+    The original H5 failure was primarily due to treating frames as a bag-of-items,
+    not because cross-attention fundamentally can't work. Adding sinusoidal PE
+    recovers 83% of the gap (0.0428 of 0.0514 total gain).
 
-    MECHANISTIC EXPLANATION:
-    - GRU processes frames sequentially: each hidden state integrates history up to time t
-    - With geodesic supervision, GRU learns TEMPORAL EVOLUTION of body orientation
-    - Cross-attention treats all 11 frames identically (no positional encoding used)
-    - Result: cross-attention can identify WHICH poses matter but not HOW poses change
-    - Geodesic supervision requires temporal context to be useful → GRU wins
+    GRU's sequential integration adds a further 1.7% improvement, suggesting:
+    - The GRU captures BOTH temporal ordering AND causal dependency structure
+    - Cross-attention with PE captures ordering but not the causal "what came before"
+      at each timestep — the GRU hidden state accumulates a running summary
+    - Both mechanisms matter, but ordering is the dominant factor
 
-    COMPLETE PICTURE:
-    1. Pose conditioning improves trajectory prediction — confirmed (3.2% with full losses, 7.6% geo_only)
-    2. Geodesic loss is the dominant signal — confirmed (geo_only outperforms all other combinations)
-    3. Geo weight has sharp optimum at w=0.1 — confirmed (both w=0.05 and w=0.2 collapse)
-    4. Mechanism is past pose encoding, not future supervision — confirmed (H1_v3 null result)
-    5. GRU's temporal inductive bias is essential — confirmed (H5 null result: cross-attn ≈ baseline)
+    COMPLETE PICTURE (updated):
+    1. Pose conditioning improves trajectory prediction — confirmed (7.6% best)
+    2. Geodesic loss is the dominant signal — confirmed (geo_only beats all combinations)
+    3. Geo weight has sharp optimum at w=0.1 — confirmed
+    4. Mechanism is past pose encoding, not future supervision — confirmed
+    5. REVISED: Temporal ordering is critical (PE alone gives −6.1%); GRU's sequential
+       integration adds an incremental further −1.7%. Both matter; ordering dominates.
 
-    The paper story is COMPLETE. Five findings, all well-supported, with mechanistic explanations.
-    Next: write the paper.
+    Paper updated: F5 refined, Table 2 extended, Figure 3 updated with H5b curve.
+    H5b limitation removed from paper; now an experiment result.
 
 paper:
   status: "draft_complete"
@@ -347,7 +382,7 @@ paper:
   figures: 3
   tables: 4
   completed: "2026-04-03"
-  notes: "7 pages main content (under 9-page limit). References (p.8) + appendix (pp.9-10) excluded from limit. All citations verified programmatically via CrossRef DOI API. Three figures: architecture diagram, ablation bar chart + weight sensitivity, training curves. PDF compiles cleanly with no errors."
+  notes: "7 pages main content (under 9-page limit). References (p.8) + appendix (pp.9-10) excluded from limit. All citations verified programmatically via CrossRef DOI API. Three figures: architecture diagram, ablation bar chart + weight sensitivity, training curves. PDF compiles cleanly with no errors. Final polish: methods section extended to describe both H5 and H5b cross-attn variants; limitations updated to remove stale H5b future-direction item and add single-seed caveat; conclusion updated to 14 runs with temporal decomposition analysis; Figure 3 shows all 4 curves (baseline, H5, H5b, GRU+geo)."
 
 workspace:
   findings: "findings.md"

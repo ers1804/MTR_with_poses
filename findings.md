@@ -31,6 +31,7 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 | run_011 | H3 geo_w=0.05 | 0.05 | 10fps | 0.6786 | −1.5% | ✓ VALID — geo signal too weak |
 | run_012 | H3 geo_w=0.2 | 0.2 | 10fps | 0.6660 | −1.3% | ✓ VALID — too strong, dominates trajectory |
 | run_013 | H5 cross-attn | 0.1 | 10fps | 0.6765 | +0.3% | ✓ VALID — essentially baseline (no improvement) |
+| run_014 | H5b cross-attn+PE | 0.1 | 10fps | 0.6337 | −6.1% | ✓ VALID — PE recovers 83% of GRU advantage |
 
 **Core finding**: Pose conditioning improves minADE by **3.2%** (0.6532 vs 0.6745) with full losses at weight=0.1. The improvement is **robust across pose weights [0.05, 0.2]** and across loss ablations (all variants improve over baseline).
 
@@ -42,7 +43,12 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 
 **Counterintuitive finding**: The full model (all 4 losses combined) performs WORSE than geo_only. MPJPE (joint-space) supervision appears to conflict with geodesic (rotation-space) supervision, degrading the shared GRU encoder features. Geodesic loss in SO(3) is a more natural supervisory signal for body poses because it directly penalizes rotation errors without the nonlinear FK transformation required for MPJPE.
 
-**H5 null result — GRU's temporal inductive bias is essential**: Cross-attention (0.6765) essentially matches the trajectory-only baseline (0.6745), while GRU geo_only achieves 0.6231. Cross-attention treats the 11 pose frames as a permutation-invariant bag-of-items (no positional encoding), losing temporal ordering. The GRU explicitly models how body orientations evolve over time — the geodesic supervision shapes this temporal integration, making the sequential hidden state orientation-aware. Without temporal ordering, the cross-attention cannot learn gait dynamics from geodesic gradients.
+**H5/H5b architecture ablation — temporal ordering dominates, sequential integration adds incrementally**:
+- H5 cross-attn (no PE): 0.6765 — essentially matches baseline (0.6745). Bag-of-items failure: without temporal ordering, cross-attention cannot learn gait dynamics from geodesic gradients.
+- H5b cross-attn + sinusoidal PE: **0.6337** — PE restores temporal ordering and recovers **83% of GRU's advantage** (0.0428 of 0.0514 total gain vs baseline).
+- GRU geo_only: 0.6231 — sequential hidden state integration adds a further **1.7% gain** on top of ordering alone.
+
+**Revised interpretation**: Temporal ordering is the *dominant* requirement (not sequential processing per se). Sinusoidal PE tells cross-attention WHEN each frame occurred; this is sufficient to capture most of the gait dynamics. The GRU's additional gain comes from its causal structure — each hidden state is a running summary of all prior frames, accumulating orientation history more efficiently than attention over all frames simultaneously. Both matter, but the ordering/temporal-context distinction is the key axis.
 
 **Mechanistic insight (H1_v3 null result)**: Using 30fps AMASS pseudo-GT future poses (99% future step coverage) gives best minADE=0.6567 — virtually identical to H1_v2 (0.6532, zero future poses). **The trajectory benefit from pose conditioning comes entirely from the past pose GRU encoder, not from the quality of future pose supervision.** Better future GT for the pose decoder does not translate into better trajectory prediction.
 
@@ -69,7 +75,11 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 - **Geo_only weight has a SHARP OPTIMUM at w=0.1**: w=0.05→0.6786 (−1.5%), w=0.1→0.6231 (−7.6%), w=0.2→0.6660 (−1.3%). Unlike the full model's broad plateau, geo_only has a narrow peak. Both directions from w=0.1 collapse to near-baseline performance. This reveals a delicate balance: the geodesic loss must be strong enough to shape GRU orientation features but not so strong it dominates the trajectory objective.
 - **Source of improvement localized to past pose encoding (H1_v3 null result)**: Using 30fps AMASS pseudo-GT future poses (99% future step coverage) gives minADE=0.6567, nearly identical to H1_v2 (0.6532) which had zero future pose GT. The trajectory benefit comes entirely from the GRU encoder processing past poses, not from supervising the pose decoder with better GT. This clarifies the mechanism: pose encoder → cross-attention with trajectory decoder → better trajectory queries.
 - **Geodesic loss is the dominant supervision signal (H3 ablation)**: geo_only achieves best minADE=0.6231 (−7.6% vs baseline), outperforming the full model (0.6532, −3.2%). This shows MPJPE and cls_pose losses actively hurt when combined with geo. The rotation-space loss in SO(3) provides richer gradient signal to the GRU encoder than joint-space L1, likely because rotations encode orientation/gait information more directly than joint positions. gmm_only (0.6467, −4.1%) also outperforms mpjpe_only (0.6576, −2.5%), suggesting the WTA regression structure is more informative than point-wise L1 on joints.
-- **GRU's temporal inductive bias is critical — cross-attention without PE fails (H5)**: Replacing GRU with a cross-attention encoder (agent feature queries 11 pose tokens, no positional encoding) gives minADE=0.6765 — essentially matching the trajectory-only baseline (0.6745). GRU geo_only achieves 0.6231. The cross-attention treats pose frames as a bag-of-items, losing temporal ordering. GRU processes frames sequentially; with geodesic supervision it learns orientation evolution over time, producing trajectory-useful gait dynamics. Temporal ordering is essential: knowing HOW poses change (gait phase transitions) matters more than WHICH poses are present.
+- **Temporal ordering is critical; sequential integration adds incrementally (H5 + H5b)**:
+  - Cross-attn, no PE (H5): 0.6765 — bag-of-items fails, ≈ baseline.
+  - Cross-attn + sinusoidal PE (H5b): 0.6337 — PE recovers 83% of GRU's advantage.
+  - GRU geo_only: 0.6231 — sequential integration provides a further 1.7% gain.
+  Temporal ordering is the dominant requirement for geodesic supervision to produce trajectory-useful features. GRU's causal accumulation (running hidden state) captures slightly more than PE alone.
 - **Convergence dynamics differ**: H1_v2 reaches best minADE earlier in training and has more variance across epochs (likely from noisy pose losses). H2_v2 plateaus more smoothly. Both settle around 0.67-0.70 after LR decay.
 - **Pose loss weights matter critically for stability**: At weight=1.0, training diverges to NaN at epoch 3 due to gradient explosion through SMPL. At weight=0.1, training is stable for 30 epochs.
 - **Small dataset limits absolute performance**: minADE ~0.65 is far from SOTA (~0.3 on full Waymo). With 579 training scenes vs 486k in full MTR, the gap is expected. The relative H1 vs H2 comparison is still valid.
@@ -101,7 +111,7 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 7. **[ANSWERED] Does better future pose GT improve trajectory prediction?** NO — H1_v3 (30fps AMASS, 99% future coverage) gives minADE=0.6567 vs H1_v2 (zero future GT) minADE=0.6532. Future pose supervision quality does not drive trajectory improvement; the GRU past encoder is the mechanism.
 8. **[ANSWERED] Geodesic loss alone is the dominant driver.** geo_only (0.6231, −7.6%) outperforms the full model (0.6532, −3.2%). MPJPE and cls_pose losses hurt when combined with geo.
 9. **[ANSWERED] Geo weight for geo_only has a sharp optimum at w=0.1**: w=0.05→0.6786 (−1.5%), w=0.1→0.6231 (−7.6%, best), w=0.2→0.6660 (−1.3%). Both sides of the optimum give dramatically worse results. The geodesic signal needs exactly the right balance — too weak (0.05): GRU ignores rotation supervision; too strong (0.2): dominates trajectory objective causing gradient conflict with cls/reg/vel.
-10. **[ANSWERED] GRU is NOT the bottleneck — it is the key mechanism.** Cross-attention (H5, run_013) achieves 0.6765, essentially the same as the no-pose baseline (0.6745). GRU geo_only (0.6231) is 7.6% better. The sequential inductive bias of GRU + geodesic supervision creates temporal orientation tracking that cross-attention without PE cannot replicate. The temporal ordering of body poses is essential for geodesic supervision to improve trajectories.
+10. **[ANSWERED] Temporal ordering is the dominant requirement; GRU adds incrementally.** H5b (cross-attn + sinusoidal PE) achieves 0.6337 — recovering 83% of GRU's advantage over baseline. GRU geo_only (0.6231) adds a further 1.7% via causal sequential integration. Both temporal ordering and sequential processing contribute; ordering dominates.
 11. Is there a way to evaluate pose prediction quality separately from trajectory quality?
 
 ## Optimization Trajectory
@@ -121,3 +131,4 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 | run_011 | H3 geo_w=0.05 | 0.05 | 0.6786 | −1.5% | ✓ VALID — geo signal too weak |
 | run_012 | H3 geo_w=0.2 | 0.2 | 0.6660 | −1.3% | ✓ VALID — too strong, dominates trajectory |
 | run_013 | H5 cross-attn | 0.1 | 0.6765 | +0.3% | ✓ VALID — no improvement (≈ baseline) |
+| run_014 | H5b cross-attn+PE | 0.1 | 0.6337 | −6.1% | ✓ VALID — PE recovers 83% of GRU advantage |

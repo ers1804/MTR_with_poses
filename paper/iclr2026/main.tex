@@ -248,16 +248,25 @@ where we ablate the weights $w_\star \in \{0, 0.05, 0.1, 0.2\}$ in our experimen
 We found that any weight $\geq 1.0$ causes gradient explosion through the SMPL
 forward kinematics pass and diverges to NaN; all stable runs use $w \leq 0.2$.
 
-\subsection{Cross-Attention Pose Encoder (Ablation)}
+\subsection{Cross-Attention Pose Encoders (Ablation)}
 \label{sec:cross_attn}
 
-To test whether temporal ordering matters, we replace the GRU with a
-cross-attention encoder: the MTR agent feature acts as a single query vector
-(projected to 256D), and the 11 pose frames act as keys/values (each 144D
-projected to 256D). No positional encoding is added. A single attention
-head aggregates over the 11 frames, and the output is concatenated with the
-agent feature. This design treats pose frames as a permutation-invariant set
-and serves as a controlled ablation of the GRU's temporal inductive bias.
+To isolate the contribution of temporal ordering from sequential integration, we
+test two cross-attention pose encoder variants. In both, the MTR agent feature
+acts as a single query vector (projected to 256D) and the 11 pose frames act as
+keys/values (each 144D projected to 256D). The attended output is concatenated
+with the agent feature.
+
+\textbf{H5 (no positional encoding).} No temporal information is injected before attention.
+This treats pose frames as a permutation-invariant set and tests whether the
+raw content of each pose frame---absent any ordering---is sufficient to condition
+trajectory prediction.
+
+\textbf{H5b (sinusoidal positional encoding).} Standard sinusoidal positional encoding
+\citep{vaswani2017attention} is added to the projected pose keys/values before attention,
+injecting the frame index $t \in \{0, \ldots, 10\}$ as fixed (non-learned) sinusoidal
+features. This adds temporal ordering at zero extra parameter cost and tests whether
+ordering alone is sufficient, without the causal accumulation structure of a GRU.
 
 % ===========================================================================
 \section{Experiments}
@@ -537,6 +546,13 @@ map-aware pedestrian routing. Results on map-equipped data may differ.
 \textbf{Pose decoder quality.} We do not evaluate MPJPE/geodesic error of the
 predicted future poses independently; our metric is trajectory prediction only.
 A joint evaluation of pose and trajectory quality would complete the picture.
+
+\textbf{Single-seed results.} All 14 runs use a single random seed. Epoch-to-epoch
+variance in our training curves (particularly the LR-decay spike at epoch 25 in
+the H5b run, where minADE jumps to 0.7420 before recovering) suggests non-trivial
+training noise. We report best-checkpoint minADE, which may slightly overfit to
+the noise of a single run. Repeating key runs with multiple seeds would tighten the
+confidence interval on the reported improvements.
 
 % ===========================================================================
 \section{Conclusion}
