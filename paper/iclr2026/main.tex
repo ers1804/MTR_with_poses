@@ -51,8 +51,8 @@ a trajectory-only baseline---but only when the pose encoder is supervised with t
 Combining MPJPE with geodesic loss \emph{hurts} performance, while geodesic loss alone
 outperforms all other configurations. We further ablate the temporal encoding architecture: cross-attention \emph{without}
 positional encoding provides essentially no improvement (0.6765 vs.\ baseline 0.6745),
-while cross-attention \emph{with} sinusoidal positional encoding recovers 83\% of the GRU's
-advantage (0.6337, $-$6.1\%).
+while cross-attention \emph{with} sinusoidal positional encoding recovers 79\% of the GRU's
+advantage (0.6337, $-$6.0\%).
 A GRU encoder, which accumulates a running hidden state through sequential frames,
 achieves the full 7.6\% gain (0.6231).
 These results reveal two design principles: (1) rotation-space supervision is more
@@ -100,9 +100,9 @@ Our experiments yield three principal findings:
         forward-kinematics transformation that blurs gradient flow in MPJPE.
   \item \textbf{Temporal ordering dominates; sequential integration adds incrementally}.
         Cross-attention \emph{without} positional encoding yields no improvement (0.6765 $\approx$ baseline 0.6745).
-        Adding sinusoidal positional encoding recovers 83\% of the GRU's advantage (0.6337, $-$6.1\%).
+        Adding sinusoidal positional encoding recovers 79\% of the GRU's advantage (0.6337, $-$6.0\%).
         The GRU's causal sequential integration achieves the full $-$7.6\% gain (0.6231),
-        providing a further 1.7\% over cross-attention with PE.
+        providing a further 1.6\% over cross-attention with PE.
         Temporal ordering is the dominant requirement; the GRU's running hidden state adds
         an incremental benefit from causal accumulation.
 \end{itemize}
@@ -424,7 +424,7 @@ Pose Encoder & Temporal info & \minADE $\downarrow$ & $\Delta$ vs.\ baseline \\
 \midrule
 None (no pose)             & ---               & 0.6745 & --- \\
 Cross-attention, no PE     & none (bag)        & 0.6765 & $+$0.3\% \\
-Cross-attention + sinus.\ PE & ordering only   & 0.6337 & $-$6.1\% \\
+Cross-attention + sinus.\ PE & ordering only   & 0.6337 & $-$6.0\% \\
 \rowcolor{bestrow}
 GRU (sequential)           & ordering + causal & \textbf{0.6231} & $-$7.6\% \\
 \bottomrule
@@ -434,12 +434,12 @@ GRU (sequential)           & ordering + causal & \textbf{0.6231} & $-$7.6\% \\
 
 Cross-attention without positional encoding gives 0.6765---no improvement over
 baseline---because it treats the 11 pose frames as a permutation-invariant set.
-Adding sinusoidal positional encoding (cross-attention + PE) recovers \textbf{83\%}
-of the GRU's advantage, reaching \minADE $= 0.6337$ ($-6.1\%$).
-The GRU achieves 0.6231 ($-7.6\%$), a further 1.7\% improvement over cross-attention with PE.
+Adding sinusoidal positional encoding (cross-attention + PE) recovers \textbf{79\%}
+of the GRU's advantage, reaching \minADE $= 0.6337$ ($-6.0\%$).
+The GRU achieves 0.6231 ($-7.6\%$), a further 1.6\% improvement over cross-attention with PE.
 
 The progression reveals a clean decomposition: (1)~temporal \emph{ordering}---knowing
-\emph{when} each frame occurred---is the dominant requirement, contributing 83\% of
+\emph{when} each frame occurred---is the dominant requirement, contributing 79\% of
 the total gain. Sinusoidal PE, which injects position indices without learned weights,
 is sufficient to capture this.
 (2)~The GRU's causal \emph{sequential integration}---where each hidden state is a
@@ -476,7 +476,7 @@ will go provides no additional benefit.
   Cross-attention without PE (orange, dash-dot) tracks the baseline throughout,
   confirming that permutation-invariant aggregation extracts no temporal information.
   Cross-attention with sinusoidal PE (green, dotted) drops to 0.6337 at epoch 24,
-  recovering 83\% of the GRU's advantage.
+  recovering 79\% of the GRU's advantage.
   GRU+geo (blue, solid) reaches 0.6231 at epoch 20 with higher epoch-to-epoch
   variance, consistent with the additional SMPL pose matching signal.
 }
@@ -510,11 +510,11 @@ compounding.
 The temporal ablation decomposes the GRU's advantage into two separable components.
 \emph{First}, temporal ordering---knowing \emph{when} each frame occurred---is the dominant
 requirement. Sinusoidal positional encoding, a fixed injection of position indices requiring
-no learned parameters, is sufficient to recover 83\% of the GRU's gain ($-$6.1\% vs.\ $-$7.6\%).
+no learned parameters, is sufficient to recover 79\% of the GRU's gain ($-$6.0\% vs.\ $-$7.6\%).
 This is consistent with gait being primarily a phase-ordered phenomenon: knowing that a
 left-foot strike at $t=3$ follows right-foot strike at $t=1$ captures most of the useful
 temporal structure.
-\emph{Second}, the GRU's causal \emph{sequential integration} adds an incremental 1.7\%.
+\emph{Second}, the GRU's causal \emph{sequential integration} adds an incremental 1.6\%.
 The GRU hidden state $\mathbf{h}_T$ is a compressed running summary of all preceding frames;
 cross-attention with PE attends to all 11 frames simultaneously and may produce a
 representation less compatible with the trajectory decoder's expectation of a single
@@ -580,7 +580,7 @@ yields only 2.5\% improvement and degrades performance when combined with geodes
 loss;
 (2) temporal ordering of pose frames is the dominant requirement---cross-attention
 \emph{without} positional encoding provides no improvement (0.6765), while adding
-sinusoidal PE recovers 83\% of the GRU's advantage (0.6337, $-$6.1\%); the GRU's
+sinusoidal PE recovers 79\% of the GRU's advantage (0.6337, $-$6.0\%); the GRU's
 causal sequential integration provides a further incremental gain to $-$7.6\%;
 (3) the source of improvement is the past pose encoder, not future pose prediction
 quality.
@@ -666,7 +666,7 @@ Run & Tag & Encoder & Losses ($w$) & \minADE & $\Delta$ \\
 011 & H3 geo w=0.05   & GRU & geo+gmm (0.05)       & 0.6786 & $-$1.5\% \\
 012 & H3 geo w=0.2    & GRU & geo+gmm (0.2)        & 0.6660 & $-$1.3\% \\
 013 & H5 cross-attn   & XAttn & geo+gmm (0.1)      & 0.6765 & $+$0.3\% \\
-014 & H5b xattn+PE    & XAttn+PE & geo+gmm (0.1)   & 0.6337 & $-$6.1\% \\
+014 & H5b xattn+PE    & XAttn+PE & geo+gmm (0.1)   & 0.6337 & $-$6.0\% \\
 \bottomrule
 \end{tabular}
 \end{center}
