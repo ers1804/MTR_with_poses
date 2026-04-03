@@ -181,10 +181,9 @@ print("Saved fig_ablation.pdf")
 # Real per-epoch validation minADE from training logs
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Real data extracted from training logs (22 epochs each)
-epochs = np.arange(1, 23)
-
+# Real data extracted from training logs
 # H3_geo_only: log_train_20260402-121052.txt — best 0.6231 at epoch 20
+epochs_22 = np.arange(1, 23)
 geo_only = np.array([2.0209, 1.7540, 1.3268, 0.9699, 0.7982, 0.7116, 0.6655, 0.6860,
                      0.6413, 0.6856, 0.6876, 0.6530, 0.6712, 0.6511, 0.6539, 0.6415,
                      0.6281, 0.6497, 0.6405, 0.6231, 0.6379, 0.6379])
@@ -199,29 +198,37 @@ cross_attn = np.array([2.1170, 1.7228, 1.2051, 0.9088, 0.8141, 0.8101, 0.7746, 0
                        0.6837, 0.6793, 0.7466, 0.6952, 0.7294, 0.7304, 0.7301, 0.7108,
                        0.6889, 0.6765, 0.6777, 0.7199, 0.7002, 0.7002])
 
-fig, ax = plt.subplots(figsize=(5.0, 2.8))
+# H5b_cross_attn_pe: log_train_20260403-131827.txt — best 0.6337 at epoch 24
+# Evaluated at every 2 epochs (1-20) then every epoch (20-29)
+cross_attn_pe_epochs = np.array([1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29])
+cross_attn_pe = np.array([2.1271, 1.7347, 1.1778, 0.9001, 0.7585, 0.6970, 0.6964, 0.6982,
+                          0.6644, 0.6758, 0.6365, 0.6491, 0.6498, 0.6447, 0.6337, 0.7420,
+                          0.6559, 0.6436, 0.6401, 0.6517])
 
-ax.plot(epochs, baseline,   color=GRAY,   linewidth=1.5, label='MTR baseline (no pose), best=0.6745', linestyle='--')
-ax.plot(epochs, cross_attn, color=ORANGE, linewidth=1.5, label='MTR+Pose (cross-attn), best=0.6765',  linestyle='-.')
-ax.plot(epochs, geo_only,   color=BLUE,   linewidth=1.5, label='MTR+Pose (GRU+geo), best=0.6231')
+fig, ax = plt.subplots(figsize=(5.5, 2.8))
+
+ax.plot(epochs_22,          baseline,   color=GRAY,   linewidth=1.5, label='MTR baseline (no pose), best=0.6745', linestyle='--')
+ax.plot(epochs_22,          cross_attn, color=ORANGE, linewidth=1.5, label='Cross-attn, no PE, best=0.6765',       linestyle='-.')
+ax.plot(cross_attn_pe_epochs, cross_attn_pe, color=GREEN, linewidth=1.5, label='Cross-attn + sinus. PE, best=0.6337', linestyle=':')
+ax.plot(epochs_22,          geo_only,   color=BLUE,   linewidth=1.5, label='GRU + geo (ours), best=0.6231')
 
 # Mark best epochs
-ax.axvline(11, color=GRAY,   linewidth=0.8, linestyle=':', alpha=0.6)
-ax.axvline(18, color=ORANGE, linewidth=0.8, linestyle=':', alpha=0.6)
-ax.axvline(20, color=BLUE,   linewidth=0.8, linestyle=':', alpha=0.7)
+ax.axvline(11, color=GRAY,   linewidth=0.7, linestyle=':', alpha=0.5)
+ax.axvline(20, color=BLUE,   linewidth=0.7, linestyle=':', alpha=0.6)
+ax.axvline(24, color=GREEN,  linewidth=0.7, linestyle=':', alpha=0.6)
 
-ax.annotate('ep.20\nbest=0.6231', xy=(20, 0.6231), xytext=(17, 0.638),
-            fontsize=7, color=BLUE,
+ax.annotate('ep.20\n0.6231', xy=(20, 0.6231), xytext=(16.5, 0.637),
+            fontsize=6.5, color=BLUE,
             arrowprops=dict(arrowstyle='->', color=BLUE, lw=0.8))
-ax.annotate('ep.11\nbest=0.6745', xy=(11, 0.6745), xytext=(12.5, 0.658),
-            fontsize=7, color='#555555',
-            arrowprops=dict(arrowstyle='->', color='#555555', lw=0.8))
+ax.annotate('ep.24\n0.6337', xy=(24, 0.6337), xytext=(25.5, 0.646),
+            fontsize=6.5, color=GREEN,
+            arrowprops=dict(arrowstyle='->', color=GREEN, lw=0.8))
 
 ax.set_xlabel('Training epoch')
 ax.set_ylabel('Validation minADE $\\downarrow$')
-ax.set_title('Training dynamics: GRU+geo vs.\ cross-attention vs.\ baseline')
-ax.set_xlim(1, 22)
-ax.legend(loc='upper right', frameon=False, fontsize=7)
+ax.set_title('Training dynamics: temporal encoding comparison')
+ax.set_xlim(1, 30)
+ax.legend(loc='upper right', frameon=False, fontsize=6.5)
 ax.yaxis.set_major_formatter(plt.FormatStrFormatter('%.3f'))
 
 plt.tight_layout(pad=0.4)
