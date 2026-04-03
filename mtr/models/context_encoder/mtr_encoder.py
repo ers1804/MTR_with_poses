@@ -4,6 +4,7 @@
 # All Rights Reserved
 
 
+import math
 import torch
 import torch.nn as nn
 from torchvision.ops import MLP
@@ -47,6 +48,17 @@ class MTREncoder(nn.Module):
                     dropout=self.model_cfg.get('DROPOUT_OF_ATTN', 0.1),
                     batch_first=True
                 )
+                # H5b: optional sinusoidal positional encoding for temporal ordering
+                self.use_pose_sinusoidal_pe = self.model_cfg.get('USE_POSE_SINUSOIDAL_PE', False)
+                if self.use_pose_sinusoidal_pe:
+                    T = self.model_cfg.get('NUM_PAST_TIMESTAMPS', 11)
+                    d = self.model_cfg.D_MODEL
+                    pe = torch.zeros(T, d)
+                    pos = torch.arange(0, T, dtype=torch.float).unsqueeze(1)
+                    div = torch.exp(torch.arange(0, d, 2).float() * (-math.log(10000.0) / d))
+                    pe[:, 0::2] = torch.sin(pos * div)
+                    pe[:, 1::2] = torch.cos(pos * div)
+                    self.register_buffer('pose_sinusoidal_pe', pe.unsqueeze(0))  # (1, T, D_MODEL)
             else:
                 # Default: GRU pose encoder
                 self.pose_encoder = torch.nn.GRU(
@@ -208,6 +220,8 @@ class MTREncoder(nn.Module):
                 # Zero out masked frames first: NaN/garbage in masked positions × attn_weight=0 = NaN (IEEE 754)
                 poses_clean = poses_flat * combined_mask.reshape(BN, num_timestamps, 1).float()
                 pose_keys = self.pose_proj(poses_clean)  # (BN, T, D_MODEL)
+                if self.use_pose_sinusoidal_pe:
+                    pose_keys = pose_keys + self.pose_sinusoidal_pe  # broadcast over BN
                 agent_query = obj_polylines_feature.reshape(BN, 1, self.model_cfg.D_MODEL)  # (BN, 1, D_MODEL)
                 # key_padding_mask: True = ignore (MHA convention)
                 key_padding_mask = ~combined_mask.reshape(BN, num_timestamps)
