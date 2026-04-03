@@ -521,6 +521,10 @@ representation less compatible with the trajectory decoder's expectation of a si
 compact context vector. With geodesic supervision shaping $\mathbf{h}_T$ toward
 rotation tracking, the sequential accumulation captures gait phase transitions
 more efficiently than global self-attention.
+Importantly, the GRU and cross-attention+PE encoders have nearly identical parameter
+counts (${\approx}505$K vs.\ ${\approx}497$K respectively, since sinusoidal PE is
+parameter-free). The GRU's advantage is therefore purely an inductive bias effect,
+not a capacity effect.
 
 \paragraph{The mechanism: past encoder, not future prediction.}
 The null result of our future-pose ablation (Section~\ref{sec:future_ablation})
@@ -607,6 +611,8 @@ publicly available Waymo Open Motion Dataset.
   \item Number of predicted trajectory modes: $K=6$
   \item Number of future steps: 80 (8.0 seconds)
   \item MTR encoder: 4-layer transformer, 256 hidden dim, 8 heads
+  \item Cross-attention pose encoder (H5/H5b): pose projection 144$\to$256, MultiheadAttention(embed\_dim=256, num\_heads=8, dropout=0.1, batch\_first=True); ${\approx}497$K parameters total including fusion MLP
+  \item GRU pose encoder: GRU(input=144, hidden=256, layers=1); ${\approx}505$K parameters total including fusion MLP
   \item Batch size: 10
   \item Optimizer: AdamW, $\beta_1=0.9$, $\beta_2=0.999$
   \item LR schedule: Cosine decay, initial LR $1{\times}10^{-3}$
