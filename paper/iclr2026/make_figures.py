@@ -178,54 +178,50 @@ print("Saved fig_ablation.pdf")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # FIGURE 3 — Training Curves (minADE vs epoch)
-# Simulated from known final values and training dynamics
+# Real per-epoch validation minADE from training logs
 # ═══════════════════════════════════════════════════════════════════════════
 
-np.random.seed(42)
-epochs = np.arange(1, 31)
+# Real data extracted from training logs (22 epochs each)
+epochs = np.arange(1, 23)
 
-def smooth_curve(final, init, noise_std, best_epoch=None, shape='exp'):
-    """Simulate a realistic validation curve converging to `final`."""
-    if shape == 'exp':
-        curve = final + (init - final) * np.exp(-epochs / 8)
-    else:
-        curve = final + (init - final) * (1 - epochs / 30)
-    noise = np.random.randn(30) * noise_std
-    curve = curve + noise
-    # enforce final value at best_epoch if given
-    if best_epoch is not None:
-        curve[best_epoch - 1] = final
-    return curve
+# H3_geo_only: log_train_20260402-121052.txt — best 0.6231 at epoch 20
+geo_only = np.array([2.0209, 1.7540, 1.3268, 0.9699, 0.7982, 0.7116, 0.6655, 0.6860,
+                     0.6413, 0.6856, 0.6876, 0.6530, 0.6712, 0.6511, 0.6539, 0.6415,
+                     0.6281, 0.6497, 0.6405, 0.6231, 0.6379, 0.6379])
 
-# MTR+Pose (geo only): converges faster, more variance, best at ~epoch 20
-pose_curve = smooth_curve(0.6231, 0.82, 0.008, best_epoch=20)
-# Baseline: smoother, plateaus higher, best at ~epoch 27
-base_curve  = smooth_curve(0.6745, 0.82, 0.004, best_epoch=27)
+# H2_v2_real_traj (no pose): log_train_20260402-091913.txt — best 0.6745 at epoch 11
+baseline = np.array([2.0849, 1.6412, 1.2154, 1.0657, 0.9204, 0.7891, 0.6900, 0.6997,
+                     0.7160, 0.6950, 0.6745, 0.6823, 0.7068, 0.6835, 0.6873, 0.6916,
+                     0.6793, 0.6853, 0.6891, 0.6814, 0.7006, 0.7006])
 
-# ensure no curve goes below its reported best
-pose_curve = np.maximum(pose_curve, 0.6231)
-base_curve = np.maximum(base_curve, 0.6745)
+# H5_cross_attn_geo_only: log_train_20260402-142149.txt — best 0.6765 at epoch 18
+cross_attn = np.array([2.1170, 1.7228, 1.2051, 0.9088, 0.8141, 0.8101, 0.7746, 0.6908,
+                       0.6837, 0.6793, 0.7466, 0.6952, 0.7294, 0.7304, 0.7301, 0.7108,
+                       0.6889, 0.6765, 0.6777, 0.7199, 0.7002, 0.7002])
 
-fig, ax = plt.subplots(figsize=(4.5, 2.8))
+fig, ax = plt.subplots(figsize=(5.0, 2.8))
 
-ax.plot(epochs, base_curve,  color=GRAY,  linewidth=1.5, label='MTR (no pose), best=0.6745', linestyle='--')
-ax.plot(epochs, pose_curve,  color=BLUE,  linewidth=1.5, label='MTR+Pose (geo only), best=0.6231')
+ax.plot(epochs, baseline,   color=GRAY,   linewidth=1.5, label='MTR baseline (no pose), best=0.6745', linestyle='--')
+ax.plot(epochs, cross_attn, color=ORANGE, linewidth=1.5, label='MTR+Pose (cross-attn), best=0.6765',  linestyle='-.')
+ax.plot(epochs, geo_only,   color=BLUE,   linewidth=1.5, label='MTR+Pose (GRU+geo), best=0.6231')
 
-# Mark best epoch
-ax.axvline(20, color=BLUE,  linewidth=0.8, linestyle=':', alpha=0.7)
-ax.axvline(27, color=GRAY, linewidth=0.8, linestyle=':', alpha=0.7)
-ax.annotate('epoch 20\n(pose best)', xy=(20, 0.6231), xytext=(22, 0.636),
+# Mark best epochs
+ax.axvline(11, color=GRAY,   linewidth=0.8, linestyle=':', alpha=0.6)
+ax.axvline(18, color=ORANGE, linewidth=0.8, linestyle=':', alpha=0.6)
+ax.axvline(20, color=BLUE,   linewidth=0.8, linestyle=':', alpha=0.7)
+
+ax.annotate('ep.20\nbest=0.6231', xy=(20, 0.6231), xytext=(17, 0.638),
             fontsize=7, color=BLUE,
             arrowprops=dict(arrowstyle='->', color=BLUE, lw=0.8))
-ax.annotate('epoch 27\n(baseline best)', xy=(27, 0.6745), xytext=(18, 0.660),
-            fontsize=7, color=GRAY,
-            arrowprops=dict(arrowstyle='->', color=GRAY, lw=0.8))
+ax.annotate('ep.11\nbest=0.6745', xy=(11, 0.6745), xytext=(12.5, 0.658),
+            fontsize=7, color='#555555',
+            arrowprops=dict(arrowstyle='->', color='#555555', lw=0.8))
 
 ax.set_xlabel('Training epoch')
 ax.set_ylabel('Validation minADE $\\downarrow$')
-ax.set_title('Training dynamics: MTR+Pose vs.\ baseline')
-ax.set_xlim(1, 30)
-ax.legend(loc='upper right', frameon=False)
+ax.set_title('Training dynamics: GRU+geo vs.\ cross-attention vs.\ baseline')
+ax.set_xlim(1, 22)
+ax.legend(loc='upper right', frameon=False, fontsize=7)
 ax.yaxis.set_major_formatter(plt.FormatStrFormatter('%.3f'))
 
 plt.tight_layout(pad=0.4)
