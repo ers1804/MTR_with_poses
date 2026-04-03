@@ -23,7 +23,7 @@ literature:
       year: 2019
       relevance: "6D rotation representation used for pose encoding (avoids gimbal lock)"
   open_problems:
-    - "No existing work jointly models pedestrian trajectory + full-body SMPL pose in an end-to-end transformer"
+    - "Prior work (salzmann2023robots, saadatnejad2024socialtransmotion, gao2025socialpose) uses skeleton keypoints — no existing work uses parametric SMPL 6D rotations + geodesic supervision within a SOTA AV forecasting framework (MTR/Waymo)"
     - "It is unclear whether pose information helps or hurts trajectory prediction (different agents, noise in SMPL estimates)"
     - "Multimodal pose prediction (6 modes) needs a proper GMM loss on SO(3)"
   evidence_gaps:
@@ -378,11 +378,11 @@ paper:
   page_count: 11
   main_content_pages: 8
   title: "Body Pose Conditioning Improves Pedestrian Trajectory Forecasting: Geodesic Rotation Supervision and Temporal Encoding are Key"
-  citations: 12
+  citations: 15
   figures: 3
   tables: 4
   completed: "2026-04-03"
-  notes: "7 pages main content (under 9-page limit). References (p.8) + appendix (pp.9-10) excluded from limit. All citations verified programmatically via CrossRef DOI API. Three figures: architecture diagram, ablation bar chart + weight sensitivity, training curves. PDF compiles cleanly with no errors. Final polish: methods section extended to describe both H5 and H5b cross-attn variants; limitations updated to remove stale H5b future-direction item and add single-seed caveat; conclusion updated to 14 runs with temporal decomposition analysis; Figure 3 shows all 4 curves (baseline, H5, H5b, GRU+geo)."
+  notes: "8 pages main content (under 9-page limit). References (p.9) + appendix (pp.10-11) excluded from limit. 15 citations verified (12 via CrossRef DOI API + 3 new prior-work papers added in Related Work §2.3 fix). Three figures: architecture diagram, ablation bar chart + weight sensitivity, training curves. PDF compiles cleanly with no errors. Related Work §2.3 updated: replaced inaccurate 'no existing work' claim with proper attribution to 3 prior pose+trajectory papers (salzmann2023robots, saadatnejad2024socialtransmotion, gao2025socialpose), distinguishing our SMPL 6D approach from skeleton-keypoint methods."
 
 workspace:
   findings: "findings.md"

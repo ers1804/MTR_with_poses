@@ -132,3 +132,19 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 | run_012 | H3 geo_w=0.2 | 0.2 | 0.6660 | −1.3% | ✓ VALID — too strong, dominates trajectory |
 | run_013 | H5 cross-attn | 0.1 | 0.6765 | +0.3% | ✓ VALID — no improvement (≈ baseline) |
 | run_014 | H5b cross-attn+PE | 0.1 | 0.6337 | −6.0% | ✓ VALID — PE recovers 79% of GRU advantage |
+
+## Paper Status (2026-04-03 — CONCLUDE)
+
+Paper at `paper/iclr2026/main.tex` compiles cleanly to 11 pages (8 main + 1 references + 2 appendix). 15 verified citations. All numbers consistent across tex/yaml/html.
+
+**Related Work §2.3 correction (2026-04-03)**: Literature search found three prior pose+trajectory papers that our original "no existing work" claim incorrectly ignored:
+- salzmann2023robots (IEEE RA-L 2023): 3D skeletal keypoints, robot navigation
+- saadatnejad2024socialtransmotion (ICLR 2024): 2D/3D skeleton pose, pedestrian benchmarks
+- gao2025socialpose (IEEE T-ITS 2025): skeleton body language, social navigation
+
+Our contribution remains distinct: parametric SMPL 6D rotations (not skeleton keypoints), Waymo+MTR framework, first systematic geodesic vs. MPJPE vs. GMM supervision ablation, temporal encoding (GRU vs cross-attn) decomposition.
+
+**Remaining human tasks before submission:**
+1. Author names/affiliations (uncomment `\iclrfinalcopy`)
+2. ICLR 2026 LLM disclosure statement
+3. Multi-seed runs for confidence intervals (recommended)
