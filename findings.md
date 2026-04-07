@@ -146,5 +146,7 @@ Our contribution remains distinct: parametric SMPL 6D rotations (not skeleton ke
 
 **Remaining human tasks before submission:**
 1. Author names/affiliations (uncomment `\iclrfinalcopy`)
-2. ICLR 2026 LLM disclosure statement
+2. ~~ICLR 2026 LLM disclosure~~ — completed: added to main.tex §Acknowledgements
 3. Multi-seed runs for confidence intervals (recommended)
+
+**2026-04-07 polish**: Fixed introduction structure — "three principal findings" was immediately followed by "A fourth finding clarifies the mechanism", creating an inconsistency. Moved future-pose null result into a 4th bullet and updated "three" → "four principal findings". Recompiled: 11 pages, no errors.

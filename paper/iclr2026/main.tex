@@ -92,7 +92,7 @@ We train and evaluate on a pedestrian subset of the Waymo Open Motion Dataset
 \citep{ettinger2021waymo} paired with AMASS-derived body poses \citep{mahmood2019amass},
 using the standard minADE and minFDE metrics over 6 predicted modes.
 
-Our experiments yield three principal findings:
+Our experiments yield four principal findings:
 
 \begin{itemize}
   \item \textbf{Pose conditioning improves trajectory prediction by 7.6\% minADE}
@@ -108,15 +108,12 @@ Our experiments yield three principal findings:
         Adding sinusoidal positional encoding recovers 79\% of the GRU's advantage (0.6337, $-$6.0\%).
         The GRU's causal sequential integration achieves the full $-$7.6\% gain (0.6231),
         providing a further 1.6\% over cross-attention with PE.
-        Temporal ordering is the dominant requirement; the GRU's running hidden state adds
-        an incremental benefit from causal accumulation.
+  \item \textbf{Improvement is driven by past pose encoding, not future prediction quality.}
+        Using 30fps AMASS pseudo-ground-truth future poses (99\% step coverage)
+        versus zero future supervision gives nearly identical trajectory accuracy
+        (0.6567 vs.\ 0.6532, $\Delta{=}0.5\%$), confirming the benefit arises
+        entirely from the \emph{past} GRU encoder.
 \end{itemize}
-
-A fourth finding clarifies the mechanism: using 30fps AMASS pseudo-ground-truth
-future poses (99\% step coverage vs.\ zero future supervision) gives nearly
-identical trajectory accuracy (0.6567 vs.\ 0.6532, $\Delta{=}0.5\%$), confirming
-that the benefit arises entirely from the \emph{past} pose encoder, not from
-future pose prediction quality.
 
 These results have practical implications for the community: rotation-space
 supervision and sequential temporal encoding are often overlooked design choices,
