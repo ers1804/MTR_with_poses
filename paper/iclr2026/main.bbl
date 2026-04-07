@@ -1,0 +1,156 @@
+\begin{thebibliography}{15}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Chen et~al.(2023)Chen, Zhang, Li, Pang, Xia, and
+  Liu]{chen2023humanmac}
+Ling-Hao Chen, Jiawei Zhang, Yewen Li, Yiren Pang, Xiaobo Xia, and Tongliang
+  Liu.
+\newblock {HumanMAC}: Masked motion completion for human motion prediction.
+\newblock In \emph{2023 IEEE/CVF International Conference on Computer Vision
+  (ICCV)}, pp.\  9510--9521. IEEE, October 2023.
+\newblock \doi{10.1109/iccv51070.2023.00875}.
+\newblock URL \url{http://dx.doi.org/10.1109/iccv51070.2023.00875}.
+
+\bibitem[Ettinger et~al.(2021)Ettinger, Cheng, Caine, Liu, Zhao, Pradhan, Chai,
+  Sapp, Qi, Zhou, Yang, Chouard, Sun, Ngiam, Vasudevan, McCauley, Shlens, and
+  Anguelov]{ettinger2021waymo}
+Scott Ettinger, Shuyang Cheng, Benjamin Caine, Chenxi Liu, Hang Zhao, Sabeek
+  Pradhan, Yuning Chai, Ben Sapp, Charles Qi, Yin Zhou, Zoey Yang, Aurelien
+  Chouard, Pei Sun, Jiquan Ngiam, Vijay Vasudevan, Alexander McCauley, Jonathon
+  Shlens, and Dragomir Anguelov.
+\newblock Large scale interactive motion forecasting for autonomous driving :
+  The waymo open motion dataset.
+\newblock In \emph{2021 IEEE/CVF International Conference on Computer Vision
+  (ICCV)}, pp.\  9690--9699. IEEE, October 2021.
+\newblock \doi{10.1109/iccv48922.2021.00957}.
+\newblock URL \url{http://dx.doi.org/10.1109/iccv48922.2021.00957}.
+
+\bibitem[Gao et~al.(2025)Gao, Saadatnejad, and Alahi]{gao2025socialpose}
+Yang Gao, Saeed Saadatnejad, and Alexandre Alahi.
+\newblock Social-pose: Leveraging body language for pedestrian trajectory
+  prediction.
+\newblock \emph{IEEE Transactions on Intelligent Transportation Systems}, 2025.
+\newblock URL \url{https://arxiv.org/abs/2507.22742}.
+\newblock arXiv:2507.22742.
+
+\bibitem[Gupta et~al.(2018)Gupta, Johnson, Fei-Fei, Savarese, and
+  Alahi]{gupta2018socialgan}
+Agrim Gupta, Justin Johnson, Li~Fei-Fei, Silvio Savarese, and Alexandre Alahi.
+\newblock Social {GAN}: Socially acceptable trajectories with generative
+  adversarial networks.
+\newblock In \emph{2018 IEEE/CVF Conference on Computer Vision and Pattern
+  Recognition}, pp.\  2255--2264. IEEE, June 2018.
+\newblock \doi{10.1109/cvpr.2018.00240}.
+\newblock URL \url{http://dx.doi.org/10.1109/CVPR.2018.00240}.
+
+\bibitem[Loper et~al.(2015)Loper, Mahmood, Romero, Pons-Moll, and
+  Black]{loper2015smpl}
+Matthew Loper, Naureen Mahmood, Javier Romero, Gerard Pons-Moll, and Michael~J.
+  Black.
+\newblock {SMPL}: a skinned multi-person linear model.
+\newblock \emph{ACM Transactions on Graphics}, 34\penalty0 (6):\penalty0 1--16,
+  October 2015.
+\newblock ISSN 1557-7368.
+\newblock \doi{10.1145/2816795.2818013}.
+\newblock URL \url{http://dx.doi.org/10.1145/2816795.2818013}.
+
+\bibitem[Mahmood et~al.(2019)Mahmood, Ghorbani, Troje, Pons-Moll, and
+  Black]{mahmood2019amass}
+Naureen Mahmood, Nima Ghorbani, Nikolaus~F. Troje, Gerard Pons-Moll, and
+  Michael Black.
+\newblock {AMASS}: Archive of motion capture as surface shapes.
+\newblock In \emph{2019 IEEE/CVF International Conference on Computer Vision
+  (ICCV)}, pp.\  5441--5450. IEEE, October 2019.
+\newblock \doi{10.1109/iccv.2019.00554}.
+\newblock URL \url{http://dx.doi.org/10.1109/iccv.2019.00554}.
+
+\bibitem[Saadatnejad et~al.(2024)Saadatnejad, Gao, Messaoud, and
+  Alahi]{saadatnejad2024socialtransmotion}
+Saeed Saadatnejad, Yang Gao, Kaouther Messaoud, and Alexandre Alahi.
+\newblock Social-transmotion: Promptable human trajectory prediction.
+\newblock In \emph{International Conference on Learning Representations}, 2024.
+\newblock URL \url{https://arxiv.org/abs/2312.11455}.
+
+\bibitem[Salzmann et~al.(2020)Salzmann, Ivanovic, Chakravarty, and
+  Pavone]{salzmann2020trajectron}
+Tim Salzmann, Boris Ivanovic, Punarjay Chakravarty, and Marco Pavone.
+\newblock \emph{Trajectron++: Dynamically-Feasible Trajectory Forecasting with
+  Heterogeneous Data}, pp.\  683--700.
+\newblock Lecture Notes in Computer Science. Springer International Publishing,
+  2020.
+\newblock ISBN 9783030585235.
+\newblock \doi{10.1007/978-3-030-58523-5_40}.
+\newblock URL \url{http://dx.doi.org/10.1007/978-3-030-58523-5_40}.
+
+\bibitem[Salzmann et~al.(2023)Salzmann, Chiang, Ryll, Sadigh, Parada, and
+  Bewley]{salzmann2023robots}
+Tim Salzmann, Lewis Chiang, Markus Ryll, Dorsa Sadigh, Carolina Parada, and
+  Alex Bewley.
+\newblock Robots that can see: Leveraging human pose for trajectory prediction.
+\newblock \emph{IEEE Robotics and Automation Letters}, 8\penalty0
+  (11):\penalty0 7090--7097, November 2023.
+\newblock \doi{10.1109/LRA.2023.3312035}.
+\newblock URL \url{https://doi.org/10.1109/LRA.2023.3312035}.
+
+\bibitem[Shi et~al.(2022)Shi, Jiang, Dai, and Schiele]{shi2022mtr}
+Shaoshuai Shi, Li~Jiang, Dengxin Dai, and Bernt Schiele.
+\newblock Motion transformer with global intention localization and local
+  movement refinement.
+\newblock In S.~Koyejo, S.~Mohamed, A.~Agarwal, D.~Belgrave, K.~Cho, and A.~Oh
+  (eds.), \emph{Advances in Neural Information Processing Systems}, volume~35,
+  pp.\  6531--6543. Curran Associates, Inc., 2022.
+\newblock URL
+  \url{https://proceedings.neurips.cc/paper_files/paper/2022/file/2ab47c960bfee4f86dfc362f26ad066a-Paper-Conference.pdf}.
+
+\bibitem[Shi et~al.(2024)Shi, Jiang, Dai, and Schiele]{shi2023mtrpp}
+Shaoshuai Shi, Li~Jiang, Dengxin Dai, and Bernt Schiele.
+\newblock {MTR++}: Multi-agent motion prediction with symmetric scene modeling
+  and guided intention querying.
+\newblock \emph{IEEE Transactions on Pattern Analysis and Machine
+  Intelligence}, 46\penalty0 (5):\penalty0 3955--3971, May 2024.
+\newblock ISSN 1939-3539.
+\newblock \doi{10.1109/tpami.2024.3352811}.
+\newblock URL \url{http://dx.doi.org/10.1109/tpami.2024.3352811}.
+
+\bibitem[Vaswani et~al.(2017)Vaswani, Shazeer, Parmar, Uszkoreit, Jones, Gomez,
+  Kaiser, and Polosukhin]{vaswani2017attention}
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones,
+  Aidan~N Gomez, {\L}ukasz Kaiser, and Illia Polosukhin.
+\newblock Attention is all you need.
+\newblock In I.~Guyon, U.~Von Luxburg, S.~Bengio, H.~Wallach, R.~Fergus,
+  S.~Vishwanathan, and R.~Garnett (eds.), \emph{Advances in Neural Information
+  Processing Systems}, volume~30. Curran Associates, Inc., 2017.
+\newblock URL
+  \url{https://proceedings.neurips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf}.
+
+\bibitem[Yuan et~al.(2021)Yuan, Weng, Ou, and Kitani]{yuan2021agentformer}
+Ye~Yuan, Xinshuo Weng, Yanglan Ou, and Kris Kitani.
+\newblock Agentformer: Agent-aware transformers for socio-temporal multi-agent
+  forecasting.
+\newblock In \emph{2021 IEEE/CVF International Conference on Computer Vision
+  (ICCV)}, pp.\  9793--9803. IEEE, October 2021.
+\newblock \doi{10.1109/iccv48922.2021.00967}.
+\newblock URL \url{http://dx.doi.org/10.1109/iccv48922.2021.00967}.
+
+\bibitem[Zhou et~al.(2019)Zhou, Barnes, Lu, Yang, and Li]{zhou2019continuity}
+Yi~Zhou, Connelly Barnes, Jingwan Lu, Jimei Yang, and Hao Li.
+\newblock On the continuity of rotation representations in neural networks.
+\newblock In \emph{2019 IEEE/CVF Conference on Computer Vision and Pattern
+  Recognition (CVPR)}, pp.\  5738--5746. IEEE, June 2019.
+\newblock \doi{10.1109/cvpr.2019.00589}.
+\newblock URL \url{http://dx.doi.org/10.1109/CVPR.2019.00589}.
+
+\bibitem[Zhu et~al.(2023)Zhu, Ma, Liu, Liu, Wu, and Wang]{zhu2022motionbert}
+Wentao Zhu, Xiaoxuan Ma, Zhaoyang Liu, Libin Liu, Wayne Wu, and Yizhou Wang.
+\newblock {MotionBERT}: A unified perspective on learning human motion
+  representations.
+\newblock In \emph{2023 IEEE/CVF International Conference on Computer Vision
+  (ICCV)}, pp.\  15039--15053. IEEE, October 2023.
+\newblock \doi{10.1109/iccv51070.2023.01385}.
+\newblock URL \url{http://dx.doi.org/10.1109/ICCV51070.2023.01385}.
+
+\end{thebibliography}
