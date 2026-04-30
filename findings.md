@@ -32,8 +32,20 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 | run_012 | H3 geo_w=0.2 | 0.2 | 10fps | 0.6660 | −1.3% | ✓ VALID — too strong, dominates trajectory |
 | run_013 | H5 cross-attn | 0.1 | 10fps | 0.6765 | +0.3% | ✓ VALID — essentially baseline (no improvement) |
 | run_014 | H5b cross-attn+PE | 0.1 | 10fps | 0.6337 | −6.0% | ✓ VALID — PE recovers 79% of GRU advantage |
+| **run_015** | **H6 no_pose+map** | 0.0 | 10fps | **0.4880** | **−27.7%** | ✓ VALID — HD map is dominant context signal |
+| **run_016** | **H6 geo_only+map** | 0.1 | 10fps | **0.4797** | **−28.9% (vs no-map baseline)** | ✓ VALID ← new overall best |
 
 **Core finding**: Pose conditioning improves minADE by **3.2%** (0.6532 vs 0.6745) with full losses at weight=0.1. The improvement is **robust across pose weights [0.05, 0.2]** and across loss ablations (all variants improve over baseline).
+
+**H6 key finding — HD map context dominates; pose benefit shrinks under map**: Adding real HD map polylines to both the no-pose baseline and the best pose model yields a complete 2×2 ablation:
+
+| | No map | With map | Map Δ |
+|---|---|---|---|
+| No pose | 0.6745 | 0.4880 | −27.7% |
+| GRU+geo | 0.6231 | **0.4797** | −23.0% |
+| Pose Δ | −7.6% | **−1.7%** | — |
+
+HD map is the dominant context signal — it reduces minADE by ~27% for both conditions. The pose benefit **shrinks from 7.6% to 1.7%** when map features are available. Interpretation: body orientation (pose) and map spatial routing partially encode the same information about where the agent is heading. When map provides explicit routing constraints, pose's implicit orientation signal becomes mostly redundant. Pose still helps (1.7%), but the gain is much smaller than without map.
 
 **H3 key finding — geodesic loss drives the benefit**: Ablating pose losses individually reveals geodesic distance (rotation-space supervision) is by far the most powerful component:
 - geo_only: **0.6231 (−7.6%)** — the new best result, better than the full model
@@ -80,6 +92,7 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
   - Cross-attn + sinusoidal PE (H5b): 0.6337 — PE recovers 79% of GRU's advantage.
   - GRU geo_only: 0.6231 — sequential integration provides a further 1.6% gain.
   Temporal ordering is the dominant requirement for geodesic supervision to produce trajectory-useful features. GRU's causal accumulation (running hidden state) captures slightly more than PE alone.
+- **HD map dominates pose signal (H6)**: Adding HD map polylines reduces no-pose minADE by 27.7% (0.6745→0.4880) and pose minADE by 23.0% (0.6231→0.4797). Within-map, pose still improves by 1.7% (0.4880→0.4797), confirming a small but real complementary contribution. The shrinkage from 7.6% to 1.7% is the key quantity: body orientation and map routing are partially redundant representations of agent heading intent. Without map, pose compensates for missing spatial routing context; with map, that gap largely disappears.
 - **Convergence dynamics differ**: H1_v2 reaches best minADE earlier in training and has more variance across epochs (likely from noisy pose losses). H2_v2 plateaus more smoothly. Both settle around 0.67-0.70 after LR decay.
 - **Pose loss weights matter critically for stability**: At weight=1.0, training diverges to NaN at epoch 3 due to gradient explosion through SMPL. At weight=0.1, training is stable for 30 epochs.
 - **Small dataset limits absolute performance**: minADE ~0.65 is far from SOTA (~0.3 on full Waymo). With 579 training scenes vs 486k in full MTR, the gap is expected. The relative H1 vs H2 comparison is still valid.
@@ -113,6 +126,7 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 9. **[ANSWERED] Geo weight for geo_only has a sharp optimum at w=0.1**: w=0.05→0.6786 (−1.5%), w=0.1→0.6231 (−7.6%, best), w=0.2→0.6660 (−1.3%). Both sides of the optimum give dramatically worse results. The geodesic signal needs exactly the right balance — too weak (0.05): GRU ignores rotation supervision; too strong (0.2): dominates trajectory objective causing gradient conflict with cls/reg/vel.
 10. **[ANSWERED] Temporal ordering is the dominant requirement; GRU adds incrementally.** H5b (cross-attn + sinusoidal PE) achieves 0.6337 — recovering 79% of GRU's advantage over baseline. GRU geo_only (0.6231) adds a further 1.6% via causal sequential integration. Both temporal ordering and sequential processing contribute; ordering dominates.
 11. Is there a way to evaluate pose prediction quality separately from trajectory quality?
+12. **[ANSWERED] Does HD map context change the pose benefit?** YES — with map, pose benefit shrinks from 7.6% to 1.7% (0.4880→0.4797). Map and pose partially share information about agent heading. Both still help, but the interaction is subadditive: map+pose is not 7.6%+27.7% better than baseline, it is only ~29% better total.
 
 ## Optimization Trajectory
 

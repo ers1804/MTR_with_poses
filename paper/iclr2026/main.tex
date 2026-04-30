@@ -59,6 +59,12 @@ These results reveal two design principles: (1) rotation-space supervision is mo
 informative than joint-space supervision for encoding gait; and (2) temporal ordering
 of pose frames is the dominant requirement---sinusoidal PE recovers most of the benefit---while
 the GRU's causal sequential integration provides a further incremental gain.
+A map-context ablation (2$\times$2 design: $\pm$map $\times$ $\pm$pose) reveals that
+HD map features reduce \minADE by \textbf{27.7\%} (0.6745 $\to$ 0.4880) without any
+pose conditioning, dwarfing the pose-only gain. When map context is available, the
+incremental pose benefit shrinks from 7.6\% to 1.7\% (0.4880 $\to$ 0.4797), because
+body orientation and map-encoded routing constraints share information about pedestrian
+heading---making the two signals partially redundant.
 \end{abstract}
 
 % ===========================================================================
@@ -92,7 +98,7 @@ We train and evaluate on a pedestrian subset of the Waymo Open Motion Dataset
 \citep{ettinger2021waymo} paired with AMASS-derived body poses \citep{mahmood2019amass},
 using the standard minADE and minFDE metrics over 6 predicted modes.
 
-Our experiments yield four principal findings:
+Our experiments yield five principal findings:
 
 \begin{itemize}
   \item \textbf{Pose conditioning improves trajectory prediction by 7.6\% minADE}
@@ -113,6 +119,12 @@ Our experiments yield four principal findings:
         versus zero future supervision gives nearly identical trajectory accuracy
         (0.6567 vs.\ 0.6532, $\Delta{=}0.5\%$), confirming the benefit arises
         entirely from the \emph{past} GRU encoder.
+  \item \textbf{HD map context dominates pose; the two signals are partially redundant.}
+        A 2$\times$2 ablation ($\pm$map $\times$ $\pm$pose) shows that adding HD map
+        polylines yields $-$27.7\% \minADE without any pose conditioning.
+        The pose gain shrinks from 7.6\% (no map) to only 1.7\% (with map), because
+        body orientation and map-encoded routing constraints share information about
+        pedestrian heading.
 \end{itemize}
 
 These results have practical implications for the community: rotation-space
@@ -499,6 +511,47 @@ eventually reaching 0.6337 at epoch 24. \mtrpose with GRU+geo (blue) reaches
 its best of 0.6231 at epoch 20 with higher epoch-to-epoch variance, consistent
 with the additional noise from the SMPL pose supervision signal.
 
+\subsection{Ablation: HD Map Context}
+\label{sec:map_ablation}
+
+The experiments above use zero-padded map features (the SMPL-paired pedestrian
+subset was originally processed without HD map polylines). To quantify how map
+context interacts with pose conditioning, we enable HD map loading
+(\texttt{WITHOUT\_HDMAP: False}) and train the 2$\times$2 factorial design:
+$\pm$map $\times$ $\pm$pose (GRU+geo at $w=0.1$).
+
+\begin{table}[t]
+\caption{Map $\times$ pose ablation. All runs: 30 epochs, same training subset.
+$\Delta$ is relative change vs.\ the no-pose, no-map baseline (0.6745).}
+\label{tab:map_ablation}
+\begin{center}
+\begin{tabular}{llcc}
+\toprule
+Pose Enc. & Map & \minADE $\downarrow$ & $\Delta$ vs.\ baseline \\
+\midrule
+None  & No map  & 0.6745 & --- \\
+None  & With map & 0.4880 & $-$27.7\% \\
+GRU+geo & No map  & 0.6231 & $-$7.6\% \\
+\rowcolor{bestrow}
+GRU+geo & With map & \textbf{0.4797} & $-$28.9\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+Table~\ref{tab:map_ablation} reveals two findings.
+\emph{First}, HD map context is the dominant signal: adding map features alone (no pose)
+reduces \minADE by \textbf{27.7\%}, far exceeding the 7.6\% gain from pose alone.
+Pedestrian routing---which paths are available, which crosswalks are nearby---is
+encoded directly in the map, and this spatial prior substantially reduces prediction
+uncertainty.
+\emph{Second}, when map context is available, the incremental benefit of pose conditioning
+shrinks from 7.6\% to \textbf{1.7\%} (0.4880 $\to$ 0.4797, still the new overall best).
+We attribute this to partial information redundancy: body orientation encodes where
+the pedestrian is heading, which the map's routing constraints already constrain.
+Without a map, pose fills the gap by providing an orientation proxy; with a map,
+most of that gap is already closed, leaving only 1.7\% residual gain for pose.
+
 % ===========================================================================
 \section{Analysis and Insights}
 \label{sec:analysis}
@@ -558,9 +611,12 @@ time. In deployment, online body pose estimation (e.g., from video) introduces
 estimation noise not present in our evaluation. The sensitivity of our method to
 noisy pose inputs is not evaluated here.
 
-\textbf{No HD map features.} The SMPL-paired subset lacks HD map polylines.
-We use zero-padded map features, which means our model does not benefit from
-map-aware pedestrian routing. Results on map-equipped data may differ.
+\textbf{Map context reduces pose benefit.} Our main ablations (Sections~\ref{sec:main_result}--\ref{sec:temporal_ablation}) use zero-padded map features.
+A follow-up 2$\times$2 ablation (Section~\ref{sec:map_ablation}) shows that HD map context
+alone yields $-$27.7\% \minADE, dwarfing the $-$7.6\% pose gain. With map, pose adds only
+1.7\% on top. While pose conditioning remains beneficial in map-equipped settings, the
+relative contribution is substantially smaller---a practitioner deploying \mtrpose in a
+full map-enabled system should expect modest, not large, gains from pose conditioning.
 
 \textbf{Pose decoder quality.} We do not evaluate MPJPE/geodesic error of the
 predicted future poses independently; our metric is trajectory prediction only.
@@ -580,7 +636,7 @@ confidence interval on the reported improvements.
 
 We have presented \mtrpose, a pose-conditioned extension of the Motion Transformer
 that incorporates past SMPL body poses via a GRU encoder with 6D rotation
-representations. Through a systematic ablation of 14 runs on the Waymo Open
+representations. Through a systematic ablation of 16 runs on the Waymo Open
 Motion Dataset, we establish that:
 (1) geodesic supervision in $SO(3)$ is the critical ingredient, reducing \minADE
 by 7.6\% over the trajectory-only baseline, while joint-space MPJPE supervision
@@ -591,10 +647,15 @@ loss;
 sinusoidal PE recovers 79\% of the GRU's advantage (0.6337, $-$6.0\%); the GRU's
 causal sequential integration provides a further incremental gain to $-$7.6\%;
 (3) the source of improvement is the past pose encoder, not future pose prediction
-quality.
+quality;
+(4) HD map context is the dominant signal ($-$27.7\% minADE without any pose), and
+when map features are available the incremental pose benefit shrinks from 7.6\% to
+1.7\%, revealing partial redundancy between body orientation and map-encoded routing
+constraints.
 
 These findings suggest that rotation-space supervision and temporal ordering are
-underappreciated design choices in pose-conditioned forecasting. We hope the
+underappreciated design choices in pose-conditioned forecasting, and that the value
+of pose conditioning is modulated by available map context. We hope the
 systematic ablation methodology contributes to more principled design of
 multi-modal pedestrian prediction systems.
 
@@ -652,18 +713,18 @@ with $\epsilon=10^{-7}$. At $w=0.1$, training is stable for all 30 epochs across
 all ablation variants.
 
 \subsection{Full Results Table}
-Table~\ref{tab:full} reports all 14 experimental runs including invalid (zero
+Table~\ref{tab:full} reports all 16 experimental runs including invalid (zero
 future GT) baselines for completeness.
 
 \begin{table}[h]
 \caption{Complete experimental results. Runs 001--002 are invalid (zero future GT)
-and excluded from analysis. Baseline for $\Delta$ is run 004.}
+and excluded from analysis. Baseline for $\Delta$ is run 004 (no pose, no map).}
 \label{tab:full}
 \begin{center}
 \small
 \begin{tabular}{clllcc}
 \toprule
-Run & Tag & Encoder & Losses ($w$) & \minADE & $\Delta$ \\
+Run & Tag & Encoder & Losses / Map ($w$) & \minADE & $\Delta$ \\
 \midrule
 001 & H1 full pose    & GRU & all (1.0) & 0.6114 & \textit{invalid} \\
 002 & H2 no pose      & --- & traj only & 0.7724 & \textit{invalid} \\
@@ -675,12 +736,15 @@ Run & Tag & Encoder & Losses ($w$) & \minADE & $\Delta$ \\
 007 & H1\_v3 30fps    & GRU & all (0.1), 30fps fut & 0.6567 & $-$2.6\% \\
 008 & H3 mpjpe only   & GRU & mpjpe+gmm (0.1)     & 0.6576 & $-$2.5\% \\
 009 & H3 gmm only     & GRU & gmm (0.1)            & 0.6467 & $-$4.1\% \\
-\rowcolor{bestrow}
-010 & H3 geo only     & GRU & geo+gmm (0.1)        & \textbf{0.6231} & $-$7.6\% \\
+010 & H3 geo only     & GRU & geo+gmm (0.1)        & 0.6231 & $-$7.6\% \\
 011 & H3 geo w=0.05   & GRU & geo+gmm (0.05)       & 0.6786 & $-$1.5\% \\
 012 & H3 geo w=0.2    & GRU & geo+gmm (0.2)        & 0.6660 & $-$1.3\% \\
 013 & H5 cross-attn   & XAttn & geo+gmm (0.1)      & 0.6765 & $+$0.3\% \\
 014 & H5b xattn+PE    & XAttn+PE & geo+gmm (0.1)   & 0.6337 & $-$6.0\% \\
+\midrule
+015 & H6 no-pose+map  & --- & traj only + map      & 0.4880 & $-$27.7\% \\
+\rowcolor{bestrow}
+016 & H6 geo+map      & GRU & geo+gmm (0.1) + map  & \textbf{0.4797} & $-$28.9\% \\
 \bottomrule
 \end{tabular}
 \end{center}

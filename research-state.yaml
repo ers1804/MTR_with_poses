@@ -116,8 +116,8 @@ hypotheses:
 experiments:
   proxy_metric: "minADE_TYPE_PEDESTRIAN (minADE over 6 modes at final layer, lower is better)"
   baseline_value: 0.6745  # H2_v2 (no pose) best minADE
-  best_value: 0.6231      # H3_geo_only — geodesic loss alone, 7.6% better than baseline
-  total_runs: 14          # 2 unreliable (zero-future) + 2 real-data + 2 weight ablation + 1 30fps + 3 loss ablation + 2 geo weight ablation + 1 cross-attn + 1 cross-attn+PE
+  best_value: 0.4797      # H6_geo_only_with_map — GRU+geo + HD map, new overall best
+  total_runs: 16          # 2 unreliable (zero-future) + 2 real-data + 2 weight ablation + 1 30fps + 3 loss ablation + 2 geo weight ablation + 1 cross-attn + 1 cross-attn+PE + 2 map ablation
   trajectory:
     - run_id: "run_001"
       tag: "H1_pose_all_losses"
@@ -337,38 +337,75 @@ experiments:
       minADE_by_eval: [2.1271, 1.7347, null, 1.1778, null, 0.9001, null, 0.7585, null, 0.6970, null, 0.6964, null, 0.6982, null, 0.6644, null, 0.6758, null, 0.6365, 0.6491, 0.6498, 0.6447, 0.6337, 0.7420, 0.6559, 0.6436, 0.6401, 0.6517, 0.6751]
       notes: "PARTIALLY CONFIRMED — PE recovers 79% of GRU's advantage (0.6765→0.6337). GRU still wins by 1.6% (0.6337 vs 0.6231). Temporal ordering (PE) is the dominant factor; sequential integration (GRU) provides incremental additional gain."
 
+    - run_id: "run_015"
+      tag: "H6_no_pose_with_map"
+      hypothesis: "H6_map_ablation"
+      status: "complete"
+      started: "2026-04-30T14:52"
+      finished: "2026-04-30T15:05"
+      config: "tools/cfgs/waymo/mtr+pose_data_no_pose_with_map.yaml"
+      batch_size: 10
+      epochs: 30
+      losses: [cls, reg, vel]
+      loss_weights: {cls: 1.0, reg: 1.0, vel: 0.5}
+      without_hdmap: False
+      best_minADE: 0.4880
+      best_minFDE: 1.0342
+      best_epoch: 27
+      notes: "VALID: No pose, HD map enabled (WITHOUT_HDMAP=False). Best minADE=0.4880 — a 27.7% improvement over no-pose no-map baseline (0.6745→0.4880). HD map is the dominant signal for pedestrian routing."
+
+    - run_id: "run_016"
+      tag: "H6_geo_only_with_map"
+      hypothesis: "H6_map_ablation"
+      status: "complete"
+      started: "2026-04-30T14:36"
+      finished: "2026-04-30T14:52"
+      config: "tools/cfgs/waymo/mtr+pose_data_geo_only_with_map.yaml"
+      batch_size: 10
+      epochs: 30
+      losses: [cls, reg, vel, geo, gmm_pose]
+      loss_weights: {cls: 1.0, reg: 1.0, vel: 0.5, mpjpe: 0.0, geo: 0.1, cls_pose: 0.0, gmm_pose: 0.1}
+      without_hdmap: False
+      best_minADE: 0.4797
+      best_minFDE: 1.0284
+      best_epoch: 28
+      notes: "VALID: GRU+geo, HD map enabled. Best minADE=0.4797 — new overall best. Only 1.7% improvement over no-pose+map (0.4880→0.4797), versus 7.6% improvement without map. Map shrinks pose benefit from 7.6% to 1.7% because body orientation and map spatial routing share information about agent heading."
+
 outer_loop:
-  cycle: 9
-  last_direction: "CONCLUDE — H5b refines F5: temporal ordering dominates, sequential integration adds incrementally. Paper updated."
+  cycle: 10
+  last_direction: "H6 MAP ABLATION — HD map is dominant signal (−27.7%); pose benefit shrinks from 7.6% to 1.7% with map. findings.md + research-state.yaml + paper updated."
   last_reflection: |
+    H6 2×2 map × pose interaction results:
+    - No pose, no map:    0.6745 (baseline from H2)
+    - No pose, with map:  0.4880 (Δ=−27.7% — map dominates routing)
+    - GRU+geo, no map:    0.6231 (Δ=−7.6% vs no-pose no-map)
+    - GRU+geo, with map:  0.4797 (Δ=−1.7% vs no-pose with-map) ← NEW BEST
+
+    KEY FINDING:
+    HD map is the dominant signal for pedestrian trajectory prediction.
+    Map context alone (no pose) yields −27.7%. The pose benefit shrinks from
+    7.6% (without map) to 1.7% (with map), because body orientation and map
+    spatial routing share information about agent heading/intent. When the map
+    already encodes routing constraints, the marginal value of body orientation
+    is small. The two signals are partially redundant with respect to the
+    information they provide about pedestrian heading and spatial intent.
+
+    REVISED COMPLETE PICTURE:
+    1. Pose conditioning improves trajectory prediction — confirmed (7.6% best without map)
+    2. Geodesic loss is the dominant signal for pose — confirmed
+    3. Geo weight has sharp optimum at w=0.1 — confirmed
+    4. Mechanism is past pose encoding, not future supervision — confirmed
+    5. Temporal ordering is critical; GRU sequential integration adds incrementally — confirmed
+    6. NEW: HD map context (−27.7%) dwarfs pose benefit; pose adds only 1.7% on top of map.
+       Partial redundancy between body orientation and map routing explains the shrinkage.
+
+  prior_cycle_9_reflection: |
     H5b cross-attention + sinusoidal PE results:
     - Baseline (no pose):       0.6745
     - H5 cross-attn (no PE):   0.6765 (Δ=+0.3% WORSE — bag-of-items failure)
     - H5b cross-attn + PE:     0.6337 (Δ=-6.0% — PE recovers 79% of GRU advantage)
     - GRU geo_only (best):     0.6231 (Δ=-7.6% — sequential integration adds final 1.6%)
-
-    REVISED F5 INTERPRETATION:
-    Temporal ordering (PE) is the dominant requirement for geodesic supervision to work.
-    The original H5 failure was primarily due to treating frames as a bag-of-items,
-    not because cross-attention fundamentally can't work. Adding sinusoidal PE
-    recovers 79% of the gap (0.0408 of 0.0514 total gain).
-
-    GRU's sequential integration adds a further 1.6% improvement, suggesting:
-    - The GRU captures BOTH temporal ordering AND causal dependency structure
-    - Cross-attention with PE captures ordering but not the causal "what came before"
-      at each timestep — the GRU hidden state accumulates a running summary
-    - Both mechanisms matter, but ordering is the dominant factor
-
-    COMPLETE PICTURE (updated):
-    1. Pose conditioning improves trajectory prediction — confirmed (7.6% best)
-    2. Geodesic loss is the dominant signal — confirmed (geo_only beats all combinations)
-    3. Geo weight has sharp optimum at w=0.1 — confirmed
-    4. Mechanism is past pose encoding, not future supervision — confirmed
-    5. REVISED: Temporal ordering is critical (PE alone gives −6.0%); GRU's sequential
-       integration adds an incremental further −1.6%. Both matter; ordering dominates.
-
     Paper updated: F5 refined, Table 2 extended, Figure 3 updated with H5b curve.
-    H5b limitation removed from paper; now an experiment result.
 
 paper:
   status: "draft_complete"
