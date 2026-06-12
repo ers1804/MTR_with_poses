@@ -89,6 +89,21 @@ hypotheses:
       best_epoch: 27
       notes: "REFUTED — cross-attention (0.6765) essentially matches the trajectory-only baseline (0.6745). NO improvement from cross-attention vs GRU which achieved 0.6231. Root cause: cross-attention without positional encoding treats 11 pose frames as a bag-of-items, losing temporal ordering. GRU's sequential inductive bias is critical for geodesic supervision of gait dynamics."
 
+  - id: H7
+    statement: "Pretraining the trajectory-only backbone on the full Waymo pedestrian set (231k agent-batch examples across 487k scenes) and fine-tuning the pose-augmented architecture on the 579-scene NPZ subset removes the dataset-size bottleneck and yields a substantially better final minADE/minFDE than any from-scratch H1–H6 variant."
+    status: supported
+    motivation: "All H1–H6 ablations train from scratch on 579 scenes — far too small to learn a strong trajectory prior. Architectural ablations on this regime may underestimate the value of pretrained representations. Test by pretraining the backbone on the full Waymo pedestrian set, then fine-tuning the pose-augmented model from that backbone."
+    priority: high
+    config_pretrain: "tools/cfgs/waymo/mtr+full_ped_pretrain.yaml"
+    config_finetune: "tools/cfgs/waymo/mtr+full_ped_finetune_geo.yaml"
+    architectural_change: "Added POSE_FUSER_RESIDUAL flag to MTREncoder. When True, output of pose_fuser is added to obj_polylines_feature (residual) rather than replacing it, and the last Linear of pose_fuser is zero-initialized so the pose pathway contributes zero at fine-tune iter 0. This preserves the pretrained backbone exactly while allowing the pose pathway to warm up additively."
+    result:
+      pretrain_minADE: "not evaluated (Waymo TF eval skipped)"
+      finetune_best_minADE: 0.3749
+      finetune_best_minFDE: 0.7769
+      finetune_vs_h6_geo_map: "−21.9% minADE, −24.5% minFDE vs H6 geo+map from scratch (0.4797 / 1.0284)"
+      notes: "SUPPORTED — full-Waymo pretraining is the single largest lever in this project. The 579-scene subset was the binding constraint, not the architecture."
+
   - id: H5b
     statement: "Cross-attention + sinusoidal positional encoding closes the gap with GRU — temporal ordering is sufficient, sequential processing is not needed."
     status: partially_confirmed
@@ -116,8 +131,8 @@ hypotheses:
 experiments:
   proxy_metric: "minADE_TYPE_PEDESTRIAN (minADE over 6 modes at final layer, lower is better)"
   baseline_value: 0.6745  # H2_v2 (no pose) best minADE
-  best_value: 0.4797      # H6_geo_only_with_map — GRU+geo + HD map, new overall best
-  total_runs: 16          # 2 unreliable (zero-future) + 2 real-data + 2 weight ablation + 1 30fps + 3 loss ablation + 2 geo weight ablation + 1 cross-attn + 1 cross-attn+PE + 2 map ablation
+  best_value: 0.3749      # H8_finetune_geo — H7 pretrain → fine-tune on 579-scene with pose encoder, new overall best
+  total_runs: 19          # +1 H7 pretrain (run_017) +1 H8 fine-tune (run_018) +1 H9 no-pose fine-tune (run_019)
   trajectory:
     - run_id: "run_001"
       tag: "H1_pose_all_losses"
@@ -369,35 +384,135 @@ experiments:
       best_minADE: 0.4797
       best_minFDE: 1.0284
       best_epoch: 28
-      notes: "VALID: GRU+geo, HD map enabled. Best minADE=0.4797 — new overall best. Only 1.7% improvement over no-pose+map (0.4880→0.4797), versus 7.6% improvement without map. Map shrinks pose benefit from 7.6% to 1.7% because body orientation and map spatial routing share information about agent heading."
+      notes: "VALID: GRU+geo, HD map enabled. Best minADE=0.4797 — best from-scratch result. Only 1.7% improvement over no-pose+map (0.4880→0.4797), versus 7.6% improvement without map. Map shrinks pose benefit from 7.6% to 1.7% because body orientation and map spatial routing share information about agent heading."
+
+    - run_id: "run_017"
+      tag: "H7_full_pretrain"
+      hypothesis: "H7"
+      status: "complete"
+      started: "2026-04-30T18:54"
+      finished: "2026-05-05T09:43"
+      config: "tools/cfgs/waymo/mtr+full_ped_pretrain.yaml"
+      dataset: "WaymoPretrainDataset (NAS agent-batch, 487k scenes, 231,507 pedestrian examples after filter)"
+      batch_size: 10
+      epochs: 30
+      losses: [cls, reg, vel]
+      loss_weights: {cls: 1.0, reg: 1.0, vel: 0.5, mpjpe: 0.0, geo: 0.0, cls_pose: 0.0, gmm_pose: 0.0}
+      use_pose_encoder: False
+      without_hdmap: False
+      checkpoint: "output/waymo/mtr+full_ped_pretrain/H7_full_pretrain/ckpt/checkpoint_epoch_30.pth"
+      best_minADE: "not evaluated (Waymo TF eval skipped via --not_eval_with_train)"
+      notes: "VALID: pretrain backbone for H8. Trained 30 epochs on full Waymo pedestrians. Three minor pre-existing bugs fixed during launch — encoder/decoder unconditionally accessed obj_poses/center_gt_poses/center_shape_params; now guarded by use_pose_encoder / compute_pose_losses flags. Resumed twice after process kills (epoch 1, 20, 28 checkpoints all used as restart points)."
+
+    - run_id: "run_018"
+      tag: "H8_finetune_geo"
+      hypothesis: "H7"
+      status: "complete"
+      started: "2026-05-05T09:46"
+      finished: "2026-05-05T09:53"
+      config: "tools/cfgs/waymo/mtr+full_ped_finetune_geo.yaml"
+      dataset: "WaymoPoseDataset (579-scene NPZ subset, 5171 train scenes / 8282 pedestrians)"
+      batch_size: 10
+      epochs: 30
+      losses: [cls, reg, vel, geo, gmm_pose]
+      loss_weights: {cls: 1.0, reg: 1.0, vel: 0.5, mpjpe: 0.0, geo: 0.1, cls_pose: 0.0, gmm_pose: 0.1}
+      use_pose_encoder: True
+      pose_fuser_residual: True
+      without_hdmap: False
+      pretrained_model: "output/waymo/mtr+full_ped_pretrain/H7_full_pretrain/ckpt/checkpoint_epoch_30.pth"
+      params_total: 108459612
+      params_added_vs_h7: 900608  # GRU pose encoder + zero-init pose_fuser
+      best_minADE: 0.3749
+      best_minFDE: 0.7769
+      notes: "VALID: H7 pretrain → H8 fine-tune. NEW OVERALL BEST. minADE 0.3749 vs H6 geo+map best 0.4797 (−21.9%). minFDE 0.7769 vs H6 1.0284 (−24.5%). Residual zero-init pose_fuser preserves pretrained backbone at iter 0; pose pathway warms up additively. Architectural change in mtr_encoder.py: POSE_FUSER_RESIDUAL flag, zero-init last Linear of pose_fuser, additive connection on forward."
+
+    - run_id: "run_019"
+      tag: "H9_finetune_no_pose"
+      hypothesis: "H7"
+      status: "complete"
+      started: "2026-05-05T10:41"
+      finished: "2026-05-05T10:53"
+      config: "tools/cfgs/waymo/mtr+full_ped_finetune_no_pose.yaml"
+      dataset: "WaymoPoseDataset (579-scene NPZ subset, 5171 train scenes / 8282 pedestrians)"
+      batch_size: 10
+      epochs: 30
+      losses: [cls, reg, vel]
+      loss_weights: {cls: 1.0, reg: 1.0, vel: 0.5, mpjpe: 0.0, geo: 0.0, cls_pose: 0.0, gmm_pose: 0.0}
+      use_pose_encoder: False
+      without_hdmap: False
+      pretrained_model: "output/waymo/mtr+full_ped_pretrain/H7_full_pretrain/ckpt/checkpoint_epoch_30.pth"
+      params_total: 107559004
+      best_minADE: 0.3861
+      best_minFDE: 0.8166
+      notes: "VALID: H7 pretrain → fine-tune WITHOUT pose encoder. Control for pretrain-only effect. minADE 0.3861 (−20.9% vs H6 no_pose+map 0.4880); minFDE 0.8166 (−21.7% vs H6 1.0432). Pose contribution at H7 scale: H8 0.3749 vs H9 0.3861 = −2.9% minADE, −4.9% minFDE. Slightly larger than from-scratch pose benefit (1.7%). Pretrain effect (~21%) is independent of pose; pose adds ~3% on top against the strong trajectory prior."
 
 outer_loop:
-  cycle: 10
-  last_direction: "H6 MAP ABLATION — HD map is dominant signal (−27.7%); pose benefit shrinks from 7.6% to 1.7% with map. findings.md + research-state.yaml + paper updated."
+  cycle: 11
+  last_direction: "H7 PRETRAIN → H8/H9 FINETUNE — full-Waymo pretraining (231k peds, 487k scenes) yields ~21% minADE reduction independent of pose; pose adds 2.9% on top (H8 0.3749 vs H9 0.3861). NEW OVERALL BEST. findings.md + research-state.yaml updated."
   last_reflection: |
+    H7 pretrain → H8/H9 fine-tune 2×2 (pretrain × pose) results:
+
+                           |  No pose  |  With pose  |  Pose Δ
+    -----------------------+-----------+-------------+----------
+    From scratch (H6)      |  0.4880   |  0.4797     |  −1.7%
+    H7 pretrain (H8/H9)    |  0.3861   |  0.3749     |  −2.9%
+    Pretrain Δ             |  −20.9%   |  −21.9%     |  —
+
+    H9 (no pose, H7 pretrain): minADE 0.3861, minFDE 0.8166
+    H8 (with pose, H7 pretrain): minADE 0.3749, minFDE 0.7769 ← NEW OVERALL BEST
+                                                              (−21.9% minADE, −24.5% minFDE vs H6)
+
+    KEY FINDING:
+    Full-Waymo pretraining is the largest single lever in this project. The
+    579-scene NPZ subset was the binding constraint, not the architecture.
+    H7 pretrains the trajectory-only backbone on 231,507 pedestrian agent-batch
+    examples across 487k Waymo scenes (30 epochs, USE_POSE_ENCODER=False). H8
+    fine-tunes the pose-augmented architecture on the 579-scene subset, loading
+    H7 via --pretrained_model and adding the pose encoder + a residual
+    zero-init pose_fuser.
+
+    ARCHITECTURAL CHANGE (mtr_encoder.py):
+    Added POSE_FUSER_RESIDUAL flag. When True:
+    1. Output of pose_fuser is added to obj_polylines_feature (residual)
+       rather than replacing it.
+    2. Last Linear of pose_fuser is zero-initialized at construction.
+    Effect: at fine-tune iter 0 the pose pathway contributes exactly zero, so
+    the pretrained backbone passes through unchanged. The pose encoder warms
+    up additively without corrupting trajectory features. Verified at iter 0:
+    backbone retains H7 representations.
+
+    BUG FIXES DISCOVERED DURING H7 LAUNCH:
+    Three pre-existing unconditional accesses to pose-only fields would crash
+    when training on the WaymoPretrainDataset (which has no pose data):
+    1. mtr_encoder.py:204 — input_dict['obj_poses'] now guarded by
+       self.use_pose_encoder.
+    2. mtr_decoder.py:777 — input_dict['center_gt_poses'] /
+       'center_shape_params' now guarded by 'in input_dict' check.
+    3. mtr_decoder.py:537 — forward_ret_dict['center_gt_poses'] /
+       'center_shape_params' now guarded by compute_pose_losses flag.
+
+    REVISED COMPLETE PICTURE:
+    1. Pose conditioning improves trajectory prediction — confirmed
+    2. Geodesic loss is the dominant signal for pose — confirmed
+    3. Geo weight has sharp optimum at w=0.1 — confirmed
+    4. Mechanism is past pose encoding, not future supervision — confirmed
+    5. Temporal ordering is critical; sequential integration adds incrementally — confirmed
+    6. HD map context dwarfs pose benefit; pose adds only 1.7% on top of map — confirmed
+    7. NEW: Full-Waymo pretraining is the largest lever (~21% minADE),
+       independent of whether pose encoder is used (H8 vs H9 control).
+       Pose still contributes 2.9% on the H7-pretrained backbone — slightly
+       MORE than the 1.7% from-scratch pose benefit. Pose's contribution is
+       more visible against a strong trajectory prior than against noisy
+       from-scratch features. Future H-series experiments should be run on
+       the H7-pretrained backbone, not from scratch.
+
+  prior_cycle_10_reflection: |
     H6 2×2 map × pose interaction results:
     - No pose, no map:    0.6745 (baseline from H2)
     - No pose, with map:  0.4880 (Δ=−27.7% — map dominates routing)
     - GRU+geo, no map:    0.6231 (Δ=−7.6% vs no-pose no-map)
-    - GRU+geo, with map:  0.4797 (Δ=−1.7% vs no-pose with-map) ← NEW BEST
-
-    KEY FINDING:
-    HD map is the dominant signal for pedestrian trajectory prediction.
-    Map context alone (no pose) yields −27.7%. The pose benefit shrinks from
-    7.6% (without map) to 1.7% (with map), because body orientation and map
-    spatial routing share information about agent heading/intent. When the map
-    already encodes routing constraints, the marginal value of body orientation
-    is small. The two signals are partially redundant with respect to the
-    information they provide about pedestrian heading and spatial intent.
-
-    REVISED COMPLETE PICTURE:
-    1. Pose conditioning improves trajectory prediction — confirmed (7.6% best without map)
-    2. Geodesic loss is the dominant signal for pose — confirmed
-    3. Geo weight has sharp optimum at w=0.1 — confirmed
-    4. Mechanism is past pose encoding, not future supervision — confirmed
-    5. Temporal ordering is critical; GRU sequential integration adds incrementally — confirmed
-    6. NEW: HD map context (−27.7%) dwarfs pose benefit; pose adds only 1.7% on top of map.
-       Partial redundancy between body orientation and map routing explains the shrinkage.
+    - GRU+geo, with map:  0.4797 (Δ=−1.7% vs no-pose with-map)
+    HD map is dominant signal; pose adds only 1.7% with map (vs 7.6% without).
 
   prior_cycle_9_reflection: |
     H5b cross-attention + sinusoidal PE results:

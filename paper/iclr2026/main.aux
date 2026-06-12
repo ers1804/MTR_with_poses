@@ -17,15 +17,18 @@
 \citation{zhu2022motionbert}
 \citation{salzmann2023robots,saadatnejad2024socialtransmotion,gao2025socialpose}
 \citation{ettinger2021waymo}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\newlabel{sec:intro}{{1}{1}{Introduction}{section.1}{}}
 \citation{loper2015smpl}
 \citation{zhou2019continuity}
 \citation{ettinger2021waymo}
 \citation{mahmood2019amass}
-\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
-\newlabel{sec:intro}{{1}{1}{Introduction}{section.1}{}}
 \citation{vaswani2017attention,shi2022mtr,shi2023mtrpp,yuan2021agentformer,salzmann2020trajectron}
 \citation{gupta2018socialgan}
 \citation{shi2022mtr}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Related Work}{2}{section.2}\protected@file@percent }
+\newlabel{sec:related}{{2}{2}{Related Work}{section.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Trajectory Forecasting for Autonomous Driving}{2}{subsection.2.1}\protected@file@percent }
 \citation{loper2015smpl}
 \citation{zhou2019continuity}
 \citation{mahmood2019amass}
@@ -34,15 +37,9 @@
 \citation{salzmann2023robots}
 \citation{saadatnejad2024socialtransmotion}
 \citation{gao2025socialpose}
-\@writefile{toc}{\contentsline {section}{\numberline {2}Related Work}{2}{section.2}\protected@file@percent }
-\newlabel{sec:related}{{2}{2}{Related Work}{section.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Trajectory Forecasting for Autonomous Driving}{2}{subsection.2.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Human Pose Estimation and Pose Representations}{2}{subsection.2.2}\protected@file@percent }
 \citation{shi2022mtr}
 \citation{zhou2019continuity}
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces \textbf  {MTR+Pose architecture.} A GRU pose encoder processes the past 11 SMPL body poses (each represented as a 144D 6D-rotation vector) and produces a 256D hidden state that is concatenated with the MTR agent feature and projected before the decoder. Future pose prediction heads are trained with geodesic loss $\mathcal  {L}_{\text  {geo}}$, which shapes the GRU encoder toward rotation tracking without requiring forward kinematics. The trajectory decoder and map attention modules of MTR are unchanged. \relax }}{3}{figure.caption.1}\protected@file@percent }
-\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
-\newlabel{fig:architecture}{{1}{3}{\textbf {MTR+Pose architecture.} A GRU pose encoder processes the past 11 SMPL body poses (each represented as a 144D 6D-rotation vector) and produces a 256D hidden state that is concatenated with the MTR agent feature and projected before the decoder. Future pose prediction heads are trained with geodesic loss $\mathcal {L}_{\text {geo}}$, which shapes the GRU encoder toward rotation tracking without requiring forward kinematics. The trajectory decoder and map attention modules of MTR are unchanged. \relax }{figure.caption.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Human Pose Estimation and Pose Representations}{3}{subsection.2.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Joint Pose and Trajectory Models}{3}{subsection.2.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {3}Method}{3}{section.3}\protected@file@percent }
 \newlabel{sec:method}{{3}{3}{Method}{section.3}{}}
@@ -51,23 +48,24 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Pose Conditioning Branch}{3}{subsection.3.2}\protected@file@percent }
 \newlabel{sec:pose_branch}{{3.2}{3}{Pose Conditioning Branch}{subsection.3.2}{}}
 \@writefile{toc}{\contentsline {paragraph}{6D Rotation Encoding.}{3}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{GRU Pose Encoder.}{3}{section*.3}\protected@file@percent }
 \citation{vaswani2017attention}
-\citation{ettinger2021waymo}
-\citation{mahmood2019amass}
-\@writefile{toc}{\contentsline {paragraph}{GRU Pose Encoder.}{4}{section*.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces \textbf  {MTR+Pose architecture.} A GRU pose encoder processes the past 11 SMPL body poses (each represented as a 144D 6D-rotation vector) and produces a 256D hidden state that is concatenated with the MTR agent feature and projected before the decoder. Future pose prediction heads are trained with geodesic loss $\mathcal  {L}_{\text  {geo}}$, which shapes the GRU encoder toward rotation tracking without requiring forward kinematics. The trajectory decoder and map attention modules of MTR are unchanged. \relax }}{4}{figure.caption.1}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:architecture}{{1}{4}{\textbf {MTR+Pose architecture.} A GRU pose encoder processes the past 11 SMPL body poses (each represented as a 144D 6D-rotation vector) and produces a 256D hidden state that is concatenated with the MTR agent feature and projected before the decoder. Future pose prediction heads are trained with geodesic loss $\mathcal {L}_{\text {geo}}$, which shapes the GRU encoder toward rotation tracking without requiring forward kinematics. The trajectory decoder and map attention modules of MTR are unchanged. \relax }{figure.caption.1}{}}
 \@writefile{toc}{\contentsline {paragraph}{Pose Prediction Heads.}{4}{section*.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Pose Supervision Loss.}{4}{section*.5}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Cross-Attention Pose Encoders (Ablation)}{4}{subsection.3.3}\protected@file@percent }
 \newlabel{sec:cross_attn}{{3.3}{4}{Cross-Attention Pose Encoders (Ablation)}{subsection.3.3}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {4}Experiments}{4}{section.4}\protected@file@percent }
-\newlabel{sec:experiments}{{4}{4}{Experiments}{section.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Dataset and Setup}{4}{subsection.4.1}\protected@file@percent }
-\newlabel{sec:setup}{{4.1}{4}{Dataset and Setup}{subsection.4.1}{}}
-\@writefile{toc}{\contentsline {paragraph}{Dataset.}{4}{section*.6}\protected@file@percent }
+\citation{ettinger2021waymo}
+\citation{mahmood2019amass}
 \@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Main result: trajectory-only baseline vs.\ pose-conditioned \textsc  {MTR+Pose}\xspace  . All models trained 30 epochs on the same 579-scene subset. $\Delta $ is relative change vs.\ baseline.\relax }}{5}{table.caption.10}\protected@file@percent }
 \newlabel{tab:main}{{1}{5}{Main result: trajectory-only baseline vs.\ pose-conditioned \mtrpose . All models trained 30 epochs on the same 579-scene subset. $\Delta $ is relative change vs.\ baseline.\relax }{table.caption.10}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Ablation of pose supervision signal. All runs: GRU encoder, $w=0.1$ for active losses, 30 epochs, same data.\relax }}{5}{table.caption.11}\protected@file@percent }
-\newlabel{tab:loss_ablation}{{2}{5}{Ablation of pose supervision signal. All runs: GRU encoder, $w=0.1$ for active losses, 30 epochs, same data.\relax }{table.caption.11}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Experiments}{5}{section.4}\protected@file@percent }
+\newlabel{sec:experiments}{{4}{5}{Experiments}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Dataset and Setup}{5}{subsection.4.1}\protected@file@percent }
+\newlabel{sec:setup}{{4.1}{5}{Dataset and Setup}{subsection.4.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{Dataset.}{5}{section*.6}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Evaluation.}{5}{section*.7}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Training.}{5}{section*.8}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Limitations of scale.}{5}{section*.9}\protected@file@percent }
@@ -75,35 +73,43 @@
 \newlabel{sec:main_result}{{4.2}{5}{Main Result: Pose Conditioning vs.\ Baseline}{subsection.4.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Ablation: Pose Supervision Signal}{5}{subsection.4.3}\protected@file@percent }
 \newlabel{sec:loss_ablation}{{4.3}{5}{Ablation: Pose Supervision Signal}{subsection.4.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Ablation of pose supervision signal. All runs: GRU encoder, $w=0.1$ for active losses, 30 epochs, same data.\relax }}{6}{table.caption.11}\protected@file@percent }
+\newlabel{tab:loss_ablation}{{2}{6}{Ablation of pose supervision signal. All runs: GRU encoder, $w=0.1$ for active losses, 30 epochs, same data.\relax }{table.caption.11}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textbf  {Loss ablation and geodesic weight sensitivity.} \emph  {Left}: minADE\xspace  for five pose supervision configurations. Geodesic-only supervision achieves the best result (0.6231); combining MPJPE with geodesic hurts relative to geodesic alone. \emph  {Right}: Sensitivity of the geodesic-only model to the loss weight $w_{\text  {geo}}$. The optimum is sharp at $w=0.1$; both $w=0.05$ and $w=0.2$ nearly match the no-pose baseline. Dashed line marks the no-pose baseline (0.6745). \relax }}{6}{figure.caption.12}\protected@file@percent }
 \newlabel{fig:ablation}{{2}{6}{\textbf {Loss ablation and geodesic weight sensitivity.} \emph {Left}: \minADE for five pose supervision configurations. Geodesic-only supervision achieves the best result (0.6231); combining MPJPE with geodesic hurts relative to geodesic alone. \emph {Right}: Sensitivity of the geodesic-only model to the loss weight $w_{\text {geo}}$. The optimum is sharp at $w=0.1$; both $w=0.05$ and $w=0.2$ nearly match the no-pose baseline. Dashed line marks the no-pose baseline (0.6745). \relax }{figure.caption.12}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Temporal encoding ablation. All pose-conditioned variants use geodesic-only supervision ($w=0.1$).\relax }}{6}{table.caption.13}\protected@file@percent }
-\newlabel{tab:temporal}{{3}{6}{Temporal encoding ablation. All pose-conditioned variants use geodesic-only supervision ($w=0.1$).\relax }{table.caption.13}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Ablation: Geodesic Loss Weight}{6}{subsection.4.4}\protected@file@percent }
 \newlabel{sec:weight_ablation}{{4.4}{6}{Ablation: Geodesic Loss Weight}{subsection.4.4}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.5}Ablation: Temporal Encoding --- GRU vs.\ Cross-Attention}{6}{subsection.4.5}\protected@file@percent }
 \newlabel{sec:temporal_ablation}{{4.5}{6}{Ablation: Temporal Encoding --- GRU vs.\ Cross-Attention}{subsection.4.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Temporal encoding ablation. All pose-conditioned variants use geodesic-only supervision ($w=0.1$).\relax }}{7}{table.caption.13}\protected@file@percent }
+\newlabel{tab:temporal}{{3}{7}{Temporal encoding ablation. All pose-conditioned variants use geodesic-only supervision ($w=0.1$).\relax }{table.caption.13}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces \textbf  {Training dynamics.} Validation minADE\xspace  for all four temporal encoding variants. Cross-attention without PE (orange, dash-dot) tracks the baseline throughout, confirming that permutation-invariant aggregation extracts no temporal information. Cross-attention with sinusoidal PE (green, dotted) drops to 0.6337 at epoch 24, recovering 79\% of the GRU's advantage. GRU+geo (blue, solid) reaches 0.6231 at epoch 20 with higher epoch-to-epoch variance, consistent with the additional SMPL pose matching signal. \relax }}{7}{figure.caption.14}\protected@file@percent }
 \newlabel{fig:training_curves}{{3}{7}{\textbf {Training dynamics.} Validation \minADE for all four temporal encoding variants. Cross-attention without PE (orange, dash-dot) tracks the baseline throughout, confirming that permutation-invariant aggregation extracts no temporal information. Cross-attention with sinusoidal PE (green, dotted) drops to 0.6337 at epoch 24, recovering 79\% of the GRU's advantage. GRU+geo (blue, solid) reaches 0.6231 at epoch 20 with higher epoch-to-epoch variance, consistent with the additional SMPL pose matching signal. \relax }{figure.caption.14}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.6}Ablation: Future Pose Supervision Quality}{7}{subsection.4.6}\protected@file@percent }
 \newlabel{sec:future_ablation}{{4.6}{7}{Ablation: Future Pose Supervision Quality}{subsection.4.6}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.7}Training Dynamics}{7}{subsection.4.7}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.8}Ablation: HD Map Context}{7}{subsection.4.8}\protected@file@percent }
-\newlabel{sec:map_ablation}{{4.8}{7}{Ablation: HD Map Context}{subsection.4.8}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Map $\times $ pose ablation. All runs: 30 epochs, same training subset. $\Delta $ is relative change vs.\ the no-pose, no-map baseline (0.6745).\relax }}{8}{table.caption.15}\protected@file@percent }
 \newlabel{tab:map_ablation}{{4}{8}{Map $\times $ pose ablation. All runs: 30 epochs, same training subset. $\Delta $ is relative change vs.\ the no-pose, no-map baseline (0.6745).\relax }{table.caption.15}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5}Analysis and Insights}{8}{section.5}\protected@file@percent }
-\newlabel{sec:analysis}{{5}{8}{Analysis and Insights}{section.5}{}}
-\@writefile{toc}{\contentsline {paragraph}{Why does geodesic loss outperform MPJPE?}{8}{section*.16}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{What makes the GRU encoder work?}{8}{section*.17}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{The mechanism: past encoder, not future prediction.}{8}{section*.18}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {6}Limitations}{8}{section.6}\protected@file@percent }
-\newlabel{sec:limitations}{{6}{8}{Limitations}{section.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.8}Ablation: HD Map Context}{8}{subsection.4.8}\protected@file@percent }
+\newlabel{sec:map_ablation}{{4.8}{8}{Ablation: HD Map Context}{subsection.4.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.9}Ablation: Backbone Pretraining on Full Waymo}{8}{subsection.4.9}\protected@file@percent }
+\newlabel{sec:pretrain_ablation}{{4.9}{8}{Ablation: Backbone Pretraining on Full Waymo}{subsection.4.9}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Pretrain $\times $ pose ablation. All runs include HD map and use 30-epoch fine-tuning on the 579-scene subset. Pretrained variants load the full-Waymo backbone via residual zero-init pose fusion.\relax }}{9}{table.caption.16}\protected@file@percent }
+\newlabel{tab:pretrain_ablation}{{5}{9}{Pretrain $\times $ pose ablation. All runs include HD map and use 30-epoch fine-tuning on the 579-scene subset. Pretrained variants load the full-Waymo backbone via residual zero-init pose fusion.\relax }{table.caption.16}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces \textbf  {Qualitative comparison at full-Waymo-pretrained scale.} Four validation scenes. Past in gray; GT future dashed black with $\star $ endpoint. All 6 predicted modes faded; top-scoring mode highlighted (red: no-pose; blue: geo+pose). Per-scene minADE\xspace  in titles. \emph  {Long-distance:} no-pose stops at 5m; pose follows the 25m walk. \emph  {Curved:} no-pose underestimates displacement; pose follows the curve. \emph  {Mode coverage:} both top modes underestimate, but pose has a faded mode aligned with GT. \emph  {Stationary:} no-pose wrongly predicts motion; pose correctly stays near origin. \relax }}{9}{figure.caption.17}\protected@file@percent }
+\newlabel{fig:qualitative}{{4}{9}{\textbf {Qualitative comparison at full-Waymo-pretrained scale.} Four validation scenes. Past in gray; GT future dashed black with $\star $ endpoint. All 6 predicted modes faded; top-scoring mode highlighted (red: no-pose; blue: geo+pose). Per-scene \minADE in titles. \emph {Long-distance:} no-pose stops at 5m; pose follows the 25m walk. \emph {Curved:} no-pose underestimates displacement; pose follows the curve. \emph {Mode coverage:} both top modes underestimate, but pose has a faded mode aligned with GT. \emph {Stationary:} no-pose wrongly predicts motion; pose correctly stays near origin. \relax }{figure.caption.17}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Analysis and Insights}{9}{section.5}\protected@file@percent }
+\newlabel{sec:analysis}{{5}{9}{Analysis and Insights}{section.5}{}}
+\@writefile{toc}{\contentsline {paragraph}{Why does geodesic loss outperform MPJPE?}{9}{section*.18}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{What makes the GRU encoder work?}{9}{section*.19}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{The mechanism: past encoder, not future prediction.}{9}{section*.20}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Limitations}{10}{section.6}\protected@file@percent }
+\newlabel{sec:limitations}{{6}{10}{Limitations}{section.6}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Conclusion}{10}{section.7}\protected@file@percent }
+\newlabel{sec:conclusion}{{7}{10}{Conclusion}{section.7}{}}
 \bibdata{references}
 \bibcite{chen2023humanmac}{{1}{2023}{{Chen et~al.}}{{Chen, Zhang, Li, Pang, Xia, and Liu}}}
 \bibcite{ettinger2021waymo}{{2}{2021}{{Ettinger et~al.}}{{Ettinger, Cheng, Caine, Liu, Zhao, Pradhan, Chai, Sapp, Qi, Zhou, Yang, Chouard, Sun, Ngiam, Vasudevan, McCauley, Shlens, and Anguelov}}}
-\@writefile{toc}{\contentsline {section}{\numberline {7}Conclusion}{9}{section.7}\protected@file@percent }
-\newlabel{sec:conclusion}{{7}{9}{Conclusion}{section.7}{}}
 \bibcite{gao2025socialpose}{{3}{2025}{{Gao et~al.}}{{Gao, Saadatnejad, and Alahi}}}
 \bibcite{gupta2018socialgan}{{4}{2018}{{Gupta et~al.}}{{Gupta, Johnson, Fei-Fei, Savarese, and Alahi}}}
 \bibcite{loper2015smpl}{{5}{2015}{{Loper et~al.}}{{Loper, Mahmood, Romero, Pons-Moll, and Black}}}
@@ -118,13 +124,13 @@
 \bibcite{zhou2019continuity}{{14}{2019}{{Zhou et~al.}}{{Zhou, Barnes, Lu, Yang, and Li}}}
 \bibcite{zhu2022motionbert}{{15}{2023}{{Zhu et~al.}}{{Zhu, Ma, Liu, Liu, Wu, and Wang}}}
 \bibstyle{iclr2026_conference}
-\@writefile{toc}{\contentsline {section}{\numberline {A}Additional Experimental Details}{11}{appendix.A}\protected@file@percent }
-\newlabel{app:details}{{A}{11}{Additional Experimental Details}{appendix.A}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.1}Architecture Hyperparameters}{11}{subsection.A.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.2}Dataset Construction}{11}{subsection.A.2}\protected@file@percent }
-\newlabel{app:dataset}{{A.2}{11}{Dataset Construction}{subsection.A.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.3}Loss Weight Stability}{11}{subsection.A.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.4}Full Results Table}{11}{subsection.A.4}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Complete experimental results. Runs 001--002 are invalid (zero future GT) and excluded from analysis. Baseline for $\Delta $ is run 004 (no pose, no map).\relax }}{12}{table.caption.22}\protected@file@percent }
-\newlabel{tab:full}{{5}{12}{Complete experimental results. Runs 001--002 are invalid (zero future GT) and excluded from analysis. Baseline for $\Delta $ is run 004 (no pose, no map).\relax }{table.caption.22}{}}
-\gdef \@abspage@last{12}
+\@writefile{toc}{\contentsline {section}{\numberline {A}Additional Experimental Details}{12}{appendix.A}\protected@file@percent }
+\newlabel{app:details}{{A}{12}{Additional Experimental Details}{appendix.A}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.1}Architecture Hyperparameters}{12}{subsection.A.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.2}Dataset Construction}{13}{subsection.A.2}\protected@file@percent }
+\newlabel{app:dataset}{{A.2}{13}{Dataset Construction}{subsection.A.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.3}Loss Weight Stability}{13}{subsection.A.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.4}Full Results Table}{13}{subsection.A.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Complete experimental results. Runs 001--002 are invalid (zero future GT) and excluded from analysis. Baseline for $\Delta $ is run 004 (no pose, no map). Run 017 is the H7 backbone pretraining only; runs 018--019 fine-tune from H7 on the 579-scene subset.\relax }}{13}{table.caption.24}\protected@file@percent }
+\newlabel{tab:full}{{6}{13}{Complete experimental results. Runs 001--002 are invalid (zero future GT) and excluded from analysis. Baseline for $\Delta $ is run 004 (no pose, no map). Run 017 is the H7 backbone pretraining only; runs 018--019 fine-tune from H7 on the 579-scene subset.\relax }{table.caption.24}{}}
+\gdef \@abspage@last{13}

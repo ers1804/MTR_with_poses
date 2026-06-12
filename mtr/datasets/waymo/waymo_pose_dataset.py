@@ -218,23 +218,146 @@ class WaymoPoseDataset(DatasetTemplate):
                 index = np.random.randint(0, len(self.infos))
         return self.create_scene_level_data(index)
 
-    def _load_scene_waymo_trajs(self, scene_id):
-        """Load processed Waymo scenario to get real 91-step agent trajectories.
+    def _load_scene_waymo_data(self, scene_id):
+        """Load processed Waymo scenario for trajectories and map data.
 
         Returns:
-            id_to_traj: dict mapping int(object_id) -> (91, 10) float32 trajectory
-                        or None if the processed scenario file is not found.
+            id_to_traj: dict mapping int(object_id) -> (91, 10) float32 trajectory, or None
+            map_infos: map_infos dict from the scenario pkl, or None
         """
         if self.processed_scenarios_path is None:
-            return None
+            return None, None
         pkl_path = self.processed_scenarios_path / f'sample_{scene_id}_0.pkl'
         if not pkl_path.exists():
-            return None
+            return None, None
         with open(pkl_path, 'rb') as f:
             scenario = pickle.load(f)
         ti = scenario['track_infos']
         trajs = ti['trajs']  # (num_agents, 91, 10)
-        return {int(oid): trajs[i] for i, oid in enumerate(ti['object_id'])}
+        id_to_traj = {int(oid): trajs[i] for i, oid in enumerate(ti['object_id'])}
+        map_infos = scenario.get('map_infos', None)
+        return id_to_traj, map_infos
+
+    def _load_scene_waymo_trajs(self, scene_id):
+        id_to_traj, _ = self._load_scene_waymo_data(scene_id)
+        return id_to_traj
+
+    @staticmethod
+    def generate_batch_polylines_from_map(polylines, point_sampled_interval=1,
+                                          vector_break_dist_thresh=1.0, num_points_each_polyline=20):
+        """Split raw all_polylines into fixed-length segments.
+
+        Args:
+            polylines: (num_points, 7) [x, y, z, dir_x, dir_y, dir_z, global_type]
+        Returns:
+            ret_polylines: torch.Tensor (num_polylines, num_points_each_polyline, 7)
+            ret_polylines_mask: torch.Tensor (num_polylines, num_points_each_polyline)
+        """
+        point_dim = polylines.shape[-1]
+        sampled_points = polylines[::point_sampled_interval]
+        sampled_points_shift = np.roll(sampled_points, shift=1, axis=0)
+        buffer_points = np.concatenate((sampled_points[:, 0:2], sampled_points_shift[:, 0:2]), axis=-1)
+        buffer_points[0, 2:4] = buffer_points[0, 0:2]
+
+        break_idxs = (np.linalg.norm(buffer_points[:, 0:2] - buffer_points[:, 2:4], axis=-1) > vector_break_dist_thresh).nonzero()[0]
+        polyline_list = np.array_split(sampled_points, break_idxs, axis=0)
+        ret_polylines = []
+        ret_polylines_mask = []
+
+        def append_single_polyline(new_polyline):
+            cur_polyline = np.zeros((num_points_each_polyline, point_dim), dtype=np.float32)
+            cur_valid_mask = np.zeros((num_points_each_polyline), dtype=np.int32)
+            cur_polyline[:len(new_polyline)] = new_polyline
+            cur_valid_mask[:len(new_polyline)] = 1
+            ret_polylines.append(cur_polyline)
+            ret_polylines_mask.append(cur_valid_mask)
+
+        for k in range(len(polyline_list)):
+            if len(polyline_list[k]) <= 0:
+                continue
+            for idx in range(0, len(polyline_list[k]), num_points_each_polyline):
+                append_single_polyline(polyline_list[k][idx: idx + num_points_each_polyline])
+
+        ret_polylines = torch.from_numpy(np.stack(ret_polylines, axis=0))
+        ret_polylines_mask = torch.from_numpy(np.stack(ret_polylines_mask, axis=0))
+        return ret_polylines, ret_polylines_mask
+
+    def create_map_data_for_center_objects(self, center_objects, map_infos, center_offset):
+        """Select and transform the nearest map polylines for each center object.
+
+        Args:
+            center_objects: (num_center_objects, 10)
+            map_infos: dict with 'all_polylines' (num_points, 7)
+            center_offset: [offset_x, offset_y]
+        Returns:
+            map_polylines: (num_center_objects, num_topk_polylines, num_points_each_polyline, 9)
+            map_polylines_mask: (num_center_objects, num_topk_polylines, num_points_each_polyline)
+            map_polylines_center: (num_center_objects, num_topk_polylines, 3)
+        """
+        num_center_objects = center_objects.shape[0]
+
+        def transform_to_center_coordinates(neighboring_polylines, neighboring_polyline_valid_mask):
+            neighboring_polylines[:, :, :, 0:3] -= center_objects[:, None, None, 0:3]
+            neighboring_polylines[:, :, :, 0:2] = common_utils.rotate_points_along_z(
+                points=neighboring_polylines[:, :, :, 0:2].view(num_center_objects, -1, 2),
+                angle=-center_objects[:, 6]
+            ).view(num_center_objects, -1, batch_polylines.shape[1], 2)
+            neighboring_polylines[:, :, :, 3:5] = common_utils.rotate_points_along_z(
+                points=neighboring_polylines[:, :, :, 3:5].view(num_center_objects, -1, 2),
+                angle=-center_objects[:, 6]
+            ).view(num_center_objects, -1, batch_polylines.shape[1], 2)
+            xy_pos_pre = neighboring_polylines[:, :, :, 0:2]
+            xy_pos_pre = torch.roll(xy_pos_pre, shifts=1, dims=-2)
+            xy_pos_pre[:, :, 0, :] = xy_pos_pre[:, :, 1, :]
+            neighboring_polylines = torch.cat((neighboring_polylines, xy_pos_pre), dim=-1)
+            neighboring_polylines[neighboring_polyline_valid_mask == 0] = 0
+            return neighboring_polylines, neighboring_polyline_valid_mask
+
+        all_polylines = map_infos['all_polylines'].copy()
+        if len(all_polylines) == 0:
+            all_polylines = np.zeros((2, 7), dtype=np.float32)
+
+        polylines = torch.from_numpy(all_polylines)
+        center_objects_t = torch.from_numpy(center_objects)
+
+        batch_polylines, batch_polylines_mask = self.generate_batch_polylines_from_map(
+            polylines=polylines.numpy(),
+            point_sampled_interval=self.dataset_cfg.get('POINT_SAMPLED_INTERVAL', 1),
+            vector_break_dist_thresh=self.dataset_cfg.get('VECTOR_BREAK_DIST_THRESH', 1.0),
+            num_points_each_polyline=self.dataset_cfg.get('NUM_POINTS_EACH_POLYLINE', 20),
+        )
+
+        num_of_src_polylines = self.dataset_cfg.NUM_OF_SRC_POLYLINES
+
+        if len(batch_polylines) > num_of_src_polylines:
+            polyline_center = batch_polylines[:, :, 0:2].sum(dim=1) / torch.clamp_min(
+                batch_polylines_mask.sum(dim=1).float()[:, None], min=1.0)
+            center_offset_rot = torch.from_numpy(
+                np.array(center_offset, dtype=np.float32))[None, :].repeat(num_center_objects, 1)
+            center_offset_rot = common_utils.rotate_points_along_z(
+                points=center_offset_rot.view(num_center_objects, 1, 2),
+                angle=center_objects_t[:, 6]
+            ).view(num_center_objects, 2)
+
+            pos_of_map_centers = center_objects_t[:, 0:2] + center_offset_rot
+            dist = (pos_of_map_centers[:, None, :] - polyline_center[None, :, :]).norm(dim=-1)
+            topk_dist, topk_idxs = dist.topk(k=num_of_src_polylines, dim=-1, largest=False)
+            map_polylines = batch_polylines[topk_idxs]
+            map_polylines_mask = batch_polylines_mask[topk_idxs]
+        else:
+            map_polylines = batch_polylines[None, :, :, :].repeat(num_center_objects, 1, 1, 1)
+            map_polylines_mask = batch_polylines_mask[None, :, :].repeat(num_center_objects, 1, 1)
+
+        map_polylines, map_polylines_mask = transform_to_center_coordinates(
+            neighboring_polylines=map_polylines,
+            neighboring_polyline_valid_mask=map_polylines_mask
+        )
+
+        temp_sum = (map_polylines[:, :, :, 0:3] * map_polylines_mask[:, :, :, None].float()).sum(dim=-2)
+        map_polylines_center = temp_sum / torch.clamp_min(
+            map_polylines_mask.sum(dim=-1).float()[:, :, None], min=1.0)
+
+        return (map_polylines.numpy(), map_polylines_mask.numpy(), map_polylines_center.numpy())
 
     def _load_pedestrian(self, npz_path, waymo_traj=None):
         """Load a single pedestrian .npz file and map to the standard Waymo time grid.
@@ -334,8 +457,8 @@ class WaymoPoseDataset(DatasetTemplate):
         npz_files = info['npz_files']
         num_objects = len(npz_files)
 
-        # Load real Waymo trajectories if processed scenarios are configured
-        waymo_traj_map = self._load_scene_waymo_trajs(scene_id)  # int(ped_id) -> (91, 10) or None
+        # Load real Waymo trajectories and map data from NAS if configured
+        waymo_traj_map, map_infos = self._load_scene_waymo_data(scene_id)
 
         # Load all pedestrians in the scene
         obj_trajs_full_list = []
@@ -462,20 +585,29 @@ class WaymoPoseDataset(DatasetTemplate):
             'center_shape_params': center_shape_params.astype(np.float32),
         }
 
-        # Always provide map data — empty placeholders when no HD map is available.
-        # The encoder unconditionally reads map_polylines / map_polylines_mask,
-        # so these keys must always be present.
-        num_polylines = 2  # minimal placeholder
+        # Populate map polylines — real HD map when available, zeros otherwise.
+        # The encoder unconditionally reads these keys so they must always be present.
         num_points_each_polyline = self.dataset_cfg.get('NUM_POINTS_EACH_POLYLINE', 20)
-        ret_dict['map_polylines'] = np.zeros(
-            (num_center_objects, num_polylines, num_points_each_polyline, 9), dtype=np.float32
-        )
-        ret_dict['map_polylines_mask'] = np.zeros(
-            (num_center_objects, num_polylines, num_points_each_polyline), dtype=bool
-        )
-        ret_dict['map_polylines_center'] = np.zeros(
-            (num_center_objects, num_polylines, 3), dtype=np.float32
-        )
+        if not self.without_hdmap and map_infos is not None:
+            center_offset = self.dataset_cfg.get('CENTER_OFFSET_OF_MAP', [30.0, 0])
+            map_polylines, map_polylines_mask, map_polylines_center = \
+                self.create_map_data_for_center_objects(
+                    center_objects=center_objects,
+                    map_infos=map_infos,
+                    center_offset=center_offset,
+                )
+        else:
+            num_polylines = 2
+            map_polylines = np.zeros(
+                (num_center_objects, num_polylines, num_points_each_polyline, 9), dtype=np.float32)
+            map_polylines_mask = np.zeros(
+                (num_center_objects, num_polylines, num_points_each_polyline), dtype=bool)
+            map_polylines_center = np.zeros(
+                (num_center_objects, num_polylines, 3), dtype=np.float32)
+
+        ret_dict['map_polylines'] = map_polylines
+        ret_dict['map_polylines_mask'] = (map_polylines_mask > 0)
+        ret_dict['map_polylines_center'] = map_polylines_center
 
         return ret_dict
 

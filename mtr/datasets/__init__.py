@@ -11,11 +11,13 @@ from mtr.utils import common_utils
 
 from .waymo.waymo_dataset import WaymoDataset
 from .waymo.waymo_pose_dataset import WaymoPoseDataset
+from .waymo.waymo_pretrain_dataset import WaymoPretrainDataset
 
 
 __all__ = {
     'WaymoDataset': WaymoDataset,
     'WaymoPoseDataset': WaymoPoseDataset,
+    'WaymoPretrainDataset': WaymoPretrainDataset,
 }
 
 

@@ -65,6 +65,15 @@ pose conditioning, dwarfing the pose-only gain. When map context is available, t
 incremental pose benefit shrinks from 7.6\% to 1.7\% (0.4880 $\to$ 0.4797), because
 body orientation and map-encoded routing constraints share information about pedestrian
 heading---making the two signals partially redundant.
+Finally, to address the small-dataset bottleneck of our 579-scene subset, we pretrain the
+\mtr backbone on the full Waymo pedestrian set (231k examples across 487k scenes) and
+fine-tune both the no-pose and pose-conditioned variants on the original subset using a
+\emph{residual zero-init} pose fuser that preserves the pretrained backbone at fine-tune
+init. Pretraining yields a $\sim$\textbf{21\%} \minADE reduction \emph{independent} of pose
+(0.4880 $\to$ 0.3861 no-pose; 0.4797 $\to$ 0.3749 with pose), and pose still contributes
+\textbf{2.9\%} on top of the strong pretrained prior---slightly more than the 1.7\% benefit
+observed without pretraining. Pose's contribution becomes more visible against a strong
+trajectory prior than against noisy from-scratch features.
 \end{abstract}
 
 % ===========================================================================
@@ -98,7 +107,7 @@ We train and evaluate on a pedestrian subset of the Waymo Open Motion Dataset
 \citep{ettinger2021waymo} paired with AMASS-derived body poses \citep{mahmood2019amass},
 using the standard minADE and minFDE metrics over 6 predicted modes.
 
-Our experiments yield five principal findings:
+Our experiments yield six principal findings:
 
 \begin{itemize}
   \item \textbf{Pose conditioning improves trajectory prediction by 7.6\% minADE}
@@ -125,6 +134,15 @@ Our experiments yield five principal findings:
         The pose gain shrinks from 7.6\% (no map) to only 1.7\% (with map), because
         body orientation and map-encoded routing constraints share information about
         pedestrian heading.
+  \item \textbf{Backbone pretraining on full Waymo dominates architectural choices, and
+        amplifies the pose benefit.} Pretraining the trajectory-only backbone on the full
+        Waymo pedestrian set (231k examples, 487k scenes) and fine-tuning the pose-augmented
+        architecture on the 579-scene subset yields $-$21.9\% \minADE (0.4797 $\to$ 0.3749).
+        A controlled 2$\times$2 ablation ($\pm$pretrain $\times$ $\pm$pose) attributes
+        $\sim$21\% to pretraining \emph{independent} of pose, and 2.9\% to pose on top of
+        the pretrained backbone---a larger pose contribution than the 1.7\% observed
+        without pretraining. The 579-scene subset was the binding constraint; once removed,
+        pose's incremental signal becomes more visible against the strong trajectory prior.
 \end{itemize}
 
 These results have practical implications for the community: rotation-space
@@ -546,11 +564,75 @@ Pedestrian routing---which paths are available, which crosswalks are nearby---is
 encoded directly in the map, and this spatial prior substantially reduces prediction
 uncertainty.
 \emph{Second}, when map context is available, the incremental benefit of pose conditioning
-shrinks from 7.6\% to \textbf{1.7\%} (0.4880 $\to$ 0.4797, still the new overall best).
+shrinks from 7.6\% to \textbf{1.7\%} (0.4880 $\to$ 0.4797, the best from-scratch result).
 We attribute this to partial information redundancy: body orientation encodes where
 the pedestrian is heading, which the map's routing constraints already constrain.
 Without a map, pose fills the gap by providing an orientation proxy; with a map,
 most of that gap is already closed, leaving only 1.7\% residual gain for pose.
+
+\subsection{Ablation: Backbone Pretraining on Full Waymo}
+\label{sec:pretrain_ablation}
+
+The 579-scene subset used above is ${\approx}0.12\%$ of the full Waymo training set
+(${\approx}486$k scenarios). To test whether dataset scale is the binding constraint
+on absolute accuracy, and to isolate pose's contribution when the backbone already
+encodes a strong trajectory prior, we run a final 2$\times$2 ablation: $\pm$pretrain
+$\times$ $\pm$pose, with HD map enabled in all four cells.
+
+We pretrain the trajectory-only backbone (no pose encoder) on the full Waymo pedestrian
+set---231{,}507 per-agent training examples drawn from 486{,}995 scenarios---for 30 epochs
+with the same hyperparameters as before. Naively replacing the backbone's agent feature
+with the output of a randomly initialized pose fuser would corrupt the pretrained
+representation at fine-tune iter 0. We address this with a \emph{residual zero-init} pose
+fuser: the fuser's output is \emph{added} to the backbone feature (rather than replacing
+it), and its final linear layer is initialized to zero. At fine-tune iter 0 the pose pathway
+contributes exactly zero, so the pretrained backbone passes through unchanged; the pose
+encoder warms up additively without disrupting the established trajectory features.
+
+\begin{table}[t]
+\caption{Pretrain $\times$ pose ablation. All runs include HD map and use 30-epoch fine-tuning
+on the 579-scene subset. Pretrained variants load the full-Waymo backbone via residual
+zero-init pose fusion.}
+\label{tab:pretrain_ablation}
+\begin{center}
+\begin{tabular}{llccc}
+\toprule
+Pretrain & Pose Enc. & \minADE $\downarrow$ & \minFDE $\downarrow$ & $\Delta$ \\
+\midrule
+None  & ---       & 0.4880 & 1.0432 & --- \\
+None  & GRU+geo   & 0.4797 & 1.0284 & $-$1.7\% \\
+Full Waymo & ---       & 0.3861 & 0.8166 & $-$20.9\% \\
+\rowcolor{bestrow}
+Full Waymo & GRU+geo   & \textbf{0.3749} & \textbf{0.7769} & $-$23.2\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+Table~\ref{tab:pretrain_ablation} gives a clean decomposition: pretraining accounts for an
+approximately constant $-21\%$ \minADE reduction \emph{independent} of pose ($-20.9\%$ no-pose;
+$-21.9\%$ pose). On top of the pretrained backbone, pose conditioning contributes a further
+$\textbf{2.9\%}$ \minADE and $\textbf{4.9\%}$ \minFDE. Pose's incremental benefit
+\emph{increases} from 1.7\% (from scratch) to 2.9\% (pretrained)---suggesting pose's
+orientation signal is more informative paired with strong trajectory features than when
+both must be learned simultaneously from a small dataset.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{fig_qualitative.pdf}
+\caption{%
+  \textbf{Qualitative comparison at full-Waymo-pretrained scale.}
+  Four validation scenes. Past in gray; GT future dashed black with $\star$ endpoint. All 6
+  predicted modes faded; top-scoring mode highlighted (red: no-pose; blue: geo+pose).
+  Per-scene \minADE in titles.
+  \emph{Long-distance:} no-pose stops at 5m; pose follows the 25m walk.
+  \emph{Curved:} no-pose underestimates displacement; pose follows the curve.
+  \emph{Mode coverage:} both top modes underestimate, but pose has a faded mode aligned
+  with GT.
+  \emph{Stationary:} no-pose wrongly predicts motion; pose correctly stays near origin.
+}
+\label{fig:qualitative}
+\end{figure}
 
 % ===========================================================================
 \section{Analysis and Insights}
@@ -600,10 +682,15 @@ that supervises the encoder but does not itself contribute to trajectory accurac
 \label{sec:limitations}
 % ===========================================================================
 
-\textbf{Dataset scale.} Our experiments use 579 training scenes from Waymo,
-a small fraction of the full dataset. While relative comparisons are internally
-valid, we cannot claim that the 7.6\% improvement transfers directly to a
-full-scale training regime.
+\textbf{Dataset scale and transfer.} Our main ablations
+(Sections~\ref{sec:main_result}--\ref{sec:map_ablation}) are conducted on a 579-scene
+subset of Waymo. Section~\ref{sec:pretrain_ablation} addresses this partially via full-Waymo
+pretraining, but fine-tuning still uses the same 579-scene subset---the pose-conditioned
+fine-tune does not see the full dataset. The 2$\times$2 pretrain $\times$ pose result shows
+that pose's incremental benefit \emph{increases} (from 1.7\% to 2.9\%) when the backbone
+already encodes a strong trajectory prior, which is suggestive of how pose may behave at
+full scale, but a definitive answer requires training the pose-conditioned model on the
+full Waymo set, which our compute budget did not permit.
 
 \textbf{SMPL pose availability.} We use AMASS-derived pose sequences matched to
 Waymo pedestrian tracks, which requires a separate pose estimation step at test
@@ -622,7 +709,7 @@ full map-enabled system should expect modest, not large, gains from pose conditi
 predicted future poses independently; our metric is trajectory prediction only.
 A joint evaluation of pose and trajectory quality would complete the picture.
 
-\textbf{Single-seed results.} All 14 runs use a single random seed. Epoch-to-epoch
+\textbf{Single-seed results.} All runs use a single random seed. Epoch-to-epoch
 variance in our training curves (particularly the LR-decay spike at epoch 25 in
 the H5b run, where minADE jumps to 0.7420 before recovering) suggests non-trivial
 training noise. We report best-checkpoint minADE, which may slightly overfit to
@@ -636,7 +723,7 @@ confidence interval on the reported improvements.
 
 We have presented \mtrpose, a pose-conditioned extension of the Motion Transformer
 that incorporates past SMPL body poses via a GRU encoder with 6D rotation
-representations. Through a systematic ablation of 16 runs on the Waymo Open
+representations. Through a systematic ablation of 19 runs on the Waymo Open
 Motion Dataset, we establish that:
 (1) geodesic supervision in $SO(3)$ is the critical ingredient, reducing \minADE
 by 7.6\% over the trajectory-only baseline, while joint-space MPJPE supervision
@@ -651,13 +738,22 @@ quality;
 (4) HD map context is the dominant signal ($-$27.7\% minADE without any pose), and
 when map features are available the incremental pose benefit shrinks from 7.6\% to
 1.7\%, revealing partial redundancy between body orientation and map-encoded routing
-constraints.
+constraints;
+(5) full-Waymo backbone pretraining (231k pedestrian examples, 487k scenes) yields a
+$\sim$21\% \minADE reduction \emph{independent} of pose, dwarfing every architectural
+ablation in this work; on top of the pretrained backbone, pose conditioning still
+contributes 2.9\% \minADE and 4.9\% \minFDE---a larger pose benefit than at the
+from-scratch scale (1.7\%), suggesting pose's orientation signal is more visible
+against a strong trajectory prior. A residual zero-init pose fuser is the key
+architectural ingredient: it preserves the pretrained backbone exactly at fine-tune
+init while allowing the pose pathway to warm up additively.
 
-These findings suggest that rotation-space supervision and temporal ordering are
-underappreciated design choices in pose-conditioned forecasting, and that the value
-of pose conditioning is modulated by available map context. We hope the
-systematic ablation methodology contributes to more principled design of
-multi-modal pedestrian prediction systems.
+These findings suggest that rotation-space supervision, temporal ordering, and
+backbone pretraining are underappreciated design choices in pose-conditioned forecasting,
+and that the value of pose conditioning is modulated by both available map context and
+the strength of the trajectory prior the backbone has learned. We hope the systematic
+ablation methodology contributes to more principled design of multi-modal pedestrian
+prediction systems.
 
 \subsubsection*{Acknowledgments}
 The authors gratefully acknowledge access to GPU compute (RTX 4090) and the
@@ -713,18 +809,20 @@ with $\epsilon=10^{-7}$. At $w=0.1$, training is stable for all 30 epochs across
 all ablation variants.
 
 \subsection{Full Results Table}
-Table~\ref{tab:full} reports all 16 experimental runs including invalid (zero
+Table~\ref{tab:full} reports all 19 experimental runs including invalid (zero
 future GT) baselines for completeness.
 
 \begin{table}[h]
 \caption{Complete experimental results. Runs 001--002 are invalid (zero future GT)
-and excluded from analysis. Baseline for $\Delta$ is run 004 (no pose, no map).}
+and excluded from analysis. Baseline for $\Delta$ is run 004 (no pose, no map).
+Run 017 is the H7 backbone pretraining only; runs 018--019 fine-tune from H7 on the
+579-scene subset.}
 \label{tab:full}
 \begin{center}
 \small
 \begin{tabular}{clllcc}
 \toprule
-Run & Tag & Encoder & Losses / Map ($w$) & \minADE & $\Delta$ \\
+Run & Tag & Encoder & Losses / Map / Pretrain ($w$) & \minADE & $\Delta$ \\
 \midrule
 001 & H1 full pose    & GRU & all (1.0) & 0.6114 & \textit{invalid} \\
 002 & H2 no pose      & --- & traj only & 0.7724 & \textit{invalid} \\
@@ -743,8 +841,12 @@ Run & Tag & Encoder & Losses / Map ($w$) & \minADE & $\Delta$ \\
 014 & H5b xattn+PE    & XAttn+PE & geo+gmm (0.1)   & 0.6337 & $-$6.0\% \\
 \midrule
 015 & H6 no-pose+map  & --- & traj only + map      & 0.4880 & $-$27.7\% \\
+016 & H6 geo+map      & GRU & geo+gmm (0.1) + map  & 0.4797 & $-$28.9\% \\
+\midrule
+017 & H7 pretrain     & --- & traj only + map (full Waymo, 231k peds) & --- & \textit{ckpt only} \\
+019 & H9 finetune     & --- & traj + map, H7 pretrain & 0.3861 & $-$42.8\% \\
 \rowcolor{bestrow}
-016 & H6 geo+map      & GRU & geo+gmm (0.1) + map  & \textbf{0.4797} & $-$28.9\% \\
+018 & H8 finetune     & GRU & geo+gmm (0.1) + map, H7 pretrain & \textbf{0.3749} & $-$44.4\% \\
 \bottomrule
 \end{tabular}
 \end{center}

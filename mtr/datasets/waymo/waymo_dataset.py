@@ -61,6 +61,9 @@ class WaymoDataset(DatasetTemplate):
         self.logger.info(f'Total scenes after filter_info_by_object_type: {len(ret_infos)}')
         return ret_infos
 
+    def _get_scene_pkl_path(self, scene_id):
+        return self.data_path / f'sample_{scene_id}.pkl'
+
     def __len__(self):
         return len(self.infos)
 
@@ -79,7 +82,7 @@ class WaymoDataset(DatasetTemplate):
         """
         info = self.infos[index]
         scene_id = info['scenario_id']
-        with open(self.data_path / f'sample_{scene_id}.pkl', 'rb') as f:
+        with open(self._get_scene_pkl_path(scene_id), 'rb') as f:
             info = pickle.load(f)
 
         sdc_track_index = info['sdc_track_index']

@@ -534,9 +534,6 @@ class MTRDecoder(nn.Module):
         center_gt_final_valid_idx = self.forward_ret_dict['center_gt_final_valid_idx'].long()
         assert center_gt_trajs.shape[-1] == 4
 
-        pose_gt = self.forward_ret_dict['center_gt_poses'].cuda()  # (num_center_objects, num_future_frames, 144)
-        shape_params = self.forward_ret_dict['center_shape_params'].cuda()  # (num_center_objects, 10)
-
         pred_list = self.forward_ret_dict['pred_list']
         intention_points = self.forward_ret_dict['intention_points']  # (num_center_objects, num_query, 2)
 
@@ -553,8 +550,12 @@ class MTRDecoder(nn.Module):
         weight_gmm_pose = self.model_cfg.LOSS_WEIGHTS.get('gmm_pose', 1.0)
         compute_pose_losses = weight_mpjpe > 0 or weight_geo > 0 or weight_cls_pose > 0 or weight_gmm_pose > 0
 
-        # Expand betas for all future frames: (num_center_objects * num_future_frames, 10)
-        betas_expanded = shape_params[:, None, :].expand(-1, self.num_future_frames, -1).reshape(-1, 10)
+        if compute_pose_losses:
+            pose_gt = self.forward_ret_dict['center_gt_poses'].cuda()  # (num_center_objects, num_future_frames, 144)
+            shape_params = self.forward_ret_dict['center_shape_params'].cuda()  # (num_center_objects, 10)
+            betas_expanded = shape_params[:, None, :].expand(-1, self.num_future_frames, -1).reshape(-1, 10)
+        else:
+            pose_gt = betas_expanded = None
 
         # Compute GT joints once (no grad needed). Skip if all pose losses are zero to avoid NaN
         # from degenerate (all-zero) pose vectors in gram_schmidt_orthogonalization.
@@ -774,7 +775,8 @@ class MTRDecoder(nn.Module):
 
             self.forward_ret_dict['center_objects_type'] = input_dict['center_objects_type']
 
-            self.forward_ret_dict['center_gt_poses'] = input_dict['center_gt_poses']
-            self.forward_ret_dict['center_shape_params'] = input_dict['center_shape_params']
+            if 'center_gt_poses' in input_dict:
+                self.forward_ret_dict['center_gt_poses'] = input_dict['center_gt_poses']
+                self.forward_ret_dict['center_shape_params'] = input_dict['center_shape_params']
 
         return batch_dict

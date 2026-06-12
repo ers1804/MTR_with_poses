@@ -74,6 +74,15 @@ class MTREncoder(nn.Module):
                 hidden_channels=[self.model_cfg.D_MODEL, self.model_cfg.D_MODEL],
                 dropout=self.model_cfg.get('DROPOUT_OF_POSE_FUSER', 0.0),
             )
+            self.pose_fuser_residual = self.model_cfg.get('POSE_FUSER_RESIDUAL', False)
+            if self.pose_fuser_residual:
+                # Zero-init the last Linear so pose_fuser ≈ 0 at init, preserving
+                # pre-trained backbone features when loading from a trajectory-only ckpt.
+                for m in reversed(list(self.pose_fuser.modules())):
+                    if isinstance(m, nn.Linear):
+                        nn.init.zeros_(m.weight)
+                        nn.init.zeros_(m.bias)
+                        break
 
         # build transformer encoder layers
         self.use_local_attn = self.model_cfg.get('USE_LOCAL_ATTN', False)
@@ -192,10 +201,8 @@ class MTREncoder(nn.Module):
         obj_trajs, obj_trajs_mask = input_dict['obj_trajs'].cuda(), input_dict['obj_trajs_mask'].cuda() 
         map_polylines, map_polylines_mask = input_dict['map_polylines'].cuda(), input_dict['map_polylines_mask'].cuda()
 
-        obj_poses, obj_poses_mask = input_dict['obj_poses'].cuda(), input_dict['obj_poses_mask'].cuda() 
-
-        obj_trajs_last_pos = input_dict['obj_trajs_last_pos'].cuda() 
-        map_polylines_center = input_dict['map_polylines_center'].cuda() 
+        obj_trajs_last_pos = input_dict['obj_trajs_last_pos'].cuda()
+        map_polylines_center = input_dict['map_polylines_center'].cuda()
         track_index_to_predict = input_dict['track_index_to_predict']
 
         assert obj_trajs_mask.dtype == torch.bool and map_polylines_mask.dtype == torch.bool
@@ -210,6 +217,7 @@ class MTREncoder(nn.Module):
 
         # Apply Pose Encoder (optional — disabled for trajectory-only baseline)
         if self.use_pose_encoder:
+            obj_poses, obj_poses_mask = input_dict['obj_poses'].cuda(), input_dict['obj_poses_mask'].cuda()
             combined_mask = torch.logical_and(obj_trajs_mask, obj_poses_mask)
             combined_valid_mask = (combined_mask.sum(dim=-1) > 0)  # (num_center_objects, num_objects)
             BN = num_center_objects * num_objects
@@ -246,7 +254,10 @@ class MTREncoder(nn.Module):
 
             # fuse pose feature and polyline feature
             fused_obj_feature = torch.cat((obj_polylines_feature, obj_poses_feature), dim=-1)
-            obj_polylines_feature = self.pose_fuser(fused_obj_feature)
+            if self.pose_fuser_residual:
+                obj_polylines_feature = obj_polylines_feature + self.pose_fuser(fused_obj_feature)
+            else:
+                obj_polylines_feature = self.pose_fuser(fused_obj_feature)
         
         # apply self-attn
         obj_valid_mask = (obj_trajs_mask.sum(dim=-1) > 0)  # (num_center_objects, num_objects)

@@ -33,7 +33,10 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 | run_013 | H5 cross-attn | 0.1 | 10fps | 0.6765 | +0.3% | ✓ VALID — essentially baseline (no improvement) |
 | run_014 | H5b cross-attn+PE | 0.1 | 10fps | 0.6337 | −6.0% | ✓ VALID — PE recovers 79% of GRU advantage |
 | **run_015** | **H6 no_pose+map** | 0.0 | 10fps | **0.4880** | **−27.7%** | ✓ VALID — HD map is dominant context signal |
-| **run_016** | **H6 geo_only+map** | 0.1 | 10fps | **0.4797** | **−28.9% (vs no-map baseline)** | ✓ VALID ← new overall best |
+| **run_016** | **H6 geo_only+map** | 0.1 | 10fps | **0.4797** | **−28.9% (vs no-map baseline)** | ✓ VALID — best from-scratch result |
+| run_017 | H7 full-Waymo pretrain | 0.0 | 10fps (231k peds) | — | — | ✓ VALID — pretrain only, eval not run |
+| run_019 | H9 no_pose+map, H7 pretrain → finetune | 0.0 | 10fps | 0.3861 | −42.8% | ✓ VALID — pretrain ablation, no pose |
+| **run_018** | **H8 geo+map, H7 pretrain → finetune** | 0.1 | 10fps | **0.3749** | **−44.4%** | ✓ VALID ← NEW OVERALL BEST |
 
 **Core finding**: Pose conditioning improves minADE by **3.2%** (0.6532 vs 0.6745) with full losses at weight=0.1. The improvement is **robust across pose weights [0.05, 0.2]** and across loss ablations (all variants improve over baseline).
 
@@ -46,6 +49,20 @@ The codebase extends Motion Transformer (MTR) with SMPL body pose prediction for
 | Pose Δ | −7.6% | **−1.7%** | — |
 
 HD map is the dominant context signal — it reduces minADE by ~27% for both conditions. The pose benefit **shrinks from 7.6% to 1.7%** when map features are available. Interpretation: body orientation (pose) and map spatial routing partially encode the same information about where the agent is heading. When map provides explicit routing constraints, pose's implicit orientation signal becomes mostly redundant. Pose still helps (1.7%), but the gain is much smaller than without map.
+
+**H7→H8/H9 key finding — full-Waymo pretraining is the dominant axis; pose adds ~3% on top**: Pretraining the trajectory-only backbone on the full Waymo pedestrian set (231k agent-batch examples across 487k scenes, 30 epochs) and then fine-tuning two variants on the 579-scene subset (H9 = no pose encoder; H8 = pose encoder with residual zero-init `pose_fuser`) gives the clean 2×2 of pretrain × pose:
+
+| | No pose | With pose (geo+gmm) | Pose Δ |
+|---|---|---|---|
+| **From scratch (H6)** | 0.4880 | 0.4797 | −1.7% |
+| **H7 pretrain → finetune** | **0.3861** (H9) | **0.3749** (H8) | **−2.9%** |
+| **Pretrain Δ** | **−20.9%** | **−21.9%** | — |
+
+Two clean conclusions:
+1. **Pretraining is the dominant lever**: full-Waymo pretraining yields ~21% minADE reduction, *independent* of whether the pose encoder is used. The 579-scene subset was the binding constraint, not architecture.
+2. **Pose still helps on the pretrained backbone, slightly more than from scratch**: 2.9% vs 1.7%. Plausible reason: with from-scratch noisy trajectory features, pose's incremental signal gets averaged into general representation learning; with a strong pretrained trajectory prior, pose adds focused orientation/heading information rather than competing for capacity.
+
+The residual+zero-init `pose_fuser` (`POSE_FUSER_RESIDUAL: True` in config) is what makes the warm-start clean: at fine-tune iter 0 the pose pathway adds zero, so the pretrained backbone passes through unchanged, and the pose encoder warms up additively without corrupting trajectory features.
 
 **H3 key finding — geodesic loss drives the benefit**: Ablating pose losses individually reveals geodesic distance (rotation-space supervision) is by far the most powerful component:
 - geo_only: **0.6231 (−7.6%)** — the new best result, better than the full model
@@ -93,6 +110,7 @@ HD map is the dominant context signal — it reduces minADE by ~27% for both con
   - GRU geo_only: 0.6231 — sequential integration provides a further 1.6% gain.
   Temporal ordering is the dominant requirement for geodesic supervision to produce trajectory-useful features. GRU's causal accumulation (running hidden state) captures slightly more than PE alone.
 - **HD map dominates pose signal (H6)**: Adding HD map polylines reduces no-pose minADE by 27.7% (0.6745→0.4880) and pose minADE by 23.0% (0.6231→0.4797). Within-map, pose still improves by 1.7% (0.4880→0.4797), confirming a small but real complementary contribution. The shrinkage from 7.6% to 1.7% is the key quantity: body orientation and map routing are partially redundant representations of agent heading intent. Without map, pose compensates for missing spatial routing context; with map, that gap largely disappears.
+- **Full-Waymo pretraining is the largest single lever (H7→H8/H9)**: H7 pretrains the trajectory-only backbone on 231k pedestrian agent-batch examples across 487k Waymo scenes (30 epochs, USE_POSE_ENCODER=False). Two fine-tune variants on the 579-scene subset: **H9** (no pose encoder, control) and **H8** (pose encoder + residual zero-init `pose_fuser`). Results: H9 minADE=0.3861 / minFDE=0.8166; H8 minADE=0.3749 / minFDE=0.7769. Compared to from-scratch H6 baselines (0.4880 no-pose, 0.4797 with-pose), pretraining yields a consistent ~21% improvement *independent* of pose, and pose adds an additional 2.9% on top of the H7 backbone (vs only 1.7% from scratch). The dataset-size bottleneck (579 train scenes) was the dominant limiter; pretraining on 200× more data yields a larger gain than any architectural ablation in this work, and pose's contribution is more visible against a strong trajectory prior than against noisy from-scratch features.
 - **Convergence dynamics differ**: H1_v2 reaches best minADE earlier in training and has more variance across epochs (likely from noisy pose losses). H2_v2 plateaus more smoothly. Both settle around 0.67-0.70 after LR decay.
 - **Pose loss weights matter critically for stability**: At weight=1.0, training diverges to NaN at epoch 3 due to gradient explosion through SMPL. At weight=0.1, training is stable for 30 epochs.
 - **Small dataset limits absolute performance**: minADE ~0.65 is far from SOTA (~0.3 on full Waymo). With 579 training scenes vs 486k in full MTR, the gap is expected. The relative H1 vs H2 comparison is still valid.
@@ -127,6 +145,8 @@ HD map is the dominant context signal — it reduces minADE by ~27% for both con
 10. **[ANSWERED] Temporal ordering is the dominant requirement; GRU adds incrementally.** H5b (cross-attn + sinusoidal PE) achieves 0.6337 — recovering 79% of GRU's advantage over baseline. GRU geo_only (0.6231) adds a further 1.6% via causal sequential integration. Both temporal ordering and sequential processing contribute; ordering dominates.
 11. Is there a way to evaluate pose prediction quality separately from trajectory quality?
 12. **[ANSWERED] Does HD map context change the pose benefit?** YES — with map, pose benefit shrinks from 7.6% to 1.7% (0.4880→0.4797). Map and pose partially share information about agent heading. Both still help, but the interaction is subadditive: map+pose is not 7.6%+27.7% better than baseline, it is only ~29% better total.
+13. **[ANSWERED] Was the small-dataset (579 scenes) the binding constraint?** YES — pretraining the backbone on the full Waymo set (231k pedestrian examples) and fine-tuning on the 579-scene subset gives minADE 0.3749 vs 0.4797 from-scratch (−21.9%). Single largest lever in this work. Architectural choices interact with data scale: ablations on 579 scenes underestimate the value of pretrained representations.
+14. **[ANSWERED] Does pose still help on the pretrained backbone (controlling for pretrain effect)?** YES, and slightly more than from scratch — 2.9% (0.3861 H9 → 0.3749 H8) vs 1.7% (0.4880 → 0.4797 H6). The 21% pretrain gain is independent of pose; pose adds ~3% on top. Pose's contribution is more visible against a strong trajectory prior than against noisy from-scratch features.
 
 ## Optimization Trajectory
 
@@ -146,6 +166,11 @@ HD map is the dominant context signal — it reduces minADE by ~27% for both con
 | run_012 | H3 geo_w=0.2 | 0.2 | 0.6660 | −1.3% | ✓ VALID — too strong, dominates trajectory |
 | run_013 | H5 cross-attn | 0.1 | 0.6765 | +0.3% | ✓ VALID — no improvement (≈ baseline) |
 | run_014 | H5b cross-attn+PE | 0.1 | 0.6337 | −6.0% | ✓ VALID — PE recovers 79% of GRU advantage |
+| run_015 | H6 no_pose+map | 0.0 | 0.4880 | −27.7% | ✓ VALID — HD map dominant signal |
+| run_016 | H6 geo_only+map | 0.1 | 0.4797 | −28.9% | ✓ VALID — best from-scratch |
+| run_017 | H7 full-Waymo pretrain | 0.0 | — | — | ✓ VALID — pretrain backbone (no eval) |
+| run_019 | H9 no_pose+map, H7 pretrain → finetune | 0.0 | 0.3861 | −42.8% | ✓ VALID — H7 ablation, no pose |
+| **run_018** | **H8 geo+map, H7 pretrain → finetune** | 0.1 | **0.3749** | **−44.4%** | ✓ VALID ← NEW OVERALL BEST |
 
 ## Paper Status (2026-04-03 — CONCLUDE)
 
