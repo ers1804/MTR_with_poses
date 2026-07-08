@@ -104,8 +104,12 @@ def run_summary(run_dir):
         'best_epoch': best_epoch,
         'best_minADE': per_epoch[best_epoch][0],
         'best_minFDE': per_epoch[best_epoch][1],
-        'epoch30_minADE': per_epoch[max(epochs)][0],
-        'epoch30_minFDE': per_epoch[max(epochs)][1],
+        # Last EVALUATED epoch — not necessarily 30 (a run may die early); the old
+        # 'epoch30_minADE' label was a lie for short runs.
+        'last_eval_epoch': int(max(epochs)),
+        'last_eval_minADE': per_epoch[max(epochs)][0],
+        'last_eval_minFDE': per_epoch[max(epochs)][1],
+        'n_evals': len(epochs),
         'last5_mean_minADE': float(np.mean([per_epoch[e][0] for e in last5])),
         'last5_mean_minFDE': float(np.mean([per_epoch[e][1] for e in last5])),
     }
@@ -139,7 +143,20 @@ def cell_agent_means(cell):
     return {k: float(np.mean([m[k][0] for m in per_seed])) for k in keys}
 
 
+def _two_sided_p(boots, n_boot):
+    """Two-sided bootstrap p, floored at 1/n_boot and capped at 1.0.
+    A literal 0.0 (no bootstrap crossed zero) is not evidence of p==0."""
+    p = 2.0 * min((boots >= 0).mean(), (boots <= 0).mean())
+    return float(min(max(p, 1.0 / n_boot), 1.0))
+
+
 def paired_bootstrap(a_means, b_means, n_boot=10000, seed=0):
+    """Paired bootstrap over pedestrians on SEED-AVERAGED per-agent minADE.
+
+    This marginalizes over seeds (each agent's value is its mean across seeds), so the
+    CI reflects pedestrian sampling variance only, NOT seed-to-seed variance. Read
+    alongside hierarchical_bootstrap, which resamples seeds as well.
+    """
     keys = sorted(set(a_means) & set(b_means))
     a = np.array([a_means[k] for k in keys])
     b = np.array([b_means[k] for k in keys])
@@ -156,7 +173,58 @@ def paired_bootstrap(a_means, b_means, n_boot=10000, seed=0):
         'rel_diff_pct': float(100 * diff.mean() / a.mean()),
         'ci95_lo': float(np.percentile(boots, 2.5)),
         'ci95_hi': float(np.percentile(boots, 97.5)),
-        'p_boot_two_sided': float(2 * min((boots >= 0).mean(), (boots <= 0).mean())),
+        'p_boot_two_sided': _two_sided_p(boots, n_boot),
+    }
+
+
+def cell_per_seed_agent_metrics(cell):
+    """{seed: {agent_key: minADE}} at each seed's own best epoch (NOT seed-averaged)."""
+    per_seed = {}
+    for seed in SEEDS:
+        run_dir = os.path.join(OUT_ROOT, CELLS[cell], f'MS_{cell}_s{seed}')
+        s = run_summary(run_dir)
+        if s is None:
+            continue
+        m = load_agent_metrics(run_dir, s['best_epoch'])
+        if m is not None:
+            per_seed[seed] = {k: v[0] for k, v in m.items()}
+    return per_seed
+
+
+def hierarchical_bootstrap(a_per_seed, b_per_seed, n_boot=10000, seed=0):
+    """Two-level paired bootstrap: resample SEEDS (with replacement), then PEDESTRIANS.
+
+    Captures both seed-to-seed and pedestrian-to-pedestrian variance, which is what the
+    paper's seed-level significance claims actually require. Returns None if fewer than
+    2 common seeds (seed resampling is meaningless with 1 seed).
+    """
+    seeds = sorted(set(a_per_seed) & set(b_per_seed))
+    if len(seeds) < 2:
+        return None
+    keys = sorted(set.intersection(*[set(a_per_seed[s]) for s in seeds],
+                                   *[set(b_per_seed[s]) for s in seeds]))
+    if not keys:
+        return None
+    A = np.array([[a_per_seed[s][k] for k in keys] for s in seeds])  # (S, N)
+    B = np.array([[b_per_seed[s][k] for k in keys] for s in seeds])  # (S, N)
+    D = B - A  # (S, N)
+    S, N = D.shape
+    rng = np.random.RandomState(seed)
+    boots = np.empty(n_boot)
+    for bi in range(n_boot):
+        s_idx = rng.randint(0, S, size=S)   # resample seeds (clusters)
+        a_idx = rng.randint(0, N, size=N)   # resample pedestrians
+        boots[bi] = D[np.ix_(s_idx, a_idx)].mean()
+    a_mean = float(A.mean())
+    mean_diff = float(D.mean())
+    return {
+        'n_seeds': S,
+        'n_agents': N,
+        'mean_diff': mean_diff,
+        'rel_diff_pct': float(100 * mean_diff / a_mean),
+        'ci95_lo': float(np.percentile(boots, 2.5)),
+        'ci95_hi': float(np.percentile(boots, 97.5)),
+        'p_boot_two_sided': _two_sided_p(boots, n_boot),
     }
 
 
@@ -166,7 +234,7 @@ def main():
                     default=os.path.join(ROOT, 'experiments', 'multiseed_analysis.json'))
     args = ap.parse_args()
 
-    results = {'cells': {}, 'pairs': {}}
+    results = {'cells': {}, 'pairs': {}, 'sanity': {}}
 
     for cell, cfg in CELLS.items():
         seeds = {}
@@ -176,7 +244,7 @@ def main():
             if s is not None:
                 seeds[str(seed)] = {k: v for k, v in s.items() if k != 'per_epoch'}
         agg = {}
-        for proto in ['best_minADE', 'best_minFDE', 'epoch30_minADE',
+        for proto in ['best_minADE', 'best_minFDE', 'last_eval_minADE',
                       'last5_mean_minADE', 'last5_mean_minFDE']:
             vals = [seeds[s][proto] for s in seeds]
             if vals:
@@ -185,15 +253,38 @@ def main():
                               'values': vals}
         results['cells'][cell] = {'seeds': seeds, 'agg': agg}
 
+    # Epoch-count sanity check: a run that died early has fewer evaluated epochs and a
+    # higher-than-real "best" minADE (fewer chances to improve) — it must not silently
+    # pollute a cell mean. Flag any seed whose n_evals is below the modal count.
+    all_nevals = [seeds_d['n_evals']
+                  for c in results['cells'].values()
+                  for seeds_d in c['seeds'].values()]
+    if all_nevals:
+        modal = int(np.bincount(all_nevals).argmax())
+        results['sanity']['modal_n_evals'] = modal
+        short = []
+        for cell, cdata in results['cells'].items():
+            for sd, sdata in cdata['seeds'].items():
+                if sdata['n_evals'] < modal:
+                    short.append({'cell': cell, 'seed': sd,
+                                  'n_evals': sdata['n_evals'],
+                                  'last_eval_epoch': sdata['last_eval_epoch']})
+        results['sanity']['short_runs'] = short
+
     means_cache = {}
+    per_seed_cache = {}
     for a, b in PAIRS:
         for c in (a, b):
             if c not in means_cache:
                 means_cache[c] = cell_agent_means(c)
+                per_seed_cache[c] = cell_per_seed_agent_metrics(c)
         if means_cache[a] is None or means_cache[b] is None:
             results['pairs'][f'{a}->{b}'] = 'missing data'
             continue
-        results['pairs'][f'{a}->{b}'] = paired_bootstrap(means_cache[a], means_cache[b])
+        entry = {'paired': paired_bootstrap(means_cache[a], means_cache[b])}
+        hier = hierarchical_bootstrap(per_seed_cache[a], per_seed_cache[b])
+        entry['hierarchical'] = hier if hier is not None else 'insufficient seeds (<2)'
+        results['pairs'][f'{a}->{b}'] = entry
 
     with open(args.out, 'w') as f:
         json.dump(results, f, indent=2)
@@ -209,14 +300,25 @@ def main():
             sd5 = f"±{l5['std']:.4f}" if l5['std'] is not None else ""
             print(f"{cell:<12} {m['mean']:.4f}{sd:<10} {str([f'{v:.4f}' for v in m['values']]):<28} "
                   f"{l5['mean']:.4f}{sd5:<10} n={len(m['values'])}")
+    if results['sanity'].get('short_runs'):
+        print(f"\n[sanity] modal n_evals={results['sanity']['modal_n_evals']}; "
+              f"SHORT runs (excluded-quality warning): "
+              f"{[(s['cell'], s['seed'], s['n_evals']) for s in results['sanity']['short_runs']]}")
+
     print()
-    print(f"{'pair':<24} {'Δ minADE':<12} {'rel %':<9} {'95% CI':<22} p")
+    hdr = f"{'pair':<24} {'method':<13} {'rel %':<9} {'95% CI (abs)':<24} p"
+    print(hdr)
     for k, v in results['pairs'].items():
         if isinstance(v, str):
             print(f"{k:<24} {v}")
             continue
-        print(f"{k:<24} {v['mean_diff']:+.4f}    {v['rel_diff_pct']:+.2f}%   "
-              f"[{v['ci95_lo']:+.4f}, {v['ci95_hi']:+.4f}]   p={v['p_boot_two_sided']:.4f}")
+        for method in ('paired', 'hierarchical'):
+            m = v[method]
+            if isinstance(m, str):
+                print(f"{k:<24} {method:<13} {m}")
+                continue
+            print(f"{k:<24} {method:<13} {m['rel_diff_pct']:+.2f}%   "
+                  f"[{m['ci95_lo']:+.4f}, {m['ci95_hi']:+.4f}]   p={m['p_boot_two_sided']:.4f}")
     print(f"\nfull JSON: {args.out}")
 
 
