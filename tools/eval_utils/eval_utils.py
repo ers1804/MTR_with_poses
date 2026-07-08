@@ -77,9 +77,18 @@ def eval_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sa
     with open(result_dir / 'result.pkl', 'wb') as f:
         pickle.dump(pred_dicts, f)
 
+    # Save per-agent metrics for this epoch (small file; enables paired bootstrap analysis).
+    if hasattr(dataset, 'per_agent_metrics'):
+        try:
+            records = dataset.per_agent_metrics(pred_dicts)
+            with open(result_dir / f'metrics_epoch_{epoch_id}.pkl', 'wb') as f:
+                pickle.dump(records, f)
+        except Exception as e:
+            logger.info(f'per_agent_metrics failed (non-fatal): {e}')
+
     result_str, result_dict = dataset.evaluation(
         pred_dicts,
-        output_path=final_output_dir, 
+        output_path=final_output_dir,
     )
 
     logger.info(result_str)

@@ -11,3 +11,18 @@ data/
 *.yaml
 *.png
 *.html
+
+# LaTeX build artifacts (never track compiled output)
+*.aux
+*.bbl
+*.blg
+*.out
+*.log
+texput.log
+
+# Claude Code local session data
+.claude/
+
+# Track experiment configs despite the blanket *.yaml ignore above:
+# a fresh clone must be able to run every cell in tools/scripts/run_multiseed_matrix.sh.
+!tools/cfgs/**/*.yaml

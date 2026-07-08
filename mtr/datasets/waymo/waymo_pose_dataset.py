@@ -934,3 +934,49 @@ class WaymoPoseDataset(DatasetTemplate):
             metric_result_str += f'{key}: {val:.4f}\n'
 
         return metric_result_str, metric_results
+
+    def per_agent_metrics(self, pred_dicts):
+        """Per-pedestrian minADE/minFDE records (same masking logic as evaluation()).
+
+        Returns a list of dicts with scenario_id, object_id, minADE, minFDE and the
+        number of valid future steps, enabling paired bootstrap analysis across runs.
+        """
+        flat_preds = []
+        for entry in pred_dicts:
+            if isinstance(entry, list):
+                flat_preds.extend(entry)
+            else:
+                flat_preds.append(entry)
+
+        records = []
+        for pred in flat_preds:
+            pred_trajs = pred['pred_trajs']
+            gt_trajs_full = pred['gt_trajs']
+            gt_future = gt_trajs_full[self.num_past:, :]
+            gt_xy = gt_future[:, 0:2]
+            gt_valid = gt_future[:, -1] > 0
+
+            if gt_valid.sum() == 0:
+                continue
+
+            num_pred_steps = pred_trajs.shape[1]
+            gt_xy = gt_xy[:num_pred_steps]
+            gt_valid = gt_valid[:num_pred_steps]
+
+            dist = np.linalg.norm(pred_trajs[:, :, 0:2] - gt_xy[None, :, :], axis=-1)
+            dist_masked = dist * gt_valid[None, :]
+            ade_per_mode = dist_masked.sum(axis=-1) / max(gt_valid.sum(), 1)
+
+            last_valid_idx = np.where(gt_valid)[0]
+            last_idx = last_valid_idx[-1]
+            fde_per_mode = np.linalg.norm(pred_trajs[:, last_idx, 0:2] - gt_xy[last_idx], axis=-1)
+
+            records.append({
+                'scenario_id': pred['scenario_id'],
+                'object_id': pred['object_id'],
+                'minADE': float(ade_per_mode.min()),
+                'minFDE': float(fde_per_mode.min()),
+                'num_valid_future_steps': int(gt_valid.sum()),
+            })
+
+        return records

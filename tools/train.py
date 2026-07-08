@@ -38,6 +38,7 @@ def parse_config():
     parser.add_argument('--tcp_port', type=int, default=18888, help='tcp port for distrbuted training')
     parser.add_argument('--without_sync_bn', action='store_true', default=False, help='whether to use sync bn')
     parser.add_argument('--fix_random_seed', action='store_true', default=False, help='')
+    parser.add_argument('--random_seed', type=int, default=None, help='set a specific random seed (overrides --fix_random_seed)')
     parser.add_argument('--ckpt_save_interval', type=int, default=2, help='number of training epochs')
     parser.add_argument('--local_rank', type=int, default=None, help='local rank for distributed training')
     parser.add_argument('--max_ckpt_save_num', type=int, default=5, help='max number of saved checkpoint')
@@ -129,7 +130,9 @@ def main():
 
     args.epochs = cfg.OPTIMIZATION.NUM_EPOCHS if args.epochs is None else args.epochs
 
-    if args.fix_random_seed:
+    if args.random_seed is not None:
+        common_utils.set_random_seed(args.random_seed)
+    elif args.fix_random_seed:
         common_utils.set_random_seed(666)
 
     output_dir = cfg.ROOT_DIR / 'output' / cfg.EXP_GROUP_PATH / cfg.TAG / args.extra_tag
