@@ -106,10 +106,14 @@ def nll_loss_pose_gmm(
     nearest_poses = pred_poses[batch_idxs, nearest_mode_idxs]  # (B, T, D)
 
     # ===== 3. L1 REGRESSION LOSS =====
+    # Normalize by the number of VALID steps per agent (masking + normalization, P1.1).
+    # An agent with zero valid future-pose steps therefore contributes exactly 0 and is
+    # excluded from its own denominator (clamp keeps the division finite).
     gt_valid_mask_f = gt_valid_mask.float()
     residual = (gt_poses - nearest_poses).abs()  # (B, T, D)
     residual = residual.mean(dim=-1)  # average over pose dimensions: (B, T)
-    reg_loss = (residual * gt_valid_mask_f).sum(dim=-1)  # (B,)
+    denom = gt_valid_mask_f.sum(dim=-1).clamp(min=1.0)  # (B,)
+    reg_loss = (residual * gt_valid_mask_f).sum(dim=-1) / denom  # (B,)
 
     return reg_loss, nearest_mode_idxs
 
@@ -139,8 +143,49 @@ def geodesic_distance_6d(pred_6d, gt_6d, reduction='none'):
     cos_angle = (trace - 1) / 2
     cos_angle = torch.clamp(cos_angle, -1.0 + 1e-7, 1.0 - 1e-7)  # Numerical stability (avoid inf grad at boundary)
     angle = torch.acos(cos_angle)
-    
+
     return angle
+
+
+# ===== Masked pose-supervision losses (future-pose validity mask, action plan P1.1) =====
+# Every future-pose loss must be averaged over VALID steps only. On 10fps data ~99.99%
+# of future pose target rows are all-zero, so an unmasked loss (the old MPJPE and the
+# inert geodesic) trains predictions toward the zero/T-pose instead of measuring
+# supervision. `valid_mask` is `center_gt_poses_mask` = pose-row-nonzero AND traj-valid.
+
+
+def masked_mpjpe(pred_joints, gt_joints, valid_mask):
+    """Per-agent Mean Per-Joint Position Error over VALID future-pose steps only.
+
+    Args:
+        pred_joints: (B, T, J, 3)
+        gt_joints:   (B, T, J, 3)
+        valid_mask:  (B, T) bool/float — 1 where the future-pose step is valid.
+    Returns:
+        (B,) per-agent loss. An agent with zero valid steps contributes exactly 0
+        (masked steps get exactly-zero gradient w.r.t. the prediction).
+    """
+    per_step = F.l1_loss(pred_joints, gt_joints, reduction='none').mean(dim=(-1, -2))  # (B, T)
+    valid = valid_mask.to(per_step.dtype)
+    denom = valid.sum(dim=-1).clamp(min=1.0)  # (B,)
+    return (per_step * valid).sum(dim=-1) / denom  # (B,)
+
+
+def masked_geodesic_6d(pred_6d, gt_6d, valid_mask):
+    """Per-agent SO(3) geodesic distance over VALID future-pose steps only.
+
+    Args:
+        pred_6d: (B, T, J, 6)
+        gt_6d:   (B, T, J, 6)
+        valid_mask: (B, T) bool/float.
+    Returns:
+        (B,) per-agent loss; zero-valid agents contribute exactly 0.
+    """
+    ang = geodesic_distance_6d(pred_6d, gt_6d)  # (B, T, J)
+    per_step = ang.mean(dim=-1)  # (B, T)
+    valid = valid_mask.to(per_step.dtype)
+    denom = valid.sum(dim=-1).clamp(min=1.0)  # (B,)
+    return (per_step * valid).sum(dim=-1) / denom  # (B,)
 
 
 def gram_schmidt_orthogonalization(x):

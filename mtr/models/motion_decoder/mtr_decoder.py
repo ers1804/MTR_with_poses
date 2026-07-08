@@ -473,16 +473,16 @@ class MTRDecoder(nn.Module):
         return pred_list
 
     
-    def get_mpjpe_loss(self, pred_joints, gt_joints):
-        """ Mean Per Joint Position Error (MPJPE)
+    def get_mpjpe_loss(self, pred_joints, gt_joints, valid_mask):
+        """ Mean Per Joint Position Error (MPJPE), masked over valid future-pose steps.
         Args:
             pred_joints: (num_center_objects, num_future_frames, 24, 3)
-            gt_joints: (num_center_objects, num_future_frames, 24, 3)
+            gt_joints:   (num_center_objects, num_future_frames, 24, 3)
+            valid_mask:  (num_center_objects, num_future_frames) — future-pose validity.
+        Returns:
+            (num_center_objects,) per-agent loss; zero-valid agents contribute 0.
         """
-        loss_mpjpe = F.l1_loss(pred_joints, gt_joints, reduction='none')
-        loss_mpjpe = loss_mpjpe.mean(dim=-1).mean(dim=-1)  # (num_center_objects, num_future_frames)
-        loss_mpjpe = loss_mpjpe.mean()
-        return loss_mpjpe
+        return loss_utils.masked_mpjpe(pred_joints, gt_joints, valid_mask)
 
 
     def geodesic_loss(self, R_pred: torch.Tensor,
@@ -544,18 +544,23 @@ class MTRDecoder(nn.Module):
         weight_cls = self.model_cfg.LOSS_WEIGHTS.get('cls', 1.0)
         weight_reg = self.model_cfg.LOSS_WEIGHTS.get('reg', 1.0)
         weight_vel = self.model_cfg.LOSS_WEIGHTS.get('vel', 0.2)
-        weight_mpjpe = self.model_cfg.LOSS_WEIGHTS.get('mpjpe', 1.0)
-        weight_geo = self.model_cfg.LOSS_WEIGHTS.get('geo', 1.0)
-        weight_cls_pose = self.model_cfg.LOSS_WEIGHTS.get('cls_pose', 1.0)
-        weight_gmm_pose = self.model_cfg.LOSS_WEIGHTS.get('gmm_pose', 1.0)
+        # Pose-loss weights default to 0.0 (action plan P1.5): a config that omits a
+        # pose weight must NOT silently enable that loss at full strength.
+        weight_mpjpe = self.model_cfg.LOSS_WEIGHTS.get('mpjpe', 0.0)
+        weight_geo = self.model_cfg.LOSS_WEIGHTS.get('geo', 0.0)
+        weight_cls_pose = self.model_cfg.LOSS_WEIGHTS.get('cls_pose', 0.0)
+        weight_gmm_pose = self.model_cfg.LOSS_WEIGHTS.get('gmm_pose', 0.0)
         compute_pose_losses = weight_mpjpe > 0 or weight_geo > 0 or weight_cls_pose > 0 or weight_gmm_pose > 0
 
         if compute_pose_losses:
             pose_gt = self.forward_ret_dict['center_gt_poses'].cuda()  # (num_center_objects, num_future_frames, 144)
             shape_params = self.forward_ret_dict['center_shape_params'].cuda()  # (num_center_objects, 10)
             betas_expanded = shape_params[:, None, :].expand(-1, self.num_future_frames, -1).reshape(-1, 10)
+            # Future-pose validity mask (P1.1): pose-row-nonzero AND traj-valid. All four
+            # pose losses are averaged over valid steps only; zero-valid agents get 0.
+            pose_valid_mask = self.forward_ret_dict['center_gt_poses_mask'].cuda()  # (num_center_objects, num_future_frames) bool
         else:
-            pose_gt = betas_expanded = None
+            pose_gt = betas_expanded = pose_valid_mask = None
 
         # Compute GT joints once (no grad needed). Skip if all pose losses are zero to avoid NaN
         # from degenerate (all-zero) pose vectors in gram_schmidt_orthogonalization.
@@ -595,11 +600,13 @@ class MTRDecoder(nn.Module):
             # --- Pose losses (skipped when all weights are zero to avoid NaN) ---
             zero = loss_reg_gmm.new_zeros(num_center_objects)
             if compute_pose_losses:
+                # All pose losses use the future-pose validity mask (P1.1), masked +
+                # normalized per agent over valid steps only.
                 loss_pose_reg_gmm, pose_gt_positive_idx = loss_utils.nll_loss_pose_gmm(
                     pred_poses=pred_pose,
                     gt_poses=pose_gt,
                     pred_scores=pred_pose_scores,
-                    gt_valid_mask=center_gt_trajs_mask,
+                    gt_valid_mask=pose_valid_mask,
                 )
                 batch_idxs = torch.arange(num_center_objects, device=pred_pose.device)
                 pred_pose_best = pred_pose[batch_idxs, pose_gt_positive_idx]  # (B, T, 144)
@@ -608,22 +615,30 @@ class MTRDecoder(nn.Module):
                     pred_pose_aa = self._pose_6d_to_axis_angle(pred_pose_best)  # (B*T, 72)
                     _, pred_pose_joints_raw = self.smpl_layer(pred_pose_aa, betas_expanded)
                     pred_pose_joints = pred_pose_joints_raw.reshape(num_center_objects, self.num_future_frames, -1, 3)
-                    loss_mpjpe = self.get_mpjpe_loss(pred_joints=pred_pose_joints, gt_joints=pose_gt_joints)
+                    loss_mpjpe = self.get_mpjpe_loss(pred_joints=pred_pose_joints, gt_joints=pose_gt_joints,
+                                                     valid_mask=pose_valid_mask)  # (B,)
                 else:
                     loss_mpjpe = zero
 
                 if weight_geo > 0:
                     pred_6d = pred_pose_best.reshape(num_center_objects, self.num_future_frames, 24, 6)
                     gt_6d = pose_gt.reshape(num_center_objects, self.num_future_frames, 24, 6)
-                    loss_geo = loss_utils.geodesic_distance_6d(pred_6d, gt_6d).mean()
+                    loss_geo = loss_utils.masked_geodesic_6d(pred_6d, gt_6d, pose_valid_mask)  # (B,)
                 else:
-                    loss_geo = zero.mean()
+                    loss_geo = zero
 
-                loss_cls_pose = F.cross_entropy(input=pred_pose_scores, target=pose_gt_positive_idx, reduction='none') if weight_cls_pose > 0 else zero
+                if weight_cls_pose > 0:
+                    # Gate pose-mode classification on agents that have >=1 valid future
+                    # pose step (P1.7); the mode index is meaningless for zero-valid agents.
+                    has_valid_pose = pose_valid_mask.any(dim=-1).to(zero.dtype)  # (B,)
+                    loss_cls_pose = F.cross_entropy(input=pred_pose_scores, target=pose_gt_positive_idx,
+                                                    reduction='none') * has_valid_pose
+                else:
+                    loss_cls_pose = zero
             else:
                 loss_pose_reg_gmm = zero
                 loss_mpjpe = zero
-                loss_geo = zero.mean()
+                loss_geo = zero
                 loss_cls_pose = zero
                 pose_gt_positive_idx = torch.zeros(num_center_objects, dtype=torch.long, device=pred_pose.device)
 
@@ -631,7 +646,11 @@ class MTRDecoder(nn.Module):
             loss_reg_vel = F.l1_loss(pred_vel, center_gt_trajs[:, :, 2:4], reduction='none')
             loss_reg_vel = (loss_reg_vel * center_gt_trajs_mask[:, :, None]).sum(dim=-1).sum(dim=-1)
 
-            loss_cls = F.cross_entropy(input=pred_scores, target=center_gt_positive_idx, reduction='none')
+            # Gate goal-classification on agents with >=1 valid future step (P1.7):
+            # ~20% of pedestrians never join the future window and would otherwise be
+            # trained toward an origin goal.
+            has_valid_future = (center_gt_trajs_mask.sum(dim=-1) > 0).to(loss_reg_gmm.dtype)  # (B,)
+            loss_cls = F.cross_entropy(input=pred_scores, target=center_gt_positive_idx, reduction='none') * has_valid_future
 
             layer_loss = loss_reg_gmm * weight_reg + loss_reg_vel * weight_vel + loss_cls.sum(dim=-1) * weight_cls + loss_mpjpe * weight_mpjpe + loss_geo * weight_geo + loss_cls_pose.sum(dim=-1) * weight_cls_pose + loss_pose_reg_gmm * weight_gmm_pose
             layer_loss = layer_loss.mean()
@@ -778,5 +797,6 @@ class MTRDecoder(nn.Module):
             if 'center_gt_poses' in input_dict:
                 self.forward_ret_dict['center_gt_poses'] = input_dict['center_gt_poses']
                 self.forward_ret_dict['center_shape_params'] = input_dict['center_shape_params']
+                self.forward_ret_dict['center_gt_poses_mask'] = input_dict['center_gt_poses_mask']
 
         return batch_dict

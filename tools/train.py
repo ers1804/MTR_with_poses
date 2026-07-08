@@ -8,6 +8,7 @@ import argparse
 import datetime
 import glob
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -157,11 +158,15 @@ def main():
         shutil.copy2(args.cfg_file, str(output_dir))
     if cfg.LOCAL_RANK == 0:
 
+        # Namespace the run id by config TAG so the same --extra_tag under different
+        # configs (e.g. MS_baseline_s101 across cells) does not collide and resurrect a
+        # deleted run (P1.5). Sanitize to wandb-safe characters.
+        wandb_id = re.sub(r'[^0-9A-Za-z_.-]', '_', f'{cfg.TAG}-{args.extra_tag}')
         wandb.init(
             entity="erik_hm",
             project="MTR-SMPL",
             name=args.extra_tag,
-            id=args.extra_tag,
+            id=wandb_id,
             config=cfg,
             resume="allow",
             dir=str(output_dir),

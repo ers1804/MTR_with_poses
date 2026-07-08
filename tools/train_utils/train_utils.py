@@ -183,9 +183,10 @@ def train_model(model, optimizer, train_loader, optim_cfg,
                     tb_log.log({f'eval/{key}': val for key, val in tb_dict.items()}, step=trained_epoch)
 
                     # Pick the primary metric for best-model tracking.
-                    # Prefer 'mAP' (Waymo eval), fall back to 'minADE' or first numeric key.
+                    # Prefer 'minADE' (lower-is-better) — the hardcoded mAP=0.0 placeholder
+                    # used to freeze best_model at the first evaluated epoch (P1.4).
                     primary_metric = None
-                    for _m in ['mAP', 'minADE']:
+                    for _m in ['minADE', 'mAP']:
                         if _m in tb_dict:
                             primary_metric = _m
                             break

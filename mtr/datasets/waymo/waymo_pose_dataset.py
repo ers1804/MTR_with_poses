@@ -211,6 +211,10 @@ class WaymoPoseDataset(DatasetTemplate):
         return len(self.infos)
 
     def __getitem__(self, index):
+        # In eval, never silently resample on error — a swapped/failing scene would
+        # otherwise corrupt the per-agent metrics for a random other scene (P1.3).
+        if not self.training:
+            return self.create_scene_level_data(index)
         for _ in range(10):
             try:
                 return self.create_scene_level_data(index)
@@ -391,6 +395,12 @@ class WaymoPoseDataset(DatasetTemplate):
             # waymo_timestamps[0]. Row i maps to Waymo 10fps grid step (start_idx + i).
             timestamps = data['waymo_timestamps'].astype(np.float64) / 1e6  # µs → s
             start_idx = int(round(timestamps[0] / self.dt))
+            # A negative start_idx would silently write to the array tail via Python
+            # negative indexing; uniform spacing is required for the row->step mapping (P1.6).
+            assert start_idx >= 0, f"30fps start_idx {start_idx} < 0 for {npz_path}"
+            if len(timestamps) > 1:
+                d = np.diff(timestamps)
+                assert np.allclose(d, d[0], atol=self.dt * 0.1), f"non-uniform 30fps spacing for {npz_path}"
             N = root_orient.shape[0]
             pose_6d = smpl_params_to_6d(root_orient, pose_body)  # (N, 144)
             end_idx = min(start_idx + N, self.total_timestamps)
@@ -403,8 +413,11 @@ class WaymoPoseDataset(DatasetTemplate):
             time_grid = np.arange(self.total_timestamps) * self.dt
             pose_6d = smpl_params_to_6d(root_orient, pose_body)  # (N, 144)
             for i in range(N):
-                grid_idx = np.argmin(np.abs(time_grid - timestamps[i]))
-                if grid_idx < self.total_timestamps:
+                grid_idx = int(np.argmin(np.abs(time_grid - timestamps[i])))
+                # Only assign when the nearest grid point is within half a grid step;
+                # the old `grid_idx < total` check was dead (argmin is always in range)
+                # and let a stray timestamp snap to a wrong step (P1.6).
+                if abs(time_grid[grid_idx] - timestamps[i]) < self.dt / 2:
                     pose_6d_full[grid_idx] = pose_6d[i]
 
         if waymo_traj is not None:
@@ -417,6 +430,7 @@ class WaymoPoseDataset(DatasetTemplate):
                 # 30fps format: trans has N consecutive rows starting at start_idx
                 timestamps = data['waymo_timestamps'].astype(np.float64) / 1e6
                 start_idx = int(round(timestamps[0] / self.dt))
+                assert start_idx >= 0, f"30fps traj start_idx {start_idx} < 0 for {npz_path}"  # P1.6
                 N = trans.shape[0]
                 heading = compute_heading_from_positions(trans)
                 velocity = compute_velocity_from_positions(trans, dt=self.dt)
@@ -437,8 +451,8 @@ class WaymoPoseDataset(DatasetTemplate):
                 velocity = compute_velocity_from_positions(trans, dt=self.dt)
                 traj_full = np.zeros((self.total_timestamps, 10), dtype=np.float32)
                 for i in range(N):
-                    grid_idx = np.argmin(np.abs(time_grid - timestamps[i]))
-                    if grid_idx < self.total_timestamps:
+                    grid_idx = int(np.argmin(np.abs(time_grid - timestamps[i])))
+                    if abs(time_grid[grid_idx] - timestamps[i]) < self.dt / 2:  # P1.6 tolerance
                         traj_full[grid_idx, 0:3] = trans[i]
                         traj_full[grid_idx, 3:6] = PEDESTRIAN_SIZE
                         traj_full[grid_idx, 6] = heading[i]
@@ -539,19 +553,32 @@ class WaymoPoseDataset(DatasetTemplate):
         # Need to replicate for each center object (same as obj_trajs_data)
         obj_poses = np.tile(pose_past_filtered[None], (num_center_objects, 1, 1, 1))  # (num_center, num_obj, 11, 144)
 
-        # Pose mask: same as trajectory valid mask for past
+        # Past-pose validity mask (action plan P1.2): a past pose frame is valid only
+        # if the pose row is non-zero AND the trajectory step is valid — not traj-valid
+        # alone. Otherwise the pose encoder (GRU / cross-attention) ingests zero-pose
+        # frames flagged as valid.
         obj_trajs_past_filtered = obj_trajs_past[valid_past_mask]  # (num_filtered_objects, 11, 10)
+        past_pose_nonzero = np.abs(pose_past_filtered).sum(axis=-1) > 0  # (num_filtered, 11)
+        past_valid = (obj_trajs_past_filtered[:, :, -1] > 0) & past_pose_nonzero  # (num_filtered, 11)
         obj_poses_mask = np.tile(
-            (obj_trajs_past_filtered[:, :, -1] > 0)[None],
+            past_valid[None],
             (num_center_objects, 1, 1)
         )  # (num_center, num_obj, 11)
 
         # Center ground truth poses (future poses for the center objects)
         center_gt_poses = pose_future_filtered[track_index_to_predict_new]  # (num_center, 80, 144)
 
-        # Apply the future mask to zero out invalid timesteps
+        # Future-pose validity mask (action plan P1.1): a future step is a valid pose
+        # target only if the pose row is non-zero AND the trajectory step is valid.
+        # On 10fps data ~99.99% of future pose rows are all-zero, so without this mask
+        # every pose loss trains predictions toward a zero/T-pose target.
+        pose_row_nonzero = np.abs(center_gt_poses).sum(axis=-1) > 0  # (num_center, 80)
+        center_gt_poses_mask = pose_row_nonzero & (center_gt_trajs_mask > 0)  # (num_center, 80)
+
+        # Zero out invalid timesteps in the target itself; the losses use
+        # center_gt_poses_mask as the per-step mask + denominator.
         center_gt_poses_masked = center_gt_poses.copy()
-        center_gt_poses_masked[center_gt_trajs_mask == 0] = 0
+        center_gt_poses_masked[~center_gt_poses_mask] = 0
 
         # Center shape parameters
         center_shape_params = betas_filtered[track_index_to_predict_new]  # (num_center, 10)
@@ -582,6 +609,7 @@ class WaymoPoseDataset(DatasetTemplate):
             'obj_poses': obj_poses.astype(np.float32),
             'obj_poses_mask': obj_poses_mask.astype(bool),
             'center_gt_poses': center_gt_poses_masked.astype(np.float32),
+            'center_gt_poses_mask': center_gt_poses_mask.astype(bool),
             'center_shape_params': center_shape_params.astype(np.float32),
         }
 
@@ -886,7 +914,7 @@ class WaymoPoseDataset(DatasetTemplate):
                 flat_preds.append(entry)
 
         if len(flat_preds) == 0:
-            metric_results = {'minADE': 0.0, 'minFDE': 0.0, 'mAP': 0.0}
+            metric_results = {'minADE': 0.0, 'minFDE': 0.0}
             return '\nNo predictions to evaluate.\n', metric_results
 
         ade_list = []
@@ -923,10 +951,12 @@ class WaymoPoseDataset(DatasetTemplate):
         minADE = float(np.mean(ade_list)) if ade_list else 0.0
         minFDE = float(np.mean(fde_list)) if fde_list else 0.0
 
+        # No mAP: the placeholder 0.0 froze best-model tracking at the first evaluated
+        # epoch (mAP is higher-is-better and never beat 0.0). Reporting only minADE/minFDE
+        # makes train_utils track minADE (lower-is-better) correctly (P1.4).
         metric_results = {
             'minADE': minADE,
             'minFDE': minFDE,
-            'mAP': 0.0,  # placeholder for compatibility with best-model tracking
         }
 
         metric_result_str = '\n'
@@ -963,11 +993,16 @@ class WaymoPoseDataset(DatasetTemplate):
             gt_xy = gt_xy[:num_pred_steps]
             gt_valid = gt_valid[:num_pred_steps]
 
+            # After subsampling to the predicted horizon a scene can lose all valid
+            # steps; guard so one bad agent can't crash the whole metrics_epoch pkl (P1.3).
+            last_valid_idx = np.where(gt_valid)[0]
+            if len(last_valid_idx) == 0:
+                continue
+
             dist = np.linalg.norm(pred_trajs[:, :, 0:2] - gt_xy[None, :, :], axis=-1)
             dist_masked = dist * gt_valid[None, :]
             ade_per_mode = dist_masked.sum(axis=-1) / max(gt_valid.sum(), 1)
 
-            last_valid_idx = np.where(gt_valid)[0]
             last_idx = last_valid_idx[-1]
             fde_per_mode = np.linalg.norm(pred_trajs[:, last_idx, 0:2] - gt_xy[last_idx], axis=-1)
 
