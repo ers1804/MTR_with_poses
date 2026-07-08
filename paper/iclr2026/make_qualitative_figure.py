@@ -106,7 +106,7 @@ def render_panel(ax, p_item, n_item, title):
 
     ax.set_title(
         f"{title}\n"
-        f"H8 ADE={p_ade:.2f}  H9 ADE={n_ade:.2f}  ($-${delta_pct:.0f}\\%)",
+        f"pose ADE={p_ade:.2f}  no-pose ADE={n_ade:.2f}  ($-${delta_pct:.0f}%)",
         fontsize=8, pad=2
     )
     ax.set_aspect('equal')
@@ -141,8 +141,8 @@ def main():
     legend_elems = [
         Line2D([0], [0], color='#555555', linewidth=1.6, label='Past'),
         Line2D([0], [0], color='k', linestyle='--', linewidth=1.4, label='GT future'),
-        Line2D([0], [0], color='#d62728', linewidth=1.8, label='H9 no-pose (top mode)'),
-        Line2D([0], [0], color='#1f77b4', linewidth=1.8, label='H8 geo+pose (top mode)'),
+        Line2D([0], [0], color='#d62728', linewidth=1.8, label='no-pose (top mode)'),
+        Line2D([0], [0], color='#1f77b4', linewidth=1.8, label='pose (top mode)'),
     ]
     fig.legend(handles=legend_elems, loc='lower center',
                ncol=4, fontsize=8, bbox_to_anchor=(0.5, -0.01),

@@ -172,6 +172,113 @@ The residual+zero-init `pose_fuser` (`POSE_FUSER_RESIDUAL: True` in config) is w
 | run_019 | H9 no_pose+map, H7 pretrain → finetune | 0.0 | 0.3861 | −42.8% | ✓ VALID — H7 ablation, no pose |
 | **run_018** | **H8 geo+map, H7 pretrain → finetune** | 0.1 | **0.3749** | **−44.4%** | ✓ VALID ← NEW OVERALL BEST |
 
+## CRITICAL CORRECTION (2026-06-12): Geodesic loss is INERT in the 10fps condition
+
+**Discovery**: In the main (10fps) data condition, future pose GT is all-zero for
+99.99% of steps (verified: 5 of 91,520 future pose-target steps nonzero across the
+entire training split — boundary rounding artifacts). A zero 6D target maps to the
+all-zero 3×3 matrix under Gram–Schmidt, so tr(R_pred^T R_gt) ≡ 0 regardless of the
+prediction → geodesic loss = arccos(−1/2) ≈ 2.0944 constant, with **identically zero
+gradient** (verified numerically: `pred.grad == 0` exactly, while a random-GT control
+gives nonzero grads).
+
+**Consequences**:
+1. Run_010 ("geo_only" = geo 0.1 + gmm 0.1) and run_009 ("gmm_only" = gmm 0.1) were
+   functionally THE SAME experiment (geo term contributed a constant, no gradient).
+   Their gap (0.6231 vs 0.6467) is pure run-to-run noise → noise scale ≈ ±0.02.
+2. The paper's central claim "geodesic supervision is the critical ingredient
+   (−7.6%)" was an artifact of comparing two replicates of one config.
+3. The "geodesic weight sweep" (runs 011/012) actually swept the WTA-L1 weight
+   (geo inert) → relabel as gmm/WTA-L1 weight sensitivity.
+4. The `nll_loss_pose_gmm` loss is NOT a GMM NLL — it is a winner-takes-all masked
+   L1 regression on 6D rotations (no sigmas, no likelihood). Paper mislabeled it.
+5. All "geo+gmm" cells (H6 map runs, H8 finetune) are functionally "WTA-L1 only" —
+   their pose-vs-no-pose comparisons remain valid, but supervision labels change.
+6. H1_v3 (30fps) is the only condition where geodesic/MPJPE got real gradients;
+   its null result (0.6567 ≈ 0.6532) stands and now means: even REAL future-pose
+   supervision does not help trajectory accuracy.
+
+**Other corrections found in the same audit**:
+- Validation split is 5,171 scenes / 8,282 pedestrians (6,688 = 80.8% evaluated),
+  NOT "97 validation scenes" as the paper claimed. Training: 579 scenes / 1,348
+  pedestrians (1,144 usable prediction targets).
+- GRU is 2-layer (cfg NUM_LAYER_IN_POSE_GRU=2), not single-layer; encoder has 6
+  attention layers, not 4; optimizer is AdamW lr=1e-4 with step decay (not cosine
+  1e-3); dropout 0.1 (not none). Paper appendix corrected.
+- best_model.pth tracking is broken (tracks mAP which is hardcoded 0.0 → best_model
+  is always epoch 1). Paper numbers come from per-epoch eval logs, which are fine.
+- Pose provenance: poses are estimated from Waymo LiDAR by Waymo-3DSkelMo
+  (LiDAR-HMR per-frame SMPL + HuMoR/NeMF motion-prior refinement), NOT
+  "AMASS-derived". The pipeline snaps root orientation to past-trajectory heading
+  when the raw estimate deviates >90° while moving → root-orientation channel
+  partially encodes past heading by construction (no future leak; eval is sound).
+
+**Remediation (2026-06-12)**: 42-run multi-seed matrix completed (12 cells × 3
+seeds 101/202/303 + seeds 404/505 for headline cells; identical protocol).
+Per-pedestrian metrics saved per epoch (metrics_epoch_N.pkl) for paired
+bootstrap CIs over 6,688 evaluated validation pedestrians. Analysis:
+tools/scripts/analyze_multiseed.py → experiments/multiseed_analysis.json.
+
+### Multi-seed results (best-checkpoint minADE, mean±std over seeds)
+
+| cell        | config                          | minADE          | per-seed |
+|-------------|---------------------------------|-----------------|----------|
+| baseline    | no pose (5 seeds)               | 0.6604 ± 0.0143 | .655 .683 .664 .654 .646 |
+| geo_pure    | GRU, no active aux (5)          | 0.6545 ± 0.0271 | .696 .665 .639 .626 .647 |
+| wta01       | GRU, WTA-L1 (5)                 | 0.6853 ± 0.0651 | .639 **.785** .629 **.717** .657 |
+| gmm_only    | GRU, WTA-L1 — same config (3)   | 0.7403 ± 0.1354 | **.897** .662 .662 |
+| mpjpe       | GRU, MPJPE+WTA (3)              | 0.6769 ± 0.0421 | .724 .662 .644 |
+| full        | GRU, all aux (3)                | 0.6574 ± 0.0237 | .668 .674 .630 |
+| xattn       | XAttn no PE (3)                 | 0.6667 ± 0.0407 | .714 .641 .646 |
+| xattn_pe    | XAttn + sinusoidal PE (3)       | **0.6371 ± 0.0026** | .640 .634 .637 |
+| map_nopose  | no pose + map (3)               | 0.4876 ± 0.0033 | |
+| map_wta01   | GRU WTA + map (3)               | 0.4854 ± 0.0057 | |
+| ft_nopose   | no pose + map + pretrain (3)    | 0.3791 ± 0.0033 | |
+| ft_wta01    | GRU WTA + map + pretrain (3)    | 0.3718 ± 0.0059 | |
+
+### Key paired-bootstrap results (per-pedestrian, seed-averaged, n=6,688)
+
+- baseline→xattn_pe: **−3.53% [−4.04, −3.04] p<1e-4** — the stable pose win.
+- baseline→wta01 (GRU): **+3.78% WORSE** [+3.2, +4.3] — original headline config.
+- baseline→geo_pure (no-aux): −0.89% [−1.4, −0.4] p=2e-4 — only GRU cell that helps.
+- baseline→xattn (no PE): +0.96% worse — ordering is necessary.
+- map_nopose→map_wta01: −0.45% [−0.90, −0.01] p=0.046 — marginal.
+- ft_nopose→ft_wta01: **−1.90% [−2.8, −1.0] p<1e-4** (pedestrian bootstrap) — pose's best realistic case.
+- baseline→map_nopose: −26.2%; map→ft (pretrain): −22.3% — context dominates.
+
+### Hierarchical bootstrap (2026-07-08): which conclusions survive resampling SEEDS
+
+The paired bootstrap above marginalizes over seeds (each agent = its seed-mean), so
+its CIs are pedestrian-sampling only. `analyze_multiseed.py` now also runs a
+**hierarchical** bootstrap (resample seeds, then pedestrians). It is the conservative
+test the paper now relies on for significance:
+
+- **Survive** (p≤0.01): baseline→xattn_pe **−3.5%** [−4.8,−1.6] p<1e-4; xattn→xattn_pe
+  −4.5% p=0.008; baseline→map_nopose −27% and map/pretrain −22% p<1e-4.
+- **Lose significance**: baseline→geo_pure −0.9% → **p=0.59**; map_nopose→map_wta01
+  −0.45% → **p=0.62**.
+- **Weakens to marginal**: ft_nopose→ft_wta01 −1.9% → **p=0.10** (CI just crosses 0);
+  only 3 seeds. The −1.9% "robust" claim is downgraded to marginal in the paper.
+
+Net: only the ENCODER effect (xattn+PE) and the context effects (map, pretrain) are
+seed-level significant. All small pose margins (≤2%) are not, at three seeds.
+
+### Final corrected story
+
+1. Whether pose helps is decided by the ENCODER, not the aux loss: xattn+PE gives a
+   stable −3.5%; the GRU is heavy-tailed (5 of 25 no-map pose runs ≥0.71, worst
+   0.897 = +36%) and on average WORSE than baseline. The 8 pooled replicates of the
+   "geo_only"/"gmm_only" config span 0.629–0.897 (0.7060±0.0921).
+2. Temporal ordering carries the signal (bag-of-frames useless; +PE best-in-class).
+   The draft's "GRU beats attention by 1.6%" REVERSES: GRU trails xattn+PE by +7.6%.
+3. Map context (−26%) and pretraining (−22%) dominate pose, stabilize training
+   (zero failures in 12 map-enabled seeds), and shrink pose to −0.45%/−1.9%.
+4. Pose benefit grows with backbone quality: −0.45% (scratch+map) → −1.9%
+   (pretrained), adjacent non-overlapping CIs.
+5. Paper rewritten around the audit + seed-replicated measurement
+   (new title: "How Much Does Body Pose Help Pedestrian Trajectory Forecasting?
+   A Seed-Replicated Study and Auxiliary-Loss Audit on Waymo").
+
 ## Paper Status (2026-04-03 — CONCLUDE)
 
 Paper at `paper/iclr2026/main.tex` compiles cleanly to 11 pages (8 main + 1 references + 2 appendix). 15 verified citations. All numbers consistent across tex/yaml/html.

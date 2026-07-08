@@ -191,7 +191,7 @@ experiments:
       final_epoch_minADE: 0.7006
       final_epoch_minFDE: 1.5080
       minADE_by_eval: [2.0849, 1.6412, 1.2154, 1.0657, 0.9204, 0.7891, 0.6900, 0.6997, 0.7160, 0.6950, 0.6745, 0.6823, 0.7068, 0.6835, 0.6873, 0.6916, 0.6793, 0.6853, 0.6891, 0.6814, 0.7006, 0.7006]
-        notes: "VALID: no-pose baseline. Best minADE=0.6745. H1_v2 is 3.2% better (0.6532 vs 0.6745)."
+      notes: "VALID: no-pose baseline. Best minADE=0.6745. H1_v2 is 3.2% better (0.6532 vs 0.6745)."
 
     - run_id: "run_005"
       tag: "H1_w05_pose_weight_ablation"
@@ -302,7 +302,7 @@ experiments:
     - run_id: "run_012"
       tag: "H3_geo_w2"
       hypothesis: "H3_geo_weight"
-      status: "in_progress"
+      status: "complete"
       started: "2026-04-02T14:04"
       config: "tools/cfgs/waymo/mtr+pose_data_geo_w2.yaml"
       batch_size: 10
@@ -312,7 +312,6 @@ experiments:
       best_minADE: 0.6660
       best_epoch: 29
       minADE_by_eval: [2.1084, 1.7901, 1.2346, 1.0546, 0.7668, 0.8257, 0.7272, 0.7185, 0.6819, 0.6963, 0.7335, 0.6743, 0.6908, 0.6950, 0.6928, 0.6846, 0.6938, 0.7021, 0.7001, 0.6660, 0.6741]
-      status: "complete"
       finished: "2026-04-02T14:13"
       notes: "VALID: Geo weight w=0.2. Best minADE=0.6660 (Δ=-1.3% vs baseline). Much worse than w=0.1 (0.6231). Higher geo weight dominates trajectory objective, degrading prediction. Optimal weight is sharply at w=0.1 — both w=0.05 and w=0.2 are dramatically worse."
 
@@ -446,9 +445,48 @@ experiments:
       best_minFDE: 0.8166
       notes: "VALID: H7 pretrain → fine-tune WITHOUT pose encoder. Control for pretrain-only effect. minADE 0.3861 (−20.9% vs H6 no_pose+map 0.4880); minFDE 0.8166 (−21.7% vs H6 1.0432). Pose contribution at H7 scale: H8 0.3749 vs H9 0.3861 = −2.9% minADE, −4.9% minFDE. Slightly larger than from-scratch pose benefit (1.7%). Pretrain effect (~21%) is independent of pose; pose adds ~3% on top against the strong trajectory prior."
 
+# ===== 2026-06-12: AUDIT + MULTI-SEED REPLICATION (cycle 12) =====
+# CRITICAL: geodesic loss proven INERT on 10fps data (zero gradient vs all-zero
+# future pose targets; 5/91,520 steps nonzero). "geo_only" ≡ "gmm_only" (both
+# WTA-L1 0.1); the draft's headline "geodesic −7.6%" was seed noise. The
+# "gmm_pose" loss is actually WTA-L1, not a GMM NLL. See findings.md
+# "CRITICAL CORRECTION" section for the full audit.
+multiseed_matrix:
+  date: "2026-06-12"
+  runs: 42  # 12 cells × 3 seeds (101/202/303) + 404/505 for baseline/wta01/geo_pure
+  tags: "MS_<cell>_s<seed> under output/waymo/<cfg>/"
+  protocol: "identical to draft runs; per-agent metrics_epoch_N.pkl saved each eval"
+  analysis: "tools/scripts/analyze_multiseed.py (mean±std + paired bootstrap, n=6688 peds)"
+  launcher: "tools/scripts/run_multiseed_matrix.sh + run_multiseed_phase2.sh"
+  cells_minADE_best:  # mean±std over seeds
+    baseline:   "0.6604±0.0143 (5)"
+    geo_pure:   "0.6545±0.0271 (5)  # GRU, no active aux"
+    wta01:      "0.6853±0.0651 (5)  # GRU+WTA — 2/5 failure seeds"
+    gmm_only:   "0.7403±0.1354 (3)  # same config as wta01; pooled 8 seeds: 0.7060±0.0921"
+    mpjpe:      "0.6769±0.0421 (3)"
+    full:       "0.6574±0.0237 (3)"
+    xattn:      "0.6667±0.0407 (3)"
+    xattn_pe:   "0.6371±0.0026 (3)  # STABLE WINNER, −3.5% vs baseline [CI −4.0,−3.0]"
+    map_nopose: "0.4876±0.0033 (3)"
+    map_wta01:  "0.4854±0.0057 (3)  # pose Δ −0.45% p=0.046"
+    ft_nopose:  "0.3791±0.0033 (3)"
+    ft_wta01:   "0.3718±0.0059 (3)  # pose Δ −1.90% [−2.8,−1.0] pedestrian-boot; hierarchical p=0.10 (marginal)"
+  conclusions:
+    - "Encoder decides whether pose helps: xattn+PE stable −3.5%; GRU heavy-tailed, mean worse than baseline"
+    - "Temporal ordering necessary (bag-of-frames +1.0% worse than baseline)"
+    - "Draft claim 'GRU beats xattn+PE by 1.6%' REVERSED (+7.6% in favor of xattn+PE)"
+    - "Aux-loss composition not rankable; no-aux GRU is the only GRU cell that helps (−0.9%)"
+    - "Map −26.2% / pretrain −22.3%; both eliminate the instability (0 failures in 12 seeds)"
+    - "Pose benefit grows with backbone quality: −0.45% scratch+map → −1.9% pretrained (point estimates)"
+  # 2026-07-08 hierarchical-bootstrap (resample seeds THEN pedestrians) added to analyze_multiseed.py.
+  # SURVIVES seed resampling: baseline→xattn_pe −3.5% p<1e-4; xattn→xattn_pe −4.5% p=0.008;
+  #   map −27% and pretrain −22% p<1e-4. WEAKENS/loses: baseline→geo_pure −0.9% p=0.59;
+  #   map_nopose→map_wta01 −0.45% p=0.62; ft_nopose→ft_wta01 −1.9% p=0.10 (marginal, CI just crosses 0).
+  # Paper significance language + Limitations updated to rely on the hierarchical test.
+
 outer_loop:
-  cycle: 11
-  last_direction: "H7 PRETRAIN → H8/H9 FINETUNE — full-Waymo pretraining (231k peds, 487k scenes) yields ~21% minADE reduction independent of pose; pose adds 2.9% on top (H8 0.3749 vs H9 0.3861). NEW OVERALL BEST. findings.md + research-state.yaml updated."
+  cycle: 12
+  last_direction: "AUDIT + 42-run multi-seed replication — geodesic claim retracted (inert loss), paper rewritten as seed-replicated study + auxiliary-loss audit; xattn+PE is the stable pose win (−3.5%); pose on pretrained backbone −1.9%."
   last_reflection: |
     H7 pretrain → H8/H9 fine-tune 2×2 (pretrain × pose) results:
 
@@ -523,18 +561,33 @@ outer_loop:
     Paper updated: F5 refined, Table 2 extended, Figure 3 updated with H5b curve.
 
 paper:
-  status: "draft_complete"
+  status: "rewritten_after_audit"
   venue: "ICLR 2026"
   file: "paper/iclr2026/main.tex"
   pdf: "paper/iclr2026/main.pdf"
-  page_count: 11
-  main_content_pages: 8
-  title: "Body Pose Conditioning Improves Pedestrian Trajectory Forecasting: Geodesic Rotation Supervision and Temporal Encoding are Key"
-  citations: 15
-  figures: 3
-  tables: 4
-  completed: "2026-04-03"
-  notes: "8 pages main content (under 9-page limit). References (p.9) + appendix (pp.10-11) excluded from limit. 15 citations verified (12 via CrossRef DOI API + 3 new prior-work papers added in Related Work §2.3 fix). Three figures: architecture diagram, ablation bar chart + weight sensitivity, training curves. PDF compiles cleanly with no errors. Related Work §2.3 updated: replaced inaccurate 'no existing work' claim with proper attribution to 3 prior pose+trajectory papers (salzmann2023robots, saadatnejad2024socialtransmotion, gao2025socialpose), distinguishing our SMPL 6D approach from skeleton-keypoint methods."
+  page_count: 15
+  main_content_pages: "9.0 (main text p.1-9; references start p.10; appendix p.12-15) — within ICLR 9-page limit"
+  title: "How Much Does Body Pose Help Pedestrian Trajectory Forecasting? A Seed-Replicated Study and Auxiliary-Loss Audit on Waymo"
+  citations: 21
+  figures: 4   # regenerated 2026-06-12 from MS_* logs (make_figures.py reads runs directly)
+  tables: 7
+  completed: "2026-06-12"
+  notes: >-
+    Full rewrite 2026-06-12 after the inert-geodesic audit. New structure:
+    §4.2 main result (seed-replicated, 4 variants), §4.3 auxiliary-loss audit
+    (3 facts + pooled-replicate demonstration), §4.4 temporal encoding,
+    §4.5 map 2x2, §4.6 pretrain 2x2; weight sweep / future-pose / training
+    dynamics moved to appendix; appendix also has corrected-label draft-run
+    table + full seed matrix. Added: pose-provenance paragraph (Waymo-3DSkelMo,
+    LiDAR-HMR, orientation-snapping caveat), statistical protocol paragraph,
+    reproducibility statement, 6 new citations (zhu2025waymo3dskelmo,
+    fan2023lidarhmr, rempe2021humor, he2022nemf, fang2018pedestrian,
+    rasouli2019pie). Corrected: WTA-L1 loss description (was 'GMM NLL'),
+    2-layer GRU, 6-layer encoder, real LR schedule/dropout, dataset counts
+    (5,171 val scenes / 8,282 peds / 6,688 evaluated = 80.8%).
+    Figures regenerated 2026-06-12: fig1 WTA-L1 labels; fig2 per-seed
+    supervision scatter + weight-sweep-vs-noise; fig3 seed-band training
+    curves; fig4 descriptive panel titles (no run codes).
 
 workspace:
   findings: "findings.md"
