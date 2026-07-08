@@ -167,6 +167,12 @@ class WaymoPoseDataset(DatasetTemplate):
 
         self.without_hdmap = self.dataset_cfg.get('WITHOUT_HDMAP', True)
 
+        # Ablation: zero the root-orientation channel (joint 0 = first 6 dims of the
+        # 144-dim 6D pose) while keeping body joints. Controls the heading-snapping
+        # circularity — is the pose benefit just past trajectory heading re-entering
+        # via the orientation-snapped root channel?
+        self.zero_root_orient = self.dataset_cfg.get('ZERO_ROOT_ORIENT', False)
+
         # Path to preprocessed Waymo scenario pkl files with real 91-step trajectories.
         # When set, real Waymo future trajectories replace SMPL-estimated ones.
         proc_path = self.dataset_cfg.get('PROCESSED_SCENARIOS_PATH', None)
@@ -458,6 +464,10 @@ class WaymoPoseDataset(DatasetTemplate):
                         traj_full[grid_idx, 6] = heading[i]
                         traj_full[grid_idx, 7:9] = velocity[i]
                         traj_full[grid_idx, 9] = 1.0
+
+        if self.zero_root_orient:
+            # Zero joint-0 (root orientation) = first 6 dims; body joints untouched.
+            pose_6d_full[:, 0:6] = 0.0
 
         return traj_full, pose_6d_full, betas
 
