@@ -36,6 +36,10 @@ CELLS = {
     'gmm_only':   'mtr+pose_data_gmm_only',
     'mpjpe':      'mtr+pose_data_mpjpe_only',
     'full':       'mtr+pose_data',
+    # Phase 4 (2026-07-08): xattn+PE in the realistic conditions + root-orient ablation.
+    'map_xattn_pe':  'mtr+pose_data_cross_attn_pe_with_map',
+    'ft_xattn_pe':   'mtr+full_ped_finetune_xattn_pe',
+    'norootorient':  'mtr+pose_data_cross_attn_pe_norootorient',
 }
 SEEDS = [101, 202, 303, 404, 505]  # 404/505 only exist for headline cells (phase 2)
 
@@ -59,6 +63,13 @@ PAIRS = [
     ('ft_nopose', 'ft_wta01'),
     ('map_nopose', 'ft_nopose'),
     ('map_wta01', 'ft_wta01'),
+    # Phase 4 pairs
+    ('map_nopose', 'map_xattn_pe'),   # xattn+PE pose benefit WITH map
+    ('map_wta01', 'map_xattn_pe'),    # xattn+PE vs GRU, both with map
+    ('ft_nopose', 'ft_xattn_pe'),     # xattn+PE pose benefit on pretrained backbone
+    ('ft_wta01', 'ft_xattn_pe'),      # xattn+PE vs GRU, both pretrained
+    ('baseline', 'norootorient'),     # is the pose model with root-orient zeroed == baseline?
+    ('xattn_pe', 'norootorient'),     # does zeroing root orientation destroy the -3.5% win?
 ]
 
 EPOCH_RE = re.compile(r'Performance of EPOCH (\d+)')

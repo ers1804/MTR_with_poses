@@ -263,6 +263,30 @@ test the paper now relies on for significance:
 Net: only the ENCODER effect (xattn+PE) and the context effects (map, pretrain) are
 seed-level significant. All small pose margins (≤2%) are not, at three seeds.
 
+### Phase 4 (2026-07-08): xattn+PE in realistic conditions + root-orientation ablation
+
+Six new cells × 3 seeds (101/202/303), same protocol; sourced in
+experiments/multiseed_analysis.json. minADE mean±std:
+- **map_xattn_pe 0.4792±0.0021** (xattn+PE + map, from scratch)
+- **ft_xattn_pe 0.3733±0.0038** (xattn+PE + map + H7 pretrain finetune)
+- **norootorient 0.6633±0.0031** (xattn+PE, root-orientation channel zeroed)
+
+Key new pairs (paired / hierarchical):
+- map_nopose→map_xattn_pe: **−1.73%** [hier CI −1.4,−0.3%] **p=0.004** — the stable
+  encoder DOES give a seed-significant pose benefit under map, ~4× the GRU cell's
+  −0.45% (which was p=0.62). Closes the paper's biggest hole: xattn+PE was never
+  run with map; it helps, and significantly.
+- ft_nopose→ft_xattn_pe: −1.51% [hier p=0.063] — marginal, like GRU ft (−1.9%).
+- ft_wta01→ft_xattn_pe: +0.40% p=0.77 — encoder choice does NOT matter once the
+  backbone is pretrained (xattn+PE ≈ GRU at pretrained scale).
+- **baseline→norootorient: ~0 (p=0.51); xattn_pe→norootorient: +4.11% p<1e-4** —
+  zeroing the root-orientation channel ELIMINATES the entire −3.5% xattn+PE pose
+  benefit (model reverts to ≈baseline). The pose gain is essentially all in the
+  root-orientation channel, which the Waymo-3DSkelMo pipeline partly derives from
+  past-trajectory heading (orientation-snapping). This quantifies the circularity
+  the provenance caveat flagged: much of the "pose benefit" is past heading
+  re-entering through a side channel. HIGHEST-VALUE candidate for a paper addition.
+
 ### Final corrected story
 
 1. Whether pose helps is decided by the ENCODER, not the aux loss: xattn+PE gives a

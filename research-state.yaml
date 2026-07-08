@@ -484,6 +484,26 @@ multiseed_matrix:
   #   map_nopose→map_wta01 −0.45% p=0.62; ft_nopose→ft_wta01 −1.9% p=0.10 (marginal, CI just crosses 0).
   # Paper significance language + Limitations updated to rely on the hierarchical test.
 
+phase4_matrix:
+  date: "2026-07-08"
+  runs: 9  # 3 cells x seeds 101/202/303; launcher tools/scripts/run_multiseed_phase4.sh
+  cells_minADE_best:
+    map_xattn_pe: "0.4792±0.0021 (3)  # xattn+PE + map, from scratch"
+    ft_xattn_pe:  "0.3733±0.0038 (3)  # xattn+PE + map + H7 pretrain finetune"
+    norootorient: "0.6633±0.0031 (3)  # xattn+PE, root-orientation channel zeroed"
+  new_pairs:  # paired / hierarchical
+    - "map_nopose→map_xattn_pe: −1.73% hier p=0.004 SIGNIFICANT (GRU cell was −0.45% p=0.62)"
+    - "ft_nopose→ft_xattn_pe: −1.51% hier p=0.063 marginal (~= GRU ft −1.9%)"
+    - "ft_wta01→ft_xattn_pe: +0.40% p=0.77 (encoder irrelevant once pretrained)"
+    - "xattn_pe→norootorient: +4.11% p<1e-4; baseline→norootorient ~0 p=0.51"
+  key_finding: >-
+    Zeroing the root-orientation channel eliminates the entire −3.5% xattn+PE pose
+    benefit (reverts to baseline). Since Waymo-3DSkelMo snaps root orientation to
+    past-trajectory heading, most of the measured pose benefit is past heading
+    re-entering through a side channel — quantifies the provenance-caveat circularity.
+    Positive: xattn+PE gives a seed-significant −1.7% under map (unlike the GRU).
+    Not yet folded into the paper (9-page limit); top recommended addition.
+
 outer_loop:
   cycle: 12
   last_direction: "AUDIT + 42-run multi-seed replication — geodesic claim retracted (inert loss), paper rewritten as seed-replicated study + auxiliary-loss audit; xattn+PE is the stable pose win (−3.5%); pose on pretrained backbone −1.9%."
