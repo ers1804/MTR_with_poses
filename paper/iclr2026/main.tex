@@ -540,7 +540,7 @@ in the pose the encoder uses. Zeroing the root-orientation channel of the xattn+
 input (joint 0; body joints untouched) raises \minADE to $0.6633 \pm 0.0031$
 ---statistically \emph{indistinguishable from the no-pose baseline} ($0.6604$;
 hierarchical $p{=}0.51$) and $+4.1\%$ worse than the full xattn+PE model
-(CI $[+3.4, +5.1]\%$, $p{<}10^{-4}$). The entire $-3.5\%$ gain is thus carried by the
+(hierarchical CI $[+3.1, +5.3]\%$, $p{<}10^{-4}$). The entire $-3.5\%$ gain is thus carried by the
 root-orientation channel, which the Waymo-3DSkelMo pipeline partially derives from
 past-trajectory heading (Section~\ref{sec:setup}). Much of the measured ``pose
 benefit'' is therefore past heading re-entering through a side channel, not body
@@ -584,7 +584,7 @@ directly in the map.
 \emph{Second}, the incremental pose benefit under map depends on the encoder,
 mirroring the no-map result: the GRU cell gives only $-0.45\%$ (not significant once
 seeds are resampled, $p{=}0.62$), but the stable xattn+PE encoder recovers a
-seed-significant $-1.73\%$ (hierarchical CI $[-1.4, -0.3]\%$, $p{=}0.004$). It is
+seed-significant $-1.73\%$ (hierarchical CI $[-2.8, -0.6]\%$, $p{=}0.004$). It is
 still small---partial redundancy between body orientation and the map's routing
 constraints, compounded by the root-orientation channel's derivation from past
 heading (Sections~\ref{sec:temporal_ablation},~\ref{sec:setup}).
