@@ -285,7 +285,9 @@ Key new pairs (paired / hierarchical):
   root-orientation channel, which the Waymo-3DSkelMo pipeline partly derives from
   past-trajectory heading (orientation-snapping). This quantifies the circularity
   the provenance caveat flagged: much of the "pose benefit" is past heading
-  re-entering through a side channel. HIGHEST-VALUE candidate for a paper addition.
+  re-entering through a side channel. Now integrated into the paper (§4.4 root-
+  orientation paragraph, xattn+PE rows in the map/pretrain tables, §4.5 rewrite,
+  Limitations + intro/conclusion caveats); paper still fits 9 main pages.
 
 ### Final corrected story
 

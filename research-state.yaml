@@ -502,7 +502,10 @@ phase4_matrix:
     past-trajectory heading, most of the measured pose benefit is past heading
     re-entering through a side channel — quantifies the provenance-caveat circularity.
     Positive: xattn+PE gives a seed-significant −1.7% under map (unlike the GRU).
-    Not yet folded into the paper (9-page limit); top recommended addition.
+    Folded into the paper (2026-07-09): §4.4 root-orientation ablation paragraph,
+    xattn+PE rows added to the map (Table 4) and pretrain (Table 5) ablations, §4.5
+    "second finding" rewritten (encoder decides map-pose benefit), §4.6 encoder-
+    irrelevance note, Limitations + intro/conclusion caveats. Still 9 main pages.
 
 outer_loop:
   cycle: 12
