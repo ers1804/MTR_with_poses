@@ -341,14 +341,30 @@ results — to test whether they are n=3 artifacts like the no-map xattn_pe.
   ft_xattn_pe = −1.91% paired / −1.5% hierarchical p=0.06. ft_wta01→ft_xattn_pe
   = 0.0% p=0.99 (encoders identical once pretrained).
 
-**Corrected big picture (the paper is salvageable as a MODEST POSITIVE result):**
-context (map/pretraining) both stabilizes training AND is where pose's benefit is
-real: pose helps ~1.5–2.0% and survives 5 seeds when the trajectory backbone is
-strong, but NOT in the noisy no-map condition (there the −3.5% was a 3-seed artifact
-and pose is not seed-significant). The benefit is small and, per the root-orient
-ablation, largely past-heading re-entering. To make the map/ft PAIR hierarchical
-airtight at n=5, still need map_nopose & ft_nopose seeds 404/505 (currently n=3, so
-the pair's hierarchical bootstrap resamples only 3 common seeds).
+**Corrected big picture (interim, n=3 no-pose cells):** context stabilizes training
+and is where pose's benefit looked real. FINALIZED below with 5-seed no-pose cells.
+
+### Phase 4e (2026-07-13): 5-seed map/pretrain PAIRS — pretrain pose ALSO collapses
+
+Ran map_nopose & ft_nopose seeds 404/505 so both arms of the map/pretrain pairs are
+n=5. Final:
+- map_nopose 0.4854±0.0047 (5); ft_nopose 0.3745±0.0071 (5, new seeds .371/.365
+  pulled it DOWN from the n=3 0.3791).
+- **map_nopose→map_xattn_pe = −1.57%, hierarchical p=0.0001 [CI −2.4,−0.8%]** —
+  SURVIVES and STRENGTHENS at n=5. THE robust positive pose result.
+- map_nopose→map_wta01 (GRU+map) = **−0.00%, p=0.99** — the GRU aux gives nothing
+  with map (map_nopose rose to tie map_wta01).
+- **ft_nopose→ft_xattn_pe = −0.71%, hierarchical p=0.35 (NOT significant)** — the
+  pretrained pose benefit COLLAPSES at n=5 (was −1.9%/−1.5% at n=3; ft_nopose was
+  unluckily high at n=3). Another n=3 artifact.
+- ft_nopose→ft_wta01 −0.70% paired p=0.089 (also n.s.).
+
+**FINAL honest picture:** the ONLY seed-significant pose benefit anywhere is
+**map_xattn_pe −1.6% (p=0.0001)** — cross-attention+PE encoder + HD map. No-map,
+pretrained, and all GRU pose configs are NOT seed-significant. And even the surviving
+−1.6% is mostly past-heading re-entry (root-orient ablation). Context (map/pretrain)
+still dominates massively (−26% / −23%, p<1e-4) but that is trajectory-only, not pose.
+Paper rewrite in progress (user green-lit): pose's value narrows to one configuration.
 
 ### Final corrected story (pre-Phase-4b; xattn_pe claims now superseded — see above)
 

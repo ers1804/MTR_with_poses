@@ -546,9 +546,26 @@ phase4d_matrix:
     (map/pretrain) both stabilizes training and is where pose's small benefit is real;
     the no-map −3.5% was a 3-seed artifact. Paper salvageable as a MODEST POSITIVE
     result (pose helps ~1.5–2% only with a strong backbone; largely heading re-entry).
-  still_todo: >-
-    For an airtight n=5 hierarchical on the map/ft PAIRS, run map_nopose & ft_nopose
-    seeds 404/505 (both currently n=3, so pair hierarchical resamples only 3 seeds).
+  still_todo: "DONE in phase4e (below)."
+
+phase4e_matrix:
+  date: "2026-07-13"
+  runs: 4  # map_nopose + ft_nopose seeds 404/505 -> map/pretrain pairs now n=5 both arms
+  cells_minADE_best:
+    map_nopose_5seed: "0.4854±0.0047 (5)"
+    ft_nopose_5seed:  "0.3745±0.0071 (5)  # new seeds .371/.365 pulled it DOWN from n=3 0.3791"
+  final_pairs:
+    - "map_nopose->map_xattn_pe: -1.57% hier p=0.0001 -- SURVIVES/STRENGTHENS at n=5"
+    - "map_nopose->map_wta01 (GRU+map): -0.00% p=0.99 -- GRU aux gives nothing with map"
+    - "ft_nopose->ft_xattn_pe: -0.71% hier p=0.35 -- pretrained pose benefit COLLAPSES (n=3 artifact)"
+    - "ft_nopose->ft_wta01: -0.70% paired p=0.089 (n.s.)"
+  final_picture: >-
+    The ONLY seed-significant pose benefit anywhere is map_xattn_pe -1.6% (p=0.0001):
+    cross-attention+PE encoder + HD map. No-map, pretrained, and all GRU pose configs
+    are NOT seed-significant. Even the surviving -1.6% is mostly past-heading re-entry
+    (root-orient ablation). Context (map -26% / pretrain -23%) dominates but is
+    trajectory-only, not pose. Paper being rewritten to narrow pose's value to this one
+    configuration.
 
 outer_loop:
   cycle: 12
