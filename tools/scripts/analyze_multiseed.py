@@ -40,6 +40,13 @@ CELLS = {
     'map_xattn_pe':  'mtr+pose_data_cross_attn_pe_with_map',
     'ft_xattn_pe':   'mtr+full_ped_finetune_xattn_pe',
     'norootorient':  'mtr+pose_data_cross_attn_pe_norootorient',
+    # Phase 4b (2026-07-13): the audit cells re-run with the P1.1/P1.2 mask fix active
+    # (same configs as the unmasked cells above; distinct MS_<cell>_masked_s<seed> tags).
+    'baseline_masked': 'mtr+pose_data_no_pose',
+    'wta01_masked':    'mtr+pose_data_geo_only',
+    'mpjpe_masked':    'mtr+pose_data_mpjpe_only',
+    'full_masked':     'mtr+pose_data',
+    'geo_pure_masked': 'mtr+pose_data_geo_pure',
 }
 SEEDS = [101, 202, 303, 404, 505]  # 404/505 only exist for headline cells (phase 2)
 
@@ -70,6 +77,14 @@ PAIRS = [
     ('ft_wta01', 'ft_xattn_pe'),      # xattn+PE vs GRU, both pretrained
     ('baseline', 'norootorient'),     # is the pose model with root-orient zeroed == baseline?
     ('xattn_pe', 'norootorient'),     # does zeroing root orientation destroy the -3.5% win?
+    # Phase 4b: does the mask fix neutralize the WTA-L1 failure mode?
+    ('wta01', 'wta01_masked'),               # unmasked (buggy) vs masked WTA-L1
+    ('baseline', 'baseline_masked'),         # effect of the fix on the no-pose baseline (P1.7 etc.)
+    ('baseline_masked', 'wta01_masked'),     # CLEAN (both fixed code): does masked WTA-L1 harm?
+    ('baseline_masked', 'geo_pure_masked'),  # CLEAN: no-aux vs baseline, fixed code
+    ('geo_pure_masked', 'wta01_masked'),     # CLEAN: is masked WTA-L1 == no-aux (loss inert)?
+    ('baseline_masked', 'mpjpe_masked'),
+    ('baseline_masked', 'full_masked'),
 ]
 
 EPOCH_RE = re.compile(r'Performance of EPOCH (\d+)')

@@ -289,7 +289,46 @@ Key new pairs (paired / hierarchical):
   orientation paragraph, xattn+PE rows in the map/pretrain tables, §4.5 rewrite,
   Limitations + intro/conclusion caveats); paper still fits 9 main pages.
 
-### Final corrected story
+### Phase 4b (2026-07-13): headline overturned + masked audit re-run
+
+Closing the two remaining gaps (xattn_pe seeds 404/505; audit cells re-run with the
+P1.1/P1.2 mask fix) produced one paper-defining result and a nuanced audit picture.
+All sourced in experiments/multiseed_analysis.json (tags MS_<cell>_masked_s<seed>,
+MS_xattn_pe_s{404,505}, MS_baseline_masked_s<seed>).
+
+**HEADLINE OVERTURNED — the xattn+PE "stable −3.5%" was itself a 3-seed artifact.**
+The original 3 xattn_pe seeds were unusually tight (.6395 .6343 .6374, σ=0.0026).
+Seeds 404/505 add .6631 and **.7002** (seed 505 is a genuine heavy-tail failure —
+final-epoch minADE 1.0). At n=5: **xattn_pe = 0.6549 ± 0.0278** (σ ×10), and
+**baseline→xattn_pe = −0.83% paired but hierarchical p=0.70 (NOT significant)**.
+So xattn+PE is also heavy-tailed, and its win over the no-pose baseline does not
+survive seed resampling. The paper that audits a 3-seed artifact (geodesic −7.6%)
+contained a second one (encoder −3.5%). What still holds: xattn→xattn_pe (adding PE)
+−4.5% p=0.008 on the 3 shared seeds — temporal ordering still matters — but the
+absolute pose benefit in the no-map condition is not established.
+
+**Masked-audit re-run (fixed code):**
+- Masked baseline 0.6602 ± 0.0149 ≈ unmasked baseline 0.6604 (baseline→baseline_masked
+  −0.02% p=0.95) — the fix bundle (P1.1/P1.2/P1.7) does NOT change the no-pose baseline;
+  no confound.
+- wta01_masked 0.6715 ± 0.0112: masking REMOVES the catastrophic tail (no 0.897; σ 0.011
+  vs unmasked 0.065), but WTA-L1 still hurts — baseline_masked→wta01_masked +1.7% (hier
+  p=0.43 n.s.) and **geo_pure_masked→wta01_masked +5.5% (hier p<1e-4, significant)**.
+- geo_pure_masked 0.6365 ± 0.0194: no-aux GRU control is −3.6% vs masked baseline
+  (paired p<1e-4; hier p=0.11 marginal) — now the best no-map pose cell, but n=3.
+- mpjpe_masked 0.6450, full_masked 0.6438 — both ~−2.3–2.5% vs masked baseline (paired
+  sig; hier n.s.). CAVEAT: all masked cells are n=3; per the xattn_pe lesson, treat
+  these as fragile until replicated to ≥5 seeds.
+
+**Net revised story:** NO no-map pose configuration produces a seed-significant gain
+over the no-pose baseline. The only seed-significant pose benefit is map_xattn_pe
+−1.7% (n=3, hier p=0.004) — itself n=3 and, per the root-orient ablation, mostly
+past heading re-entering. Pose's value is small, fragile, encoder/context-dependent,
+and largely a heading artifact. Paper NOT yet updated (user chose data+docs first;
+the abstract/intro/§4.2/Conclusion/Table 1 currently still state the pre-5-seed
+−3.5% headline and must be revised before submission).
+
+### Final corrected story (pre-Phase-4b; xattn_pe claims now superseded — see above)
 
 1. Whether pose helps is decided by the ENCODER, not the aux loss: xattn+PE gives a
    stable −3.5%; the GRU is heavy-tailed (5 of 25 no-map pose runs ≥0.71, worst

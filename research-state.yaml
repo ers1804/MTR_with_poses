@@ -507,6 +507,32 @@ phase4_matrix:
     "second finding" rewritten (encoder decides map-pose benefit), §4.6 encoder-
     irrelevance note, Limitations + intro/conclusion caveats. Still 9 main pages.
 
+phase4b_matrix:
+  date: "2026-07-13"
+  runs: 17  # audit cells masked (4x3) + xattn_pe seeds 404/505 + baseline masked (3)
+  launcher: "tools/scripts/run_multiseed_phase4b.sh (+ inline masked-baseline loop)"
+  cells_minADE_best:
+    xattn_pe_5seed:  "0.6549±0.0278 (5)  # was 0.6371±0.0026 at n=3; seeds 404=.663 505=.700(fail)"
+    baseline_masked: "0.6602±0.0149 (3)  # == unmasked baseline 0.6604; no confound from the fix"
+    wta01_masked:    "0.6715±0.0112 (3)  # catastrophic tail gone (no 0.897) but WTA-L1 still hurts"
+    geo_pure_masked: "0.6365±0.0194 (3)  # no-aux GRU, best no-map pose cell, but n=3"
+    mpjpe_masked:    "0.6450±0.0274 (3)"
+    full_masked:     "0.6438±0.0186 (3)"
+  headline_overturned: >-
+    The xattn+PE "stable −3.5%" was itself a 3-seed artifact. At n=5,
+    baseline→xattn_pe = −0.83% paired but hierarchical p=0.70 (NOT seed-significant);
+    xattn+PE is heavy-tailed too (seed 505 fails to minADE 1.0). NO no-map pose config
+    produces a seed-significant gain over baseline. Only seed-significant pose benefit
+    is map_xattn_pe −1.7% (n=3, hier p=0.004), itself n=3 and mostly heading re-entry.
+  masked_audit: >-
+    Masking removes the WTA-L1 catastrophic tail (wta01_masked σ=0.011, no 0.897) but
+    WTA-L1 still hurts: geo_pure_masked→wta01_masked +5.5% (hier p<1e-4). Masked
+    baseline unchanged vs unmasked (p=0.95) → the fix does not move the no-pose baseline.
+  paper_status: >-
+    NOT updated per user (data+docs first). Paper abstract/intro/§4.2/§4.4/Conclusion/
+    Table 1 still state the pre-5-seed −3.5% "stable encoder" headline and MUST be
+    revised before submission — see findings.md "Phase 4b" for the required changes.
+
 outer_loop:
   cycle: 12
   last_direction: "AUDIT + 42-run multi-seed replication — geodesic claim retracted (inert loss), paper rewritten as seed-replicated study + auxiliary-loss audit; xattn+PE is the stable pose win (−3.5%); pose on pretrained backbone −1.9%."
