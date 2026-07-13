@@ -324,9 +324,8 @@ absolute pose benefit in the no-map condition is not established.
 over the no-pose baseline. The only seed-significant pose benefit is map_xattn_pe
 −1.7% (n=3, hier p=0.004) — itself n=3 and, per the root-orient ablation, mostly
 past heading re-entering. Pose's value is small, fragile, encoder/context-dependent,
-and largely a heading artifact. Paper NOT yet updated (user chose data+docs first;
-the abstract/intro/§4.2/Conclusion/Table 1 currently still state the pre-5-seed
-−3.5% headline and must be revised before submission).
+and largely a heading artifact. [UPDATE 2026-07-13: paper now fully rewritten to
+this picture — see Phase 4e note below and the paper commit.]
 
 ### Phase 4d (2026-07-13): the map/pretrain pose benefit HOLDS at n=5
 
@@ -364,7 +363,10 @@ n=5. Final:
 pretrained, and all GRU pose configs are NOT seed-significant. And even the surviving
 −1.6% is mostly past-heading re-entry (root-orient ablation). Context (map/pretrain)
 still dominates massively (−26% / −23%, p<1e-4) but that is trajectory-only, not pose.
-Paper rewrite in progress (user green-lit): pose's value narrows to one configuration.
+Paper FULLY REWRITTEN 2026-07-13 to this picture: abstract, intro bullets, §4.2+Table 1
+(no-map collapse, 5 seeds), §4.4 (PE-helps kept; −3.5% retracted), §4.5 (map −1.6% p=1e-4,
+GRU+map nothing), §4.6 (pretrain pose collapses), §4.3 (masked-audit + reproducibility note),
+§5/Limitations/Conclusion, appendix seed matrix. Still 9 main pages, 0 undefined refs.
 
 ### Final corrected story (pre-Phase-4b; xattn_pe claims now superseded — see above)
 

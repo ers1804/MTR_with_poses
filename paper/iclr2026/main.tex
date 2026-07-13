@@ -53,18 +53,24 @@ the credited configurations differed only by random seed; the auxiliary signal t
 actually trains the encoder is a winner-takes-all L1 pose-regression loss.
 Second, a \emph{seed-replicated measurement} of the surviving questions, with
 paired bootstrap confidence intervals over 6{,}688 validation pedestrians.
-Whether pose helps depends on the encoder, not the auxiliary loss: with the
+Whether pose helps depends on the encoder \emph{and} the context. With the
 original GRU encoder, pose-conditioned training is heavy-tailed---8 replicates of
 one configuration span \minADE 0.629--0.897---and on average \emph{worse} than
-the no-pose baseline; with cross-attention over pose frames plus
-sinusoidal positional encoding, pose gives a stable $-3.5\%$
-(95\% CI $[-4.0, -3.0]$). Removing positional encoding removes the gain,
-confirming that temporal ordering carries the signal. HD map context reduces
-\minADE by $26\%$ on its own and shrinks the pose gain to $-0.5\%$ ($p{=}0.046$);
-after full-Waymo backbone pretraining (a further $-22\%$), pose contributes
-$-1.9\%$ (CI $[-2.8, -1.0]$). Our results give a calibrated estimate of pose's
-value in a state-of-the-art forecaster, and a cautionary, reproducible example of
-how single-run ablations can attribute gains to inert components.
+the no-pose baseline. Cross-attention over pose frames with sinusoidal positional
+encoding is more stable and, at three seeds, appeared to give a $-3.5\%$
+improvement; two further seeds reveal that this too was a small-sample artifact
+($0.6549 \pm 0.0278$ at five seeds, one a heavy-tailed failure; not significant
+under a seed-resampling bootstrap). In the noisy no-map condition, \emph{no} pose
+configuration reliably beats the baseline. A single configuration does: with HD
+map context (itself worth $-26\%$), the cross-attention+PE encoder gives $-1.6\%$,
+stable across five seeds ($p{<}10^{-4}$)---the only seed-significant pose benefit we
+find. It does not generalize: with the GRU encoder the map benefit is zero, and
+after full-Waymo backbone pretraining (a further $-22\%$) the apparent pose benefit
+does not survive five seeds. Even the surviving $-1.6\%$ is mostly explained by a
+root-orientation channel the pose pipeline derives from past heading. Our results give a calibrated estimate of
+pose's value---small, context-dependent, and partly a heading artifact---and a
+cautionary, reproducible example (twice over, including our own correction) of how
+few-seed ablations attribute gains to noise or inert components.
 \end{abstract}
 
 % ===========================================================================
@@ -110,29 +116,32 @@ five seeds per configuration and paired bootstrap CIs over 6{,}688 validation
 pedestrians. Our corrected findings:
 
 \begin{itemize}
-  \item \textbf{The encoder, not the auxiliary loss, decides whether pose helps.}
-        Cross-attention over pose frames with sinusoidal positional encoding
-        improves \minADE by $3.5\%$ (95\% CI $[3.0, 4.0]$) with near-zero seed
-        variance, whereas the GRU encoder of the earlier draft is heavy-tailed
-        (8 replicates span $0.629$--$0.897$, pooled mean $0.7060$, \emph{worse}
-        than the baseline's $0.6604$). A control ablation, however, attributes most
-        of the $3.5\%$ to the heading-derived root-orientation channel, not body
-        configuration.
-  \item \textbf{Temporal ordering carries the pose signal.} The cross-attention
-        encoder \emph{without} positional encoding is slightly worse than baseline
-        ($+1.0\%$): a bag of pose frames is useless. Auxiliary-loss composition is
-        not the driver either---no active auxiliary reliably beats the no-auxiliary
-        control, and real future poses (99\% coverage) do not help.
-  \item \textbf{Context dominates pose.} HD map features alone reduce \minADE by
-        $26\%$ and full-Waymo backbone pretraining (231k pedestrian examples) a
-        further $22\%$ independent of pose. The incremental pose gains they leave
-        ($0.5\%$--$1.9\%$) are positive at the point estimates but not seed-level
-        significant at three seeds.
-  \item \textbf{Small-benchmark ablations need seed replication.} The spread among
-        replicates of a single configuration ($0.27$ \minADE across 8 seeds'
-        extremes) exceeds every architectural effect except map and pretraining;
-        one-seed comparisons here can support nearly any narrative. We describe an
-        audit procedure so it can be applied to similar pipelines.
+  \item \textbf{Without a strong backbone, no pose configuration reliably beats the
+        baseline.} The GRU encoder of the earlier draft is heavy-tailed (8 replicates
+        span $0.629$--$0.897$, worse than the baseline's $0.6604$ on average).
+        Cross-attention with sinusoidal positional encoding looked like a stable
+        $-3.5\%$ at three seeds ($\sigma\,0.0026$), but two more seeds---one a
+        heavy-tailed failure---take it to $0.6549 \pm 0.0278$ and only $-0.8\%$ over
+        baseline, not significant once seeds are resampled. Our own corrected headline
+        was itself a small-sample artifact.
+  \item \textbf{Temporal ordering carries what pose signal there is.} Adding a
+        sinusoidal positional encoding to the cross-attention encoder improves it by
+        $-4.5\%$ (the bag-of-frames variant $\approx$ baseline); auxiliary-loss
+        composition is not a driver either---no active auxiliary beats the
+        no-auxiliary control, and real future poses (99\% coverage) do not help.
+  \item \textbf{Pose helps in exactly one configuration, by ${\sim}1.6\%$.} HD map
+        alone is worth $-26\%$ and full-Waymo pretraining a further $-22\%$ (both
+        trajectory-only). On top of the map, the cross-attention+PE encoder gives
+        $-1.6\%$ (stable across five seeds, $p{<}10^{-4}$)---the only seed-significant
+        pose benefit we find; the GRU gives nothing with map, and the apparent
+        pretrained pose benefit does not survive five seeds. A control ablation
+        attributes most of even the $-1.6\%$ to a root-orientation channel derived
+        from past heading.
+  \item \textbf{Few-seed ablations need seed replication.} The spread among replicates
+        of one configuration ($0.27$ \minADE across 8 seeds' extremes) exceeds every
+        architectural effect except map and pretraining; \emph{both} our earlier
+        $-7.6\%$ and our first-corrected $-3.5\%$ headline were seed artifacts, caught
+        only by replication. We describe the audit procedure so it transfers.
 \end{itemize}
 
 % ===========================================================================
@@ -371,8 +380,8 @@ clip 1.0); a full run takes 10--15 minutes. Validation is run at epochs
 Following common practice, our per-run headline number is the \emph{best}
 validation \minADE over these evaluations; because best-of-$n$ selection on a
 noisy curve inflates apparent differences, every key comparison is additionally
-run with \textbf{three to five random seeds} (five for the headline cells:
-baseline, WTA-L1/GRU, and the no-auxiliary GRU control), and we report
+run with \textbf{three to five random seeds} (five for the headline, encoder, map,
+and pretrain cells; three for secondary cells), and we report
 mean~$\pm$~std across seeds
 together with \textbf{paired bootstrap} 95\% confidence intervals over the
 6{,}688 evaluated pedestrians (per-pedestrian errors averaged across seeds,
@@ -389,7 +398,7 @@ Section~\ref{sec:pretrain_ablation} quantifies the scale effect directly.
 \subsection{Main Result: Pose Conditioning vs.\ Baseline}
 \label{sec:main_result}
 
-Table~\ref{tab:main} compares, over three to five seeds each, the trajectory-only
+Table~\ref{tab:main} compares, over five seeds each, the trajectory-only
 \mtr baseline against three pose-conditioned variants: the GRU encoder with the
 WTA-L1 auxiliary pose loss ($w{=}0.1$; the configuration an earlier draft
 mislabeled ``geodesic-only'', see Section~\ref{sec:loss_ablation}), the GRU
@@ -397,9 +406,10 @@ encoder with \emph{no} active auxiliary pose loss, and the cross-attention
 encoder with sinusoidal positional encoding (same WTA-L1 auxiliary loss).
 
 \begin{table}[t]
-\caption{Main result (no map; best-checkpoint protocol; 5 seeds for the first
-three rows, 3 for the last). Per-seed values expose a heavy-tailed failure mode
-in GRU-based pose conditioning that mean$\pm$std alone understates.}
+\caption{Main result (no map; best-checkpoint protocol; 5 seeds each). Per-seed
+values expose a heavy-tailed failure mode in \emph{both} GRU- and attention-based
+pose conditioning (bold = degraded seeds) that mean$\pm$std alone understates. No
+row is significantly below the baseline under a seed-resampling bootstrap.}
 \label{tab:main}
 \begin{center}
 \small
@@ -410,23 +420,30 @@ Model & Aux.\ loss & \minADE $\downarrow$ (mean$\pm$std) & per-seed values \\
 \mtr (no pose)          & ---         & $0.6604 \pm 0.0143$ & .655 .683 .664 .654 .646 \\
 \mtrpose GRU, no aux    & none active & $0.6545 \pm 0.0271$ & .696 .665 .639 .626 .647 \\
 \mtrpose GRU, WTA-L1    & $w{=}0.1$   & $0.6853 \pm 0.0651$ & .639 \textbf{.785} .629 \textbf{.717} .657 \\
-\rowcolor{bestrow}
-\mtrpose XAttn+PE, WTA-L1 & $w{=}0.1$ & $\mathbf{0.6371 \pm 0.0026}$ & .640 .634 .637 \\
+\mtrpose XAttn+PE, WTA-L1 & $w{=}0.1$ & $0.6549 \pm 0.0278$ & .640 .634 .637 .663 \textbf{.700} \\
 \bottomrule
 \end{tabular}
 \end{center}
 \end{table}
 
-The seed-replicated picture inverts the earlier draft's headline. The GRU encoder
-with the WTA-L1 auxiliary loss---credited with $-7.6\%$ from one lucky run---is
-\emph{worse than baseline on average}: two of five seeds converge to degraded optima
-(bold), and the pedestrian bootstrap puts it at $+3.8\%$ \minADE (CI $[+3.2, +4.3]$).
-The cross-attention encoder with positional encoding delivers what the draft
-attributed to the GRU: a stable $-3.5\%$ \minADE (CI $[-4.0, -3.0]$, $p{<}10^{-4}$)
-with per-seed spread $5.5\times$ smaller than the baseline's ($\sigma\,0.0026$ vs.\
-$0.0143$). The no-auxiliary GRU control edges out the baseline under the pedestrian
-bootstrap ($-0.9\%$) but \emph{not} under a hierarchical bootstrap that also resamples
-seeds ($p{=}0.59$); we return to it in Section~\ref{sec:loss_ablation}.
+The seed-replicated picture inverts the earlier draft's headline, and cuts deeper
+than our first correction did. The GRU encoder with the WTA-L1 auxiliary
+loss---credited with $-7.6\%$ from one lucky run---is \emph{worse than baseline on
+average}: two of five seeds converge to degraded optima (bold), and the pedestrian
+bootstrap puts it at $+3.8\%$ \minADE. The cross-attention encoder with positional
+encoding \emph{appeared} to deliver what the draft attributed to the GRU: at three
+seeds it was a remarkably stable $-3.5\%$ ($\sigma\,0.0026$). Two additional seeds
+(404, 505) puncture this---seed 505 is a heavy-tailed failure (best-epoch $0.700$,
+final-epoch \minADE $1.0$), and the five-seed cell is $0.6549 \pm 0.0278$: a tenfold
+increase in spread and only $-0.8\%$ over baseline, \emph{not} significant under a
+seed-resampling bootstrap ($p{=}0.70$). The attention encoder is thus heavy-tailed
+too; its three-seed stability was itself a small-sample artifact---the very failure
+mode this paper documents, now reproduced in our own corrected result. Under seed
+resampling, \emph{no} no-map configuration---GRU or attention, with or without an
+auxiliary loss---reliably beats the no-pose baseline (the no-auxiliary GRU control
+is $-0.9\%$ pedestrian-bootstrap but $p{=}0.59$ hierarchical). Pose's benefit, if
+any, must be sought where the trajectory backbone is already
+strong (Sections~\ref{sec:map_ablation}--\ref{sec:pretrain_ablation}).
 
 \subsection{The Auxiliary-Loss Audit: an Inert Term Credited with the Headline Gain}
 \label{sec:loss_ablation}
@@ -489,11 +506,27 @@ from being ``the critical ingredient'', the auxiliary losses are---with the GRU
 encoder and degenerate zero-valued targets---associated with \emph{instability}.
 Four of eleven runs across the WTA-L1 and MPJPE+WTA-L1 cells converged badly
 ($\geq 0.71$), whereas the no-auxiliary control produced no such seed in five
-runs and is the only GRU cell significantly better than the baseline (paired
-bootstrap $-0.9\%$, CI $[-1.4, -0.4]$). At our statistical power the active-loss variants
-cannot be usefully ranked against one another. The earlier draft's mechanistic
-story about geodesic gradients shaping the GRU was fitted to noise; the encoder
-comparison in Section~\ref{sec:temporal_ablation} turns out to matter far more.
+runs. At our statistical power the active-loss variants cannot be usefully ranked
+against one another, and the earlier draft's mechanistic story about geodesic
+gradients shaping the GRU was fitted to noise.
+
+\paragraph{The mask fix removes the instability, but adds no signal.} Because the
+audit shows the pose losses train against absent targets, we re-ran the four audit
+cells with a corrected future-pose validity mask (losses averaged only over the
+$<{0.01\%}$ of steps that carry a real target; this is the released code). Masking
+removes the catastrophic tail---the WTA-L1 cell's worst seed falls from $0.897$ to
+$0.679$ ($\sigma\; 0.065{\to}0.011$)---confirming the instability came from training
+toward degenerate zero targets. But it does not turn the loss into a benefit: the
+masked WTA-L1 cell ($0.6715 \pm 0.0112$) is still $+5.5\%$ worse than the masked
+no-auxiliary control ($0.6365$; hierarchical $p{<}10^{-4}$), and the fix leaves the
+no-pose baseline unchanged ($0.6602 \pm 0.0149$ masked vs.\ $0.6604$; $p{=}0.95$).
+The on-10fps auxiliary pose signal is, as predicted, inert.
+
+\paragraph{Reproducibility note.} Table~\ref{tab:loss_ablation} and the GRU/attention
+heavy tails were produced with the \emph{pre-fix} code (tagged in the release); the
+released code masks the future-pose losses, so re-running these cells reproduces the
+masked numbers above rather than the table. The encoder, map, and pretraining results
+are mask-insensitive (past poses are non-zero on 10fps) and reproduce either way.
 
 \subsection{Ablation: Temporal Encoding --- GRU vs.\ Cross-Attention}
 \label{sec:temporal_ablation}
@@ -513,38 +546,35 @@ Pose Encoder & Temporal info & \minADE (mean$\pm$std) & per-seed values \\
 \midrule
 None (no pose)               & ---               & $0.6604 \pm 0.0143$ & .655 .683 .664 .654 .646 \\
 Cross-attention, no PE       & none (bag)        & $0.6667 \pm 0.0407$ & .714 .641 .646 \\
-\rowcolor{bestrow}
-Cross-attention + sinus.\ PE & ordering only     & $\mathbf{0.6371 \pm 0.0026}$ & .640 .634 .637 \\
+Cross-attention + sinus.\ PE & ordering only     & $0.6549 \pm 0.0278$ & .640 .634 .637 .663 .700 \\
 GRU (sequential)             & ordering + causal & $0.6853 \pm 0.0651$ & .639 .785 .629 .717 .657 \\
 \bottomrule
 \end{tabular}
 \end{center}
 \end{table}
 
-Two conclusions survive seed replication, and one draft conclusion reverses.
-\emph{Ordering is necessary}: the bag-of-frames encoder is slightly worse than
-the no-pose baseline ($+1.0\%$, CI $[+0.4, +1.6]$)---unordered pose content
-contributes nothing---while adding only a fixed sinusoidal positional encoding
-turns the same architecture into the best no-map model
-($-4.5\%$ vs.\ no-PE, CI $[-5.2, -3.7]$; $-3.5\%$ vs.\ baseline).
-\emph{The draft's ranking of GRU over attention reverses}: the GRU trails
-cross-attention+PE by $+7.6\%$ (CI $[+6.9, +8.2]$) once its failure seeds are
-accounted for, and even its best seeds only match it---the draft's ``GRU beats
-attention'' decomposition compared one lucky GRU run against an ordinary
-cross-attention run. Temporal ordering carries the pose signal, and the
-attention-based encoder extracts it more reliably than the GRU at near-identical
-parameter count (${\approx}497$K vs.\ ${\approx}505$K).
+\emph{Ordering is necessary}: the bag-of-frames encoder is slightly worse than the
+no-pose baseline ($+1.0\%$)---unordered pose content contributes nothing---while
+adding only a fixed sinusoidal positional encoding improves the same architecture by
+$-4.5\%$ over the no-PE variant (CI $[-5.2, -3.7]$, $p{=}0.008$ hierarchical over the
+three shared seeds). Positional encoding thus genuinely helps the cross-attention
+encoder. What it does \emph{not} do is lift that encoder clearly above using no pose
+at all: as Section~\ref{sec:main_result} shows, at five seeds xattn+PE is heavy-tailed
+and only $-0.8\%$ over baseline (n.s.). The GRU is worse still (its $0.629$--$0.897$
+spread is wider than the attention encoder's), so the draft's ``GRU beats attention''
+ranking does reverse---but neither encoder is a stable improvement over the no-pose
+baseline in this no-map regime.
 
-\paragraph{Root orientation carries the gain.} A control ablation exposes \emph{what}
-in the pose the encoder uses. Zeroing the root-orientation channel of the xattn+PE
-input (joint 0; body joints untouched) raises \minADE to $0.6633 \pm 0.0031$
+\paragraph{Root orientation carries what gain there is.} A control ablation exposes
+\emph{what} in the pose the encoder uses. Zeroing the root-orientation channel of the
+xattn+PE input (joint 0; body joints untouched) raises \minADE to $0.6633 \pm 0.0031$
 ---statistically \emph{indistinguishable from the no-pose baseline} ($0.6604$;
-hierarchical $p{=}0.51$) and $+4.1\%$ worse than the full xattn+PE model
-(hierarchical CI $[+3.1, +5.3]\%$, $p{<}10^{-4}$). The entire $-3.5\%$ gain is thus carried by the
-root-orientation channel, which the Waymo-3DSkelMo pipeline partially derives from
-past-trajectory heading (Section~\ref{sec:setup}). Much of the measured ``pose
-benefit'' is therefore past heading re-entering through a side channel, not body
-configuration.
+hierarchical $p{=}0.51$) and $+4.1\%$ worse than the (three-seed) xattn+PE model
+(hierarchical CI $[+3.1, +5.3]\%$, $p{<}10^{-4}$). So even in the seeds where the
+encoder does well, its advantage rides entirely on the root-orientation channel,
+which the Waymo-3DSkelMo pipeline partially derives from past-trajectory heading
+(Section~\ref{sec:setup}). The usable pose signal is essentially heading re-entering
+through a side channel, not body configuration.
 
 \subsection{Ablation: HD Map Context}
 \label{sec:map_ablation}
@@ -556,8 +586,8 @@ context interacts with pose conditioning, we enable HD map loading and train the
 auxiliary loss at $w{=}0.1$), three seeds per cell.
 
 \begin{table}[t]
-\caption{Map $\times$ pose ablation, seed-replicated (three seeds per cell;
-WTA-L1 auxiliary loss at $w{=}0.1$ in pose cells). With map context the seed
+\caption{Map $\times$ pose ablation, seed-replicated (5 seeds per cell; the GRU+map
+cell 3). WTA-L1 auxiliary loss at $w{=}0.1$ in pose cells. With map context the seed
 variance collapses by an order of magnitude relative to the no-map cells.}
 \label{tab:map_ablation}
 \begin{center}
@@ -567,28 +597,30 @@ variance collapses by an order of magnitude relative to the no-map cells.}
 Pose Enc. & Map & \minADE (mean$\pm$std) & per-seed values \\
 \midrule
 None      & No map   & $0.6604 \pm 0.0143$ & .655 .683 .664 .654 .646 \\
-None      & With map & $0.4876 \pm 0.0033$ & .490 .484 .489 \\
+None      & With map & $0.4854 \pm 0.0047$ & .490 .484 .489 .478 .486 \\
 GRU       & No map   & $0.6853 \pm 0.0651$ & .639 .785 .629 .717 .657 \\
 GRU       & With map & $0.4854 \pm 0.0057$ & .480 .491 .485 \\
 \rowcolor{bestrow}
-XAttn+PE  & With map & $\mathbf{0.4792 \pm 0.0021}$ & .477 .481 .480 \\
+XAttn+PE  & With map & $\mathbf{0.4778 \pm 0.0041}$ & .477 .481 .480 .471 .480 \\
 \bottomrule
 \end{tabular}
 \end{center}
 \end{table}
 
 Table~\ref{tab:map_ablation} reveals three findings.
-\emph{First}, HD map is the dominant signal: it alone reduces \minADE by $26.2\%$
-(CI $[-27.8, -24.6]$), far more than any pose effect, since routing is encoded
+\emph{First}, HD map is the dominant signal: it alone reduces \minADE by $26.5\%$
+(CI $[-29.0, -24.1]$), far more than any pose effect, since routing is encoded
 directly in the map.
-\emph{Second}, the incremental pose benefit under map depends on the encoder,
-mirroring the no-map result: the GRU cell gives only $-0.45\%$ (not significant once
-seeds are resampled, $p{=}0.62$), but the stable xattn+PE encoder recovers a
-seed-significant $-1.73\%$ (hierarchical CI $[-2.8, -0.6]\%$, $p{=}0.004$). It is
-still small---partial redundancy between body orientation and the map's routing
-constraints, compounded by the root-orientation channel's derivation from past
-heading (Sections~\ref{sec:temporal_ablation},~\ref{sec:setup}).
-\emph{Third}, map context stabilizes training: per-seed spread collapses
+\emph{Second}, this is where pose's one seed-significant benefit lives---and it
+requires the right encoder. The GRU cell is \emph{identical} to no-pose+map at five
+seeds ($-0.0\%$, $p{=}0.99$), but the xattn+PE encoder gives $-1.57\%$ (hierarchical
+CI $[-2.4, -0.8]\%$, $p{<}10^{-4}$, five seeds both arms). Unlike the no-map xattn+PE
+cell, this one is \emph{stable} ($\sigma\,0.004$): the map both supplies context and
+tames the encoder's heavy tail. The benefit is still small---partial redundancy
+between body orientation and the map's routing constraints, and the
+root-orientation channel's derivation from past heading
+(Sections~\ref{sec:temporal_ablation},~\ref{sec:setup}) accounts for most of it.
+\emph{Third}, map context stabilizes training generally: per-seed spread collapses
 ($\sigma \leq 0.006$ vs.\ up to $0.135$ without map; Table~\ref{tab:multiseed}), and
 the failure mode of Section~\ref{sec:main_result} never occurs in a map-enabled seed.
 
@@ -622,35 +654,29 @@ zero-init pose fusion; fine-tuning seeds vary.}
 \toprule
 Pretrain & Pose Enc. & \minADE (mean$\pm$std) & \minFDE (mean$\pm$std) & per-seed \minADE \\
 \midrule
-None  & ---  & $0.4876 \pm 0.0033$ & $1.0572 \pm 0.0090$ & .490 .484 .489 \\
+None  & ---  & $0.4854 \pm 0.0047$ & $1.0493 \pm 0.0150$ & .490 .484 .489 .478 .486 \\
 None  & GRU  & $0.4854 \pm 0.0057$ & $1.0362 \pm 0.0060$ & .480 .491 .485 \\
-Full Waymo & ---  & $0.3791 \pm 0.0033$ & $0.8019 \pm 0.0025$ & .382 .375 .380 \\
-\rowcolor{bestrow}
-Full Waymo & GRU  & $\mathbf{0.3718 \pm 0.0059}$ & $\mathbf{0.7809 \pm 0.0097}$ & .374 .376 .365 \\
-Full Waymo & XAttn+PE & $0.3733 \pm 0.0038$ & $0.7929 \pm 0.0134$ & .371 .371 .378 \\
+Full Waymo & ---  & $0.3745 \pm 0.0071$ & $0.7915 \pm 0.0159$ & .382 .375 .380 .371 .364 \\
+Full Waymo & GRU  & $0.3718 \pm 0.0059$ & $0.7809 \pm 0.0097$ & .374 .376 .365 \\
+Full Waymo & XAttn+PE & $0.3718 \pm 0.0034$ & $0.7890 \pm 0.0111$ & .371 .371 .378 .369 .370 \\
 \bottomrule
 \end{tabular}
 \end{center}
 \end{table}
 
-Both pretraining conclusions survive seed replication cleanly. Pretraining
-reduces \minADE by $22.3\%$ without pose (CI $[-24.5, -20.1]$) and $23.4\%$ with
-pose (CI $[-25.8, -21.1]$)---by far the largest effect after map context, and
-essentially independent of pose. On top of the pretrained backbone, pose
-conditioning contributes $-1.9\%$ \minADE (pedestrian bootstrap CI $[-2.8, -1.0]$;
-two of three seeds improve) and $-2.6\%$
-\minFDE---smaller than the draft's single-run $2.9\%$. This is pose's largest
-realistic (map-equipped, well-trained) gain, but only \emph{marginal} once seeds
-are resampled (hierarchical bootstrap $p{=}0.10$); the draft's claim that pose's
-benefit \emph{increases} with pretraining holds at the point estimates ($-0.45\%$
-scratch vs.\ $-1.9\%$ pretrained) but neither is seed-level significant at three
-seeds ($p{=}0.62$, $p{=}0.10$)---suggestive, not established. Swapping the GRU for
-xattn+PE in the pretrained cell gives $0.3733 \pm 0.0038$ ($-1.5\%$, $p{=}0.06$); the
-two encoders are now indistinguishable ($+0.4\%$, $p{=}0.77$), so the from-scratch
-encoder advantage (Section~\ref{sec:temporal_ablation}) vanishes against a strong
-prior---and the GRU, unstable from scratch, is well behaved in all six fine-tuning
-seeds. Qualitative examples at pretrained scale are in Appendix~\ref{app:qualitative},
-Figure~\ref{fig:qualitative}.
+Pretraining is the second dominant lever and is robust: it reduces \minADE by
+$22.9\%$ without pose and $23.4\%$ with pose ($p{<}10^{-4}$)---by far the largest
+effect after map, and, like map, trajectory-only. The pose contribution \emph{on
+top}, however, does not survive five seeds. At three seeds it looked like $-1.9\%$;
+extending the no-pose fine-tune to five seeds (its two extra seeds are among its
+best) shrinks the gap to $-0.7\%$ for both encoders---hierarchical bootstrap
+$p{=}0.35$ (xattn+PE) and $p{=}0.09$ (GRU), neither significant. The two encoders are
+themselves indistinguishable once pretrained ($+0.4\%$, $p{=}0.77$), so the
+from-scratch encoder distinction vanishes against a strong prior. The residual
+zero-init fuser keeps every pretrained cell stable (no failure seeds), but
+pretraining, like the no-map condition, does not establish a pose benefit---only the
+map\,$\times$\,xattn+PE cell does. Qualitative examples are in
+Appendix~\ref{app:qualitative}, Figure~\ref{fig:qualitative}.
 
 % ===========================================================================
 \section{Analysis and Insights}
@@ -667,16 +693,16 @@ it generalizes to two cheap checks: verify the \emph{target coverage} of every
 auxiliary loss against the data, and check the \emph{gradient} of every loss term in
 isolation on a real batch.
 
-\paragraph{What makes the pose branch work.}
-The seed-replicated evidence points at the encoder's temporal structure, not the
-auxiliary supervision. Unordered pose content is useless (bag-of-frames
-$\approx$ baseline), so the exploited signal is \emph{temporal}---gait phase and
-orientation change, not static posture, and (Section~\ref{sec:temporal_ablation})
-attention extracts it more reliably than the GRU. The
-mechanism is pose \emph{encoding}, not \emph{prediction}: real dense future-pose
-targets---the only condition in which the rotation-space losses carry gradient---still
-do not move accuracy (Appendix~\ref{sec:future_ablation}), and the auxiliary WTA-L1
-loss is not required for a gain (the no-auxiliary control is $-0.9\%$). Its
+\paragraph{What little the pose branch does, and how.}
+Where pose helps at all (the map cell), the signal is \emph{temporal} and comes
+from \emph{encoding}, not supervision. Unordered pose content is useless
+(bag-of-frames $\approx$ baseline), and attention extracts the ordered signal more
+reliably than the GRU (Section~\ref{sec:temporal_ablation}). Supervision adds
+nothing: real dense future-pose targets---the only condition in which the
+rotation-space losses carry gradient---do not move accuracy
+(Appendix~\ref{sec:future_ablation}), and the auxiliary WTA-L1 loss is not required
+(the no-auxiliary control matches or edges the active-loss cells, though it too is
+not seed-significant). Its
 degenerate zero targets are plausibly counterproductive, anchoring shared features
 toward a constant, which may explain why the $20\%$ heavy-tailed failure rate of
 no-map pose runs (bad basins, not late divergence) concentrates in auxiliary-active
@@ -688,13 +714,14 @@ benchmarks per-seed values or failure rates must be reported, not seed means alo
 \label{sec:limitations}
 % ===========================================================================
 
-\textbf{Dataset scale and transfer.} Our main ablations
-(Sections~\ref{sec:main_result}--\ref{sec:map_ablation}) use a 579-scene subset;
-Section~\ref{sec:pretrain_ablation} addresses this only partially, since fine-tuning
-still uses that subset. The point estimates suggest a pose benefit that grows with
-backbone quality ($-0.45\%$ from scratch vs.\ $-1.9\%$ pretrained), but neither is
-seed-level significant at three seeds ($p{=}0.62$, $p{=}0.10$); a definitive answer
-requires training the pose-conditioned model on full Waymo, beyond our compute budget.
+\textbf{Dataset scale, and why we cannot go bigger.} Our ablations use a 579-scene
+subset, and SMPL pose pseudo-ground-truth exists \emph{only} for this subset---the
+full-Waymo backbone we pretrain is necessarily trajectory-only. Pose-conditioning at
+full scale is therefore not just uncomputed but infeasible with current annotations.
+Within reach, pretraining does not rescue pose: the pretrained pose benefit that
+looked like $-1.9\%$ at three seeds fell to $-0.7\%$ (n.s.) once the no-pose
+fine-tune was measured at five seeds. Whether denser or cleaner pose labels at scale
+would change the picture is untestable here.
 
 \textbf{Pose provenance and decoder.} The LiDAR-derived SMPL pseudo-ground-truth
 (Waymo-3DSkelMo) is matched to Waymo tracks; its root-orientation correction
@@ -708,11 +735,14 @@ predicted-pose quality independently (our metric is trajectory only).
 \textbf{Statistical power and two bootstrap levels.} Our primary paired bootstrap
 resamples pedestrians on \emph{seed-averaged} errors; we also report a
 \emph{hierarchical} bootstrap resampling seeds then pedestrians---the conservative
-test we rely on for significance. Under it the encoder ($-3.5\%$), map ($-26\%$),
-and pretraining ($-22\%$) effects survive ($p{\leq}0.01$), but the small pose
-margins do not ($p{=}0.62$, $p{=}0.10$; three seeds). Three seeds also cannot rank
-the active auxiliary losses, and the best-checkpoint protocol (kept for
-comparability) selects on validation noise. All CIs cover one validation split only.
+test we rely on for significance. Under it the map ($-26\%$) and pretraining
+($-22\%$) trajectory effects survive strongly ($p{<}10^{-4}$), and exactly one pose
+effect does---map\,$\times$\,xattn+PE, $-1.6\%$, $p{<}10^{-4}$---while every other
+pose margin does not (no-map xattn+PE $p{=}0.70$, GRU+map $p{=}0.99$, pretrained pose
+$p{=}0.35$). The pedestrian-only bootstrap would have called several of these
+significant; requiring seed resampling is what caught two of our own headline claims.
+The best-checkpoint protocol (kept for comparability) selects on validation noise;
+all CIs cover one validation split only.
 
 % ===========================================================================
 \section{Conclusion}
@@ -725,25 +755,25 @@ representations, together with a seed-replicated measurement of what pose
 conditioning is worth and an audit that retracts our own earlier headline claim.
 Our conclusions: (1) the previously credited geodesic SO(3) supervision was
 inert---zero gradient against absent future-pose targets---so its $7.6\%$ was
-seed noise between two identical configurations. (2) Whether pose helps is decided
-by the \emph{encoder}: cross-attention with sinusoidal positional encoding gives a
-stable $-3.5\%$ \minADE (CI $[-4.0,-3.0]$), while the GRU is heavy-tailed and worse
-than baseline on average, and temporal ordering carries the signal---though a
-control ablation attributes most of the $-3.5\%$ to the heading-derived
-root-orientation channel, upper-bounding the genuinely new pose information.
-(3) The mechanism is the past pose encoder, not future-pose prediction. (4) Context dominates: HD map alone is worth
-$-26\%$ and full-Waymo pretraining a further ${\sim}22\%$ (both seed-robust), while
-the pose gains they leave ($-0.45\%$, $-1.9\%$) are not seed-level significant at
-three seeds---the audit methodology behind these corrections, not the pose numbers,
-is our intended lasting contribution.
+seed noise between two identical configurations. (2) In the no-map condition
+\emph{no} configuration reliably beats the no-pose baseline: cross-attention+PE
+looked like a stable $-3.5\%$ at three seeds but is heavy-tailed at five
+($-0.8\%$, n.s.)---a second small-sample artifact, in a paper about small-sample
+artifacts. (3) Pose helps in exactly one configuration: the
+cross-attention+PE encoder \emph{with} HD map, by $-1.6\%$ (stable across five
+seeds, $p{<}10^{-4}$). The GRU gives nothing with map, and the apparent pretrained
+pose benefit does not survive five seeds; a control ablation attributes most of even
+the surviving $-1.6\%$ to a root-orientation channel derived from past heading. (4) The mechanism is the past-pose encoder, not future-pose
+prediction. The audit and seed-replication methodology---which caught two of our
+own headline claims---not the pose numbers, is our intended lasting contribution.
 
 \subsubsection*{Reproducibility Statement}
 All experiments use the publicly available Waymo Open Motion Dataset and the
 open-source Waymo-3DSkelMo pose-extraction pipeline; neither is redistributed by
 us. Training configurations (YAML), the multi-seed launch script, the per-pedestrian
 metric logger, and the bootstrap analysis script are included in our code release,
-together with the exact random seeds (101/202/303, plus 404/505 for the headline
-cells: baseline, WTA-L1/GRU, and the no-auxiliary GRU control) and the per-epoch validation
+together with the exact random seeds (101/202/303, plus 404/505 for the headline,
+encoder, map, and pretrain cells) and the per-epoch validation
 protocol described in Section~\ref{sec:setup}. Appendix~\ref{app:details} lists
 all hyperparameters; Appendix~\ref{app:dataset} documents dataset construction,
 including the timestamp-alignment and future-pose-coverage details on which the
@@ -958,7 +988,9 @@ Run & Draft tag & Encoder & Functional losses / Map / Pretrain & \minADE & $\Del
 
 \subsection{Seed-Replicated Matrix}
 Table~\ref{tab:multiseed} lists every run of the replication matrix
-(seeds 101/202/303, plus 404/505 for the headline cells).
+(seeds 101/202/303, plus 404/505 for the headline, encoder, map, and pretrain
+cells). The four audit cells were additionally re-run with the future-pose mask fix
+(Section~\ref{sec:loss_ablation}); those masked runs are in the code release.
 
 \begin{table}[h]
 \caption{Seed-replicated matrix: best-checkpoint \minADE per seed (seeds
@@ -980,13 +1012,16 @@ gmm\_only  & GRU, WTA-L1 (same config as wta01) & $0.7403 \pm 0.1354$ & .8967 .6
 mpjpe      & GRU, MPJPE + WTA-L1              & $0.6769 \pm 0.0421$ & .7243 .6622 .6441 \\
 full       & GRU, MPJPE+WTA+cls (geo inert) & $0.6574 \pm 0.0237$ & .6680 .6740 .6302 \\
 xattn      & XAttn no PE, WTA-L1 (+ geo inert) & $0.6667 \pm 0.0407$ & .7136 .6408 .6457 \\
-xattn\_pe  & XAttn+PE, WTA-L1 (geo inert) & $0.6371 \pm 0.0026$ & .6395 .6343 .6374 \\
+xattn\_pe  & XAttn+PE, WTA-L1 (geo inert) & $0.6549 \pm 0.0278$ & .6395 .6343 .6374 .6631 .7002 \\
+norootorient & XAttn+PE, root-orient zeroed & $0.6633 \pm 0.0031$ & .6627 .6666 .6605 \\
 \midrule
-map\_nopose & no pose, with map               & $0.4876 \pm 0.0033$ & .4903 .4839 .4886 \\
+map\_nopose & no pose, with map               & $0.4854 \pm 0.0047$ & .4903 .4839 .4886 .4783 .4860 \\
 map\_wta01  & GRU, WTA-L1, with map           & $0.4854 \pm 0.0057$ & .4798 .4911 .4853 \\
+map\_xattn\_pe & XAttn+PE, WTA-L1, with map    & $0.4778 \pm 0.0041$ & .4769 .4811 .4795 .4710 .4804 \\
 \midrule
-ft\_nopose  & no pose, map, pretrained        & $0.3791 \pm 0.0033$ & .3815 .3753 .3804 \\
+ft\_nopose  & no pose, map, pretrained        & $0.3745 \pm 0.0071$ & .3815 .3753 .3804 .3706 .3645 \\
 ft\_wta01   & GRU, WTA-L1, map, pretrained    & $0.3718 \pm 0.0059$ & .3744 .3760 .3651 \\
+ft\_xattn\_pe & XAttn+PE, WTA-L1, map, pretrained & $0.3718 \pm 0.0034$ & .3710 .3712 .3777 .3694 .3697 \\
 \bottomrule
 \end{tabular}
 \end{center}

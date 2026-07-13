@@ -529,9 +529,10 @@ phase4b_matrix:
     WTA-L1 still hurts: geo_pure_masked→wta01_masked +5.5% (hier p<1e-4). Masked
     baseline unchanged vs unmasked (p=0.95) → the fix does not move the no-pose baseline.
   paper_status: >-
-    NOT updated per user (data+docs first). Paper abstract/intro/§4.2/§4.4/Conclusion/
-    Table 1 still state the pre-5-seed −3.5% "stable encoder" headline and MUST be
-    revised before submission — see findings.md "Phase 4b" for the required changes.
+    FULLY REWRITTEN 2026-07-13 to the n=5 picture (abstract, intro, §4.2+Table 1,
+    §4.4, §4.5, §4.6, §4.3 masked-audit+reproducibility note, §5, Limitations,
+    Conclusion, appendix seed matrix). Still 9 main pages, 0 undefined refs. Pose's
+    value is narrowed to the single map×xattn+PE cell (−1.6%, p=1e-4), mostly heading.
 
 phase4d_matrix:
   date: "2026-07-13"
