@@ -533,6 +533,23 @@ phase4b_matrix:
     Table 1 still state the pre-5-seed −3.5% "stable encoder" headline and MUST be
     revised before submission — see findings.md "Phase 4b" for the required changes.
 
+phase4d_matrix:
+  date: "2026-07-13"
+  runs: 4  # map_xattn_pe + ft_xattn_pe seeds 404/505
+  cells_minADE_best:
+    map_xattn_pe_5seed: "0.4778±0.0041 (5)  # HOLDS; new seeds .4710 .4804, no tail"
+    ft_xattn_pe_5seed:  "0.3718±0.0034 (5)  # HOLDS; new seeds .3694 .3697"
+  finding: >-
+    The two positive pose results SURVIVE 5 seeds, unlike the no-map xattn_pe headline.
+    map_nopose→map_xattn_pe −2.0% paired / −1.7% hier p=0.004; ft_nopose→ft_xattn_pe
+    −1.9% paired / −1.5% hier p=0.06; ft_wta01→ft_xattn_pe 0.0% p=0.99. Context
+    (map/pretrain) both stabilizes training and is where pose's small benefit is real;
+    the no-map −3.5% was a 3-seed artifact. Paper salvageable as a MODEST POSITIVE
+    result (pose helps ~1.5–2% only with a strong backbone; largely heading re-entry).
+  still_todo: >-
+    For an airtight n=5 hierarchical on the map/ft PAIRS, run map_nopose & ft_nopose
+    seeds 404/505 (both currently n=3, so pair hierarchical resamples only 3 seeds).
+
 outer_loop:
   cycle: 12
   last_direction: "AUDIT + 42-run multi-seed replication — geodesic claim retracted (inert loss), paper rewritten as seed-replicated study + auxiliary-loss audit; xattn+PE is the stable pose win (−3.5%); pose on pretrained backbone −1.9%."

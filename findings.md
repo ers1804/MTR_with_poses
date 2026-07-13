@@ -328,6 +328,28 @@ and largely a heading artifact. Paper NOT yet updated (user chose data+docs firs
 the abstract/intro/§4.2/Conclusion/Table 1 currently still state the pre-5-seed
 −3.5% headline and must be revised before submission).
 
+### Phase 4d (2026-07-13): the map/pretrain pose benefit HOLDS at n=5
+
+Ran seeds 404/505 for map_xattn_pe and ft_xattn_pe — the two surviving positive
+results — to test whether they are n=3 artifacts like the no-map xattn_pe.
+**They hold, stably:**
+- **map_xattn_pe = 0.4778 ± 0.0041 (n=5)** — new seeds .4710 .4804, right in the
+  cluster, no tail (contrast no-map xattn_pe σ 0.0028→0.0278 collapse). map_nopose→
+  map_xattn_pe = −2.01% paired / −1.7% hierarchical p=0.004 (hier over the 3 common
+  seeds; map_nopose is still n=3).
+- **ft_xattn_pe = 0.3718 ± 0.0034 (n=5)** — new seeds .3694 .3697. ft_nopose→
+  ft_xattn_pe = −1.91% paired / −1.5% hierarchical p=0.06. ft_wta01→ft_xattn_pe
+  = 0.0% p=0.99 (encoders identical once pretrained).
+
+**Corrected big picture (the paper is salvageable as a MODEST POSITIVE result):**
+context (map/pretraining) both stabilizes training AND is where pose's benefit is
+real: pose helps ~1.5–2.0% and survives 5 seeds when the trajectory backbone is
+strong, but NOT in the noisy no-map condition (there the −3.5% was a 3-seed artifact
+and pose is not seed-significant). The benefit is small and, per the root-orient
+ablation, largely past-heading re-entering. To make the map/ft PAIR hierarchical
+airtight at n=5, still need map_nopose & ft_nopose seeds 404/505 (currently n=3, so
+the pair's hierarchical bootstrap resamples only 3 common seeds).
+
 ### Final corrected story (pre-Phase-4b; xattn_pe claims now superseded — see above)
 
 1. Whether pose helps is decided by the ENCODER, not the aux loss: xattn+PE gives a
