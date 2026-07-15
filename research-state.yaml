@@ -568,6 +568,20 @@ phase4e_matrix:
     trajectory-only, not pose. Paper being rewritten to narrow pose's value to this one
     configuration.
 
+scheduled_2026_07_15:
+  task: "Seed-replicate the 30fps future-pose-supervision ablation (currently a single run, run_007)."
+  why: >-
+    The appendix future-pose ablation (30fps motion-prior-completed future poses = the ONE
+    condition where geodesic/MPJPE get real gradients) is a SINGLE run (0.6567 vs 0.6532) --
+    ironic in a seed-replication paper. Seed-replicate it (3 seeds) so the null result is robust.
+  verified_2026_07_15: >-
+    Re-confirmed from the raw NAS files: 10fps has exactly 5/91,520 nonzero future-pose steps
+    (files carry only ~7 real pose frames over 0-0.6s); 30fps has 88,909 (dense, but
+    motion-prior-completed, not observed). Both share the same 7 real waymo_timestamps.
+  status: "SCHEDULED -- GPU busy with another user's 16h diffusion job. Detached poller
+    tools/scripts/run_30fps_when_free.sh waits for a free GPU, then runs MS_pose30fps_s{101,202,303}
+    + analysis. Log: /tmp/run_30fps_when_free.log. Then fold into paper (future-pose ablation) + backup slide."
+
 outer_loop:
   cycle: 12
   last_direction: "AUDIT + 42-run multi-seed replication — geodesic claim retracted (inert loss), paper rewritten as seed-replicated study + auxiliary-loss audit; xattn+PE is the stable pose win (−3.5%); pose on pretrained backbone −1.9%."

@@ -47,6 +47,10 @@ CELLS = {
     'mpjpe_masked':    'mtr+pose_data_mpjpe_only',
     'full_masked':     'mtr+pose_data',
     'geo_pure_masked': 'mtr+pose_data_geo_pure',
+    # Future-pose supervision ablation, seed-replicated (2026-07-15): full pose loss
+    # set on 30fps motion-prior-completed future poses -- the ONE condition where the
+    # geodesic/MPJPE terms receive real (non-degenerate) gradients.
+    'pose30fps':       'mtr+pose_data_30fps',
 }
 SEEDS = [101, 202, 303, 404, 505]  # 404/505 only exist for headline cells (phase 2)
 
@@ -85,6 +89,9 @@ PAIRS = [
     ('geo_pure_masked', 'wta01_masked'),     # CLEAN: is masked WTA-L1 == no-aux (loss inert)?
     ('baseline_masked', 'mpjpe_masked'),
     ('baseline_masked', 'full_masked'),
+    # Future-pose supervision: does giving the losses REAL gradients (30fps) help?
+    ('baseline', 'pose30fps'),   # absolute pose benefit with active future-pose supervision
+    ('full', 'pose30fps'),       # 10fps full-loss (inert) vs 30fps full-loss (active) -- same losses
 ]
 
 EPOCH_RE = re.compile(r'Performance of EPOCH (\d+)')
