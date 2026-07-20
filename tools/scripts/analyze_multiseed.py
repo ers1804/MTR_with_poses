@@ -51,6 +51,8 @@ CELLS = {
     # set on 30fps motion-prior-completed future poses -- the ONE condition where the
     # geodesic/MPJPE terms receive real (non-degenerate) gradients.
     'pose30fps':       'mtr+pose_data_30fps',
+    # Review item 2.1 (2026-07-20): root-orientation ablation IN THE MAP CONDITION.
+    'map_norootorient': 'mtr+pose_data_cross_attn_pe_with_map_norootorient',
 }
 SEEDS = [101, 202, 303, 404, 505]  # 404/505 only exist for headline cells (phase 2)
 
@@ -92,6 +94,9 @@ PAIRS = [
     # Future-pose supervision: does giving the losses REAL gradients (30fps) help?
     ('baseline', 'pose30fps'),   # absolute pose benefit with active future-pose supervision
     ('full', 'pose30fps'),       # 10fps full-loss (inert) vs 30fps full-loss (active) -- same losses
+    # Review 2.1: does the heading-re-entry mechanism explain the MAP-condition gain?
+    ('map_nopose', 'map_norootorient'),    # zeroed-root map-pose == no-pose+map ?
+    ('map_xattn_pe', 'map_norootorient'),  # does zeroing destroy the -1.6% map gain?
 ]
 
 EPOCH_RE = re.compile(r'Performance of EPOCH (\d+)')
