@@ -53,6 +53,12 @@ CELLS = {
     'pose30fps':       'mtr+pose_data_30fps',
     # Review item 2.1 (2026-07-20): root-orientation ablation IN THE MAP CONDITION.
     'map_norootorient': 'mtr+pose_data_cross_attn_pe_with_map_norootorient',
+    # Code-provenance repair (2026-07-20): xattn_pe seeds 404/505 were first run with
+    # the POST-fix (masked) code while 101/202/303 are pre-fix — a mixed cell. Those
+    # two runs are preserved here under their own cell; canonical MS_xattn_pe_s404/505
+    # are re-run with pre-fix code in phase5c. Masked-code => the WTA aux is inert,
+    # so this cell is effectively "xattn+PE, no active aux" (2 seeds).
+    'xattn_pe_maskedcode': 'mtr+pose_data_cross_attn_pe',
 }
 SEEDS = [101, 202, 303, 404, 505]  # 404/505 only exist for headline cells (phase 2)
 

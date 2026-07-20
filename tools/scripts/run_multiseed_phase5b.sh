@@ -1,14 +1,11 @@
 #!/bin/bash
-# Phase 5 (2026-07-20, review 2.1 + 2.2-consistent-with-current-code):
-#   map_norootorient x3  — root-orientation ablation IN THE MAP CONDITION.
-#   norootorient 404/505 — no-map root-orient cell to n=5.
-# Both cells' existing seeds were trained with the post-fix (masked) code, so these
-# runs use the current tree. Aux-active PRE-FIX cells are extended in phase5c via a
-# worktree pinned to the pre-fix commit — do NOT add them here (code-version mixing).
+# Phase 5b (2026-07-20, review 2.2 extended): current-code cells to n=5.
+# Only cells whose existing seeds were ALREADY trained with the post-fix (masked)
+# code: pose30fps + the five masked audit cells. (Pre-fix cells -> phase5c worktree.)
 set -u
 cd "$(dirname "$0")/.."   # tools/
 PY=/home/erik/anaconda3/envs/mtr_smpl/bin/python
-MASTER_LOG=/tmp/multiseed_phase5.log
+MASTER_LOG=/tmp/multiseed_phase5b.log
 
 run_one () {
   local cfg="$1"; local tag="$2"; shift 2
@@ -27,11 +24,13 @@ run_one () {
   fi
 }
 
-echo "=== phase5 started $(date) ===" >> "$MASTER_LOG"
-for seed in 101 202 303; do
-  run_one "mtr+pose_data_cross_attn_pe_with_map_norootorient" "MS_map_norootorient_s${seed}" --random_seed "${seed}"
-done
+echo "=== phase5b started $(date) ===" >> "$MASTER_LOG"
 for seed in 404 505; do
-  run_one "mtr+pose_data_cross_attn_pe_norootorient" "MS_norootorient_s${seed}" --random_seed "${seed}"
+  run_one "mtr+pose_data_30fps"    "MS_pose30fps_s${seed}"       --random_seed "${seed}"
+  run_one "mtr+pose_data_no_pose"  "MS_baseline_masked_s${seed}" --random_seed "${seed}"
+  run_one "mtr+pose_data_geo_only" "MS_wta01_masked_s${seed}"    --random_seed "${seed}"
+  run_one "mtr+pose_data_mpjpe_only" "MS_mpjpe_masked_s${seed}"  --random_seed "${seed}"
+  run_one "mtr+pose_data"          "MS_full_masked_s${seed}"     --random_seed "${seed}"
+  run_one "mtr+pose_data_geo_pure" "MS_geo_pure_masked_s${seed}" --random_seed "${seed}"
 done
-echo "=== phase5 finished $(date) ===" >> "$MASTER_LOG"
+echo "=== phase5b finished $(date) ===" >> "$MASTER_LOG"

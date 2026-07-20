@@ -64,7 +64,42 @@ used consistently; multiplicity acknowledged; reproducibility scope honest; 30 f
 
 ---
 
+## Part 4 — CODE-VERSION MIXING FLAW (found 2026-07-20, after the review above)
+
+Planning the "everything to n=5" extension exposed a provenance flaw the review missed:
+the P1.1 mask fix (commit `d987de2`, 2026-07-08) changed the training distribution of
+every aux-active cell, and runs before/after it are NOT interchangeable.
+
+- **Pre-fix runs (2026-06-12 matrix):** baseline(5), geo_pure(5), wta01(5), gmm_only(3),
+  mpjpe(3), full(3), xattn(3), xattn_pe **101/202/303**, map_nopose/map_wta01/ft_nopose/
+  ft_wta01 101/202/303.
+- **Post-fix (masked) runs:** everything from Phase 4 on — including **xattn_pe 404/505**.
+
+**Consequence:** the paper's 5-seed xattn_pe cell mixed 3 pre-fix + 2 masked runs; the
+seed-505 "failure" that drove the collapse retraction came from a different training
+distribution (masked ⇒ WTA aux inert). The retraction *direction* may still hold, but the
+cell was not clean. Cells where a naive 404/505 extension would repeat the mistake:
+map_wta01, xattn, gmm_only, mpjpe, full, ft_wta01.
+
+**Resolution (in progress):**
+1. Mixed runs renamed: `MS_xattn_pe_s{404,505}` → `MS_xattn_pe_maskedcode_s{404,505}`
+   (preserved; registered as their own cell — effectively "xattn+PE, no active aux").
+2. Git worktree pinned to the pre-fix Phase-0 commit (`70c7a5d`) at
+   `/home/erik/ssd2/gitprojects/MTR_prefix_worktree` (data + CUDA .so symlinked).
+3. Serial run queue (`run_review_queue.sh`): phase5 (map_norootorient×3, norootorient
+   404/505 — current-code-consistent) → phase5b (pose30fps + 5 masked cells 404/505 —
+   current-code-consistent) → phase5c (**worktree, pre-fix code**: xattn_pe, xattn,
+   gmm_only, mpjpe, full, map_wta01, ft_wta01 404/505).
+4. After completion: regenerate analysis; **the xattn_pe collapse claim must be
+   re-evaluated on the clean pre-fix 5-seed cell** — if pre-fix 404/505 come out tight,
+   the "second artifact" story changes again and the paper must be updated accordingly.
+5. Note for mixed-comparator pairs: map_nopose/ft_nopose 404/505 (phase4e) are post-fix,
+   but those cells are no-pose; the fix was verified to leave the no-pose baseline
+   unchanged (p=0.95), so treating them as one cell is defensible — disclosed here.
+
 ## Status log
 
 - 2026-07-20: review completed; Part-1 fixes committed; this file created.
-  2.1 launched. 2.2 (norootorient/map_wta01 404/505) queued behind 2.1.
+  2.1 launched; decisions taken (2.2 = everything to n=5; 2.3 = MR + Waymo mAP;
+  2.4 = map_xattn_pe ×3). Mixing flaw found (Part 4); mixed runs renamed; pre-fix
+  worktree created; 31-run serial queue launched (phase5 → 5b → 5c).
