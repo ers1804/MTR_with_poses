@@ -59,5 +59,5 @@ for seed in $SEEDS; do
 done
 
 log "=== training done; running analysis ==="
-"$PY" tools/scripts/analyze_multiseed.py >> "$LOG" 2>&1 || log "analyze failed"
+"$PY" scripts/analyze_multiseed.py >> "$LOG" 2>&1 || log "analyze failed"
 log "=== 30fps seed replication COMPLETE ==="

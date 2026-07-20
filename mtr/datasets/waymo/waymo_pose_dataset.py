@@ -402,11 +402,11 @@ class WaymoPoseDataset(DatasetTemplate):
             timestamps = data['waymo_timestamps'].astype(np.float64) / 1e6  # µs → s
             start_idx = int(round(timestamps[0] / self.dt))
             # A negative start_idx would silently write to the array tail via Python
-            # negative indexing; uniform spacing is required for the row->step mapping (P1.6).
+            # negative indexing (P1.6). NOTE: we do NOT assert uniform spacing here —
+            # `waymo_timestamps` are the sparse *real* observations, which legitimately
+            # have dropped-frame gaps (e.g. [0.40, 0.70, 0.79, 0.89]); the row->grid
+            # mapping uses the dense motion-prior rows, not these timestamps.
             assert start_idx >= 0, f"30fps start_idx {start_idx} < 0 for {npz_path}"
-            if len(timestamps) > 1:
-                d = np.diff(timestamps)
-                assert np.allclose(d, d[0], atol=self.dt * 0.1), f"non-uniform 30fps spacing for {npz_path}"
             N = root_orient.shape[0]
             pose_6d = smpl_params_to_6d(root_orient, pose_body)  # (N, 144)
             end_idx = min(start_idx + N, self.total_timestamps)
