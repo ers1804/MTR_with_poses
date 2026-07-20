@@ -99,6 +99,29 @@ def smpl_params_to_6d(root_orient, pose_body):
     return pose_6d.astype(np.float32)
 
 
+def rotate_root_6d(poses, headings):
+    """Rotate the root-orientation 6D channel (dims 0:6) of pose tensors into each
+    center object's agent-centric frame: R' = Rz(-heading) @ R (review item 2.4).
+
+    Args:
+        poses: (C, ..., 144) float array — leading dim indexes center objects.
+        headings: (C,) world-frame headings of the center objects.
+    Returns:
+        poses with dims 0:6 rotated per center object; body joints (6:144) untouched.
+    """
+    C = poses.shape[0]
+    c, s = np.cos(-headings), np.sin(-headings)
+    Rz = np.zeros((C, 3, 3), dtype=poses.dtype)
+    Rz[:, 0, 0], Rz[:, 0, 1] = c, -s
+    Rz[:, 1, 0], Rz[:, 1, 1] = s, c
+    Rz[:, 2, 2] = 1.0
+    flat = poses.reshape(C, -1, poses.shape[-1])
+    for col in (0, 3):  # the two 3-vectors of the 6D root representation
+        v = flat[:, :, col:col + 3]
+        flat[:, :, col:col + 3] = np.einsum('cij,cnj->cni', Rz, v)
+    return flat.reshape(poses.shape)
+
+
 def compute_heading_from_positions(positions):
     """Compute heading angle from sequential positions.
 
@@ -172,6 +195,14 @@ class WaymoPoseDataset(DatasetTemplate):
         # circularity — is the pose benefit just past trajectory heading re-entering
         # via the orientation-snapped root channel?
         self.zero_root_orient = self.dataset_cfg.get('ZERO_ROOT_ORIENT', False)
+
+        # Review 2.4: rotate the root-orientation channel into each center object's
+        # agent-centric frame (Rz(-heading), matching the trajectory transform).
+        # Trajectories are agent-centric but poses were left in the world frame — a
+        # potential confound for encoder comparisons. Assumes root_orient is expressed
+        # in the Waymo world frame (z-up), which holds for the 3DSkelMo pipeline
+        # (its heading-snapping is a yaw about world-z).
+        self.agent_centric_pose_rot = self.dataset_cfg.get('AGENT_CENTRIC_POSE_ROT', False)
 
         # Path to preprocessed Waymo scenario pkl files with real 91-step trajectories.
         # When set, real Waymo future trajectories replace SMPL-estimated ones.
@@ -563,6 +594,11 @@ class WaymoPoseDataset(DatasetTemplate):
         # Need to replicate for each center object (same as obj_trajs_data)
         obj_poses = np.tile(pose_past_filtered[None], (num_center_objects, 1, 1, 1))  # (num_center, num_obj, 11, 144)
 
+        if self.agent_centric_pose_rot:
+            # Rotate the root-orientation 6D into each center object's frame,
+            # matching the trajectory transform (body joints are parent-relative).
+            obj_poses = rotate_root_6d(obj_poses, center_objects[:, 6])
+
         # Past-pose validity mask (action plan P1.2): a past pose frame is valid only
         # if the pose row is non-zero AND the trajectory step is valid — not traj-valid
         # alone. Otherwise the pose encoder (GRU / cross-attention) ingests zero-pose
@@ -589,6 +625,10 @@ class WaymoPoseDataset(DatasetTemplate):
         # center_gt_poses_mask as the per-step mask + denominator.
         center_gt_poses_masked = center_gt_poses.copy()
         center_gt_poses_masked[~center_gt_poses_mask] = 0
+
+        if self.agent_centric_pose_rot:
+            # Rotate future-pose targets' root into the same agent-centric frame.
+            center_gt_poses_masked = rotate_root_6d(center_gt_poses_masked, center_objects[:, 6])
 
         # Center shape parameters
         center_shape_params = betas_filtered[track_index_to_predict_new]  # (num_center, 10)

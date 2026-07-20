@@ -37,12 +37,19 @@ pytest 4/4; paper 9 main pages, 0 undefined refs; JSON identical to fresh regene
   - [ ] `norootorient` seeds 404/505 (σ=0.0031 suspiciously tight — the exact artifact signature)
   - [ ] `map_wta01` seeds 404/505 (supports "GRU+map gives nothing")
   - [ ] (scope TBD) `pose30fps`, masked audit cells to n=5
-- [ ] **2.3 External metrics anchor** — no miss rate / Waymo mAP / published-baseline comparison.
-  (scope TBD: offline MR@2m from stored per-agent minFDE is cheap; full Waymo mAP heavy;
-  Social-Transmotion comparison = separate codebase, likely out of scope)
-- [ ] **2.4 World-frame pose confound** — trajectories are rotated agent-centric but pose features
-  are not. Plan: dataset flag to rotate root orientation into the agent frame; 3 seeds on a chosen
-  cell; compare. (cell choice TBD)
+- [~] **2.3 External metrics anchor** — MR@2m implemented in analyze_multiseed.py (fraction of
+  evaluated pedestrians with best-epoch minFDE > 2 m; NOT the official velocity-gated Waymo
+  MissRate). Sanity: baseline 0.239, map 0.145, pretrained 0.093. Paper integration after the
+  run queue finalizes numbers. **Official Waymo mAP: BLOCKED** — tensorflow + waymo_open_dataset
+  not installed in mtr_smpl, AND result.pkl (full predictions) were deleted by the matrix
+  scripts with only last-epoch checkpoints kept, so best-epoch mAP is impossible for existing
+  runs; options surfaced to Erik (separate TF env + re-eval last-epoch ckpts of headline cells,
+  vs drop mAP and keep MR@2m).
+- [x] **2.4 World-frame pose confound** — IMPLEMENTED 2026-07-20: `rotate_root_6d` helper +
+  `AGENT_CENTRIC_POSE_ROT` dataset flag (root joint 0 rotated by Rz(-heading), matching the
+  trajectory transform; body joints parent-relative, untouched). Unit-tested (3 tests).
+  Config `mtr+pose_data_cross_attn_pe_with_map_agentrot.yaml`; 3 seeds (`MS_map_agentrot_s*`)
+  chained as phase5d behind the review queue. Pairs registered in analyze_multiseed.py.
 - [ ] **2.5 Pose prediction quality eval** — predictions discarded at eval time. *(Erik will look into this.)*
 
 ---

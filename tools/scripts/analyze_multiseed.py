@@ -59,6 +59,8 @@ CELLS = {
     # are re-run with pre-fix code in phase5c. Masked-code => the WTA aux is inert,
     # so this cell is effectively "xattn+PE, no active aux" (2 seeds).
     'xattn_pe_maskedcode': 'mtr+pose_data_cross_attn_pe',
+    # Review item 2.4 (2026-07-20): agent-centric root-orientation rotation.
+    'map_agentrot': 'mtr+pose_data_cross_attn_pe_with_map_agentrot',
 }
 SEEDS = [101, 202, 303, 404, 505]  # 404/505 only exist for headline cells (phase 2)
 
@@ -103,6 +105,9 @@ PAIRS = [
     # Review 2.1: does the heading-re-entry mechanism explain the MAP-condition gain?
     ('map_nopose', 'map_norootorient'),    # zeroed-root map-pose == no-pose+map ?
     ('map_xattn_pe', 'map_norootorient'),  # does zeroing destroy the -1.6% map gain?
+    # Review 2.4: world-frame-pose confound — agent-centric root rotation.
+    ('map_xattn_pe', 'map_agentrot'),      # does the frame choice change the map result?
+    ('map_nopose', 'map_agentrot'),        # pose benefit with agent-centric poses
 ]
 
 EPOCH_RE = re.compile(r'Performance of EPOCH (\d+)')
@@ -286,11 +291,20 @@ def main():
             run_dir = os.path.join(OUT_ROOT, cfg, f'MS_{cell}_s{seed}')
             s = run_summary(run_dir)
             if s is not None:
-                seeds[str(seed)] = {k: v for k, v in s.items() if k != 'per_epoch'}
+                rec = {k: v for k, v in s.items() if k != 'per_epoch'}
+                # MR@2m: fraction of evaluated pedestrians whose best-epoch minFDE
+                # exceeds 2 m — a simple, externally interpretable miss-rate proxy
+                # (NOT the official Waymo MissRate, which uses velocity-scaled
+                # lateral/longitudinal gates on full trajectories).
+                m = load_agent_metrics(run_dir, s['best_epoch'])
+                if m:
+                    fdes = np.array([v[1] for v in m.values()])
+                    rec['best_MR2m'] = float((fdes > 2.0).mean())
+                seeds[str(seed)] = rec
         agg = {}
         for proto in ['best_minADE', 'best_minFDE', 'last_eval_minADE',
-                      'last5_mean_minADE', 'last5_mean_minFDE']:
-            vals = [seeds[s][proto] for s in seeds]
+                      'last5_mean_minADE', 'last5_mean_minFDE', 'best_MR2m']:
+            vals = [seeds[s][proto] for s in seeds if proto in seeds[s]]
             if vals:
                 agg[proto] = {'mean': float(np.mean(vals)),
                               'std': float(np.std(vals, ddof=1)) if len(vals) > 1 else None,
