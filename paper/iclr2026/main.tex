@@ -519,7 +519,8 @@ $0.679$ ($\sigma\; 0.065{\to}0.011$)---confirming the instability came from trai
 toward degenerate zero targets. But it does not turn the loss into a benefit: the
 masked WTA-L1 cell ($0.6715 \pm 0.0112$) is still $+5.5\%$ worse than the masked
 no-auxiliary control ($0.6365$; hierarchical $p{<}10^{-4}$), and the fix leaves the
-no-pose baseline unchanged ($0.6602 \pm 0.0149$ masked vs.\ $0.6604$; $p{=}0.95$).
+no-pose baseline unchanged ($0.6602 \pm 0.0149$ masked vs.\ $0.6604$; pedestrian
+bootstrap $p{=}0.95$, hierarchical $p{=}0.63$).
 The on-10fps auxiliary pose signal is, as predicted, inert.
 
 \paragraph{Reproducibility note.} Table~\ref{tab:loss_ablation} and the GRU/attention
@@ -642,8 +643,8 @@ contributes exactly zero initially (the backbone passes through unchanged) and w
 additively.
 
 \begin{table}[t]
-\caption{Pretrain $\times$ pose ablation, seed-replicated (three seeds per cell).
-All runs include HD map and use 30-epoch fine-tuning on the 579-scene subset
+\caption{Pretrain $\times$ pose ablation, seed-replicated (five seeds per cell;
+the two GRU cells three). All runs include HD map and use 30-epoch fine-tuning on the 579-scene subset
 (the no-pretrain rows repeat Table~\ref{tab:map_ablation}'s map cells).
 Pretrained variants load the same full-Waymo backbone checkpoint via residual
 zero-init pose fusion; fine-tuning seeds vary.}
@@ -704,10 +705,11 @@ rotation-space losses carry gradient---do not move accuracy
 (the no-auxiliary control matches or edges the active-loss cells, though it too is
 not seed-significant). Its
 degenerate zero targets are plausibly counterproductive, anchoring shared features
-toward a constant, which may explain why the $20\%$ heavy-tailed failure rate of
-no-map pose runs (bad basins, not late divergence) concentrates in auxiliary-active
-GRU cells and vanishes with map context or pretraining---reinforcing that on small
-benchmarks per-seed values or failure rates must be reported, not seed means alone.
+toward a constant, which may explain why the heavy-tailed failures of no-map pose
+runs (6 of 27, $22\%$, reach \minADE $\geq 0.70$; bad basins, not late divergence)
+concentrate in auxiliary-active GRU cells and vanish with map context or
+pretraining---reinforcing that on small benchmarks per-seed values or failure rates
+must be reported, not seed means alone.
 
 % ===========================================================================
 \section{Limitations}
@@ -909,14 +911,16 @@ prediction task.
 \end{figure}
 
 Figure~\ref{fig:training_curves} shows validation \minADE over 30 training epochs
-for the temporal encoding variants, with per-seed bands. Two qualitative
-observations are stable across seeds: cross-attention without positional encoding
-tracks the trajectory-only baseline throughout, and the pose-conditioned variants
-exhibit larger epoch-to-epoch variability than the baseline. The GRU band is
-dominated by its failed seeds, whose validation curves plateau near $0.72$--$0.83$
-from early in training rather than diverging late---the failure is a bad basin,
-not a late-training collapse---while the cross-attention+PE band is the
-narrowest of all variants.
+for the temporal encoding variants, with per-seed bands (five seeds for xattn+PE
+and the GRU, three for no-PE). Two qualitative observations are stable across
+seeds: cross-attention without positional encoding tracks the trajectory-only
+baseline throughout, and the pose-conditioned variants exhibit larger
+epoch-to-epoch variability than the baseline. The failure mode is a bad basin,
+not a late-training collapse: both the GRU's failed seeds (plateaus near
+$0.72$--$0.83$) and the cross-attention+PE failure seed (505) sit high from early
+in training. At five seeds the xattn+PE band is no longer the narrowest---its
+three-seed tightness was the sampling artifact discussed in
+Section~\ref{sec:main_result}.
 
 
 \subsection{Qualitative Examples}

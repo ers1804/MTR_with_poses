@@ -159,7 +159,7 @@ wta_v      = (cell_best_values('mtr+pose_data_geo_only', 'wta01', S5)
               + cell_best_values('mtr+pose_data_gmm_only', 'gmm_only', S3))  # same config, pooled
 mpjpe_v    = cell_best_values('mtr+pose_data_mpjpe_only', 'mpjpe', S3)
 full_v     = cell_best_values('mtr+pose_data', 'full', S3)
-xattnpe_v  = cell_best_values('mtr+pose_data_cross_attn_pe', 'xattn_pe', S3)
+xattnpe_v  = cell_best_values('mtr+pose_data_cross_attn_pe', 'xattn_pe', S5)
 
 print("panel (a) data:")
 for name, v in [('baseline', baseline_v), ('no aux', noaux_v), ('WTA pooled', wta_v),
@@ -234,7 +234,7 @@ print("Saved fig_ablation.pdf")
 CELLS_FIG3 = [
     ('mtr+pose_data_no_pose',        'baseline', S5, GRAY,   '--', 'MTR baseline (no pose)'),
     ('mtr+pose_data_cross_attn',     'xattn',    S3, ORANGE, '-.', 'Cross-attn, no PE'),
-    ('mtr+pose_data_cross_attn_pe',  'xattn_pe', S3, GREEN,  ':',  'Cross-attn + sinus. PE'),
+    ('mtr+pose_data_cross_attn_pe',  'xattn_pe', S5, GREEN,  ':',  'Cross-attn + sinus. PE'),
     ('mtr+pose_data_geo_only',       'wta01',    S5, BLUE,   '-',  'GRU + WTA-L1'),
 ]
 
