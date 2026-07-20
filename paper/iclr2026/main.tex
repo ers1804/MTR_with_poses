@@ -523,13 +523,11 @@ no-pose baseline unchanged ($0.6602 \pm 0.0149$ masked vs.\ $0.6604$; pedestrian
 bootstrap $p{=}0.95$, hierarchical $p{=}0.63$).
 The on-10fps auxiliary pose signal is, as predicted, inert.
 
-\paragraph{Reproducibility note.} All seed-matrix results in this paper were
-produced with the \emph{pre-fix} code (tagged in the release); the released code
-masks the future-pose losses, so re-running any cell with an active auxiliary loss
-yields the masked training distribution instead. We verified the no-pose baseline is
-unchanged under the fix ($p{=}0.95$) and re-ran the four audit cells masked (above);
-the encoder/map/pretraining cells were not re-run masked, so their masked-code
-counterparts may differ from the tabled (pre-fix) values.
+\paragraph{Reproducibility note.} All seed-matrix results were produced with the
+\emph{pre-fix} code (tagged in the release); the released code masks the future-pose
+losses, so re-running any aux-active cell yields the masked training distribution.
+The baseline is verified unchanged ($p{=}0.95$) and the four audit cells are re-run
+masked above; other aux-active cells were not, and may differ under the fix.
 
 \subsection{Ablation: Temporal Encoding --- GRU vs.\ Cross-Attention}
 \label{sec:temporal_ablation}
@@ -727,29 +725,25 @@ looked like $-1.9\%$ at three seeds fell to $-0.7\%$ (n.s.) once the no-pose
 fine-tune was measured at five seeds. Whether denser or cleaner pose labels at scale
 would change the picture is untestable here.
 
-\textbf{Pose provenance and decoder.} The LiDAR-derived SMPL pseudo-ground-truth
-(Waymo-3DSkelMo) is matched to Waymo tracks; its root-orientation correction
-partially couples the root channel to past trajectory (Section~\ref{sec:setup}), so
-part of the pose signal overlaps with observed position history---indeed, zeroing
-that channel removes the entire xattn+PE gain (Section~\ref{sec:temporal_ablation}),
-so much of the benefit is heading re-entering, not new body information. Online pose
-estimation in deployment would also carry different noise, and we do not evaluate
-predicted-pose quality independently (our metric is trajectory only).
+\textbf{Pose provenance and decoder.} The LiDAR-derived SMPL pseudo-GT
+(Waymo-3DSkelMo) couples the root-orientation channel to past trajectory
+(Section~\ref{sec:setup}); zeroing that channel removes the entire xattn+PE gain
+(Section~\ref{sec:temporal_ablation}), so much of the benefit is heading re-entry,
+not new body information. Deployed online pose estimation would carry different
+noise, and we do not evaluate predicted-pose quality (our metric is trajectory only).
 
 \textbf{Statistical power and two bootstrap levels.} Our primary paired bootstrap
 resamples pedestrians on \emph{seed-averaged} errors; we also report a
 \emph{hierarchical} bootstrap resampling seeds then pedestrians---the conservative
-test we rely on for significance. Under it the map ($-26\%$) and pretraining
-($-22\%$) trajectory effects survive strongly ($p{<}10^{-4}$), and exactly one pose
-effect does---map\,$\times$\,xattn+PE, $-1.6\%$, $p{<}10^{-4}$---while every other
-pose margin does not (no-map xattn+PE $p{=}0.70$, GRU+map $p{=}0.99$, pretrained pose
-$p{=}0.35$). The pedestrian-only bootstrap would have called several of these
-significant; requiring seed resampling is what caught two of our own headline claims.
-We test ${\sim}30$ pairs without multiplicity correction; the effects we rely on
-($p{\leq}10^{-4}$) survive a Bonferroni correction at this family size, while
-everything in the $0.01$--$0.05$ range should be read as exploratory.
-The best-checkpoint protocol (kept for comparability) selects on validation noise;
-all CIs cover one validation split only.
+test we rely on. Under it the map ($-26\%$) and pretraining ($-22\%$) trajectory
+effects survive strongly ($p{<}10^{-4}$), and exactly one pose effect
+does---map\,$\times$\,xattn+PE, $-1.6\%$, $p{<}10^{-4}$---while every other pose
+margin does not (no-map xattn+PE $p{=}0.70$, GRU+map $p{=}0.99$, pretrained pose
+$p{=}0.35$); requiring seed resampling is what caught two of our own headline
+claims. We test ${\sim}30$ pairs uncorrected: the relied-upon effects
+($p{\leq}10^{-4}$) survive Bonferroni at this family size; the $0.01$--$0.05$ range
+is exploratory. The best-checkpoint protocol selects on validation noise; all CIs
+cover one validation split only.
 
 % ===========================================================================
 \section{Conclusion}
