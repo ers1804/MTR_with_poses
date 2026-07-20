@@ -343,6 +343,19 @@ results — to test whether they are n=3 artifacts like the no-map xattn_pe.
 **Corrected big picture (interim, n=3 no-pose cells):** context stabilizes training
 and is where pose's benefit looked real. FINALIZED below with 5-seed no-pose cells.
 
+### Phase 4f (2026-07-20): 30fps future-pose supervision, seed-replicated
+
+Seed-replicated the appendix future-pose ablation (was a single run). Also fixed a
+P1.6 regression: the 30fps uniform-spacing assertion checked the sparse real
+`waymo_timestamps` (which have dropped-frame gaps) and wrongly rejected valid files
+(commit 1c345a4). pose30fps (GRU, full loss, 30fps active future poses) = 0.6480 ±
+0.0123 (3 seeds). **full(10fps inert)→pose30fps = −1.44%, hierarchical p=0.13 (NOT
+significant)** — activating the future-pose losses does not reliably beat the inert
+condition; the single-run 0.5% null now replicated with real uncertainty.
+baseline→pose30fps −1.9% borderline p=0.05 (n=3, one-seed-driven; encoder wobble, not
+supervision). Paper future-pose ablation updated to 3 seeds; conclusion unchanged
+(the benefit, where present, is the past encoder, not future-pose supervision).
+
 ### Phase 4e (2026-07-13): 5-seed map/pretrain PAIRS — pretrain pose ALSO collapses
 
 Ran map_nopose & ft_nopose seeds 404/505 so both arms of the map/pretrain pairs are

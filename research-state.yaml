@@ -578,9 +578,17 @@ scheduled_2026_07_15:
     Re-confirmed from the raw NAS files: 10fps has exactly 5/91,520 nonzero future-pose steps
     (files carry only ~7 real pose frames over 0-0.6s); 30fps has 88,909 (dense, but
     motion-prior-completed, not observed). Both share the same 7 real waymo_timestamps.
-  status: "SCHEDULED -- GPU busy with another user's 16h diffusion job. Detached poller
-    tools/scripts/run_30fps_when_free.sh waits for a free GPU, then runs MS_pose30fps_s{101,202,303}
-    + analysis. Log: /tmp/run_30fps_when_free.log. Then fold into paper (future-pose ablation) + backup slide."
+  status: "DONE 2026-07-20. (Scheduler fired 07-17 but crashed on a P1.6 regression: the 30fps
+    uniform-spacing assertion checked the sparse real waymo_timestamps, which have dropped-frame
+    gaps -> wrongly rejected valid files. Fixed in 1c345a4; re-ran manually once GPU freed.)"
+  result: >-
+    pose30fps (GRU, full loss, 30fps active future poses) = 0.6480 +- 0.0123 (3 seeds).
+    KEY comparison full(10fps inert)->pose30fps = -1.44%, hierarchical p=0.13 (NOT significant):
+    activating the future-pose losses does not reliably improve trajectory accuracy over the
+    inert condition -- the single-run 0.5% null now seed-replicated with real uncertainty.
+    baseline->pose30fps = -1.9% borderline p=0.05 (n=3, one-seed-driven; the fragile encoder
+    effect, not a supervision effect). Paper future-pose ablation updated (single-run -> 3 seeds);
+    appendix seed matrix + Gamma backup slide updated. Conclusion unchanged.
 
 outer_loop:
   cycle: 12
