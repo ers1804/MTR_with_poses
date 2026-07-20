@@ -43,8 +43,10 @@ pytest 4/4; paper 9 main pages, 0 undefined refs; JSON identical to fresh regene
   run queue finalizes numbers. **Official Waymo mAP: BLOCKED** — tensorflow + waymo_open_dataset
   not installed in mtr_smpl, AND result.pkl (full predictions) were deleted by the matrix
   scripts with only last-epoch checkpoints kept, so best-epoch mAP is impossible for existing
-  runs; options surfaced to Erik (separate TF env + re-eval last-epoch ckpts of headline cells,
-  vs drop mAP and keep MR@2m).
+  runs; DECIDED (Erik, 2026-07-20): option (b) —
+  drop official mAP; keep MR@2m as the external anchor and disclose in the paper why official
+  Waymo metrics are not reported (predictions not retained; only last-epoch checkpoints kept).
+  Paper text lands together with the final MR@2m numbers after the run queue completes.
 - [x] **2.4 World-frame pose confound** — IMPLEMENTED 2026-07-20: `rotate_root_6d` helper +
   `AGENT_CENTRIC_POSE_ROT` dataset flag (root joint 0 rotated by Rz(-heading), matching the
   trajectory transform; body joints parent-relative, untouched). Unit-tested (3 tests).
