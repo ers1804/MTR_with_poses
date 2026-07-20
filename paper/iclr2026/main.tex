@@ -523,11 +523,13 @@ no-pose baseline unchanged ($0.6602 \pm 0.0149$ masked vs.\ $0.6604$; pedestrian
 bootstrap $p{=}0.95$, hierarchical $p{=}0.63$).
 The on-10fps auxiliary pose signal is, as predicted, inert.
 
-\paragraph{Reproducibility note.} Table~\ref{tab:loss_ablation} and the GRU/attention
-heavy tails were produced with the \emph{pre-fix} code (tagged in the release); the
-released code masks the future-pose losses, so re-running these cells reproduces the
-masked numbers above rather than the table. The encoder, map, and pretraining results
-are mask-insensitive (past poses are non-zero on 10fps) and reproduce either way.
+\paragraph{Reproducibility note.} All seed-matrix results in this paper were
+produced with the \emph{pre-fix} code (tagged in the release); the released code
+masks the future-pose losses, so re-running any cell with an active auxiliary loss
+yields the masked training distribution instead. We verified the no-pose baseline is
+unchanged under the fix ($p{=}0.95$) and re-ran the four audit cells masked (above);
+the encoder/map/pretraining cells were not re-run masked, so their masked-code
+counterparts may differ from the tabled (pre-fix) values.
 
 \subsection{Ablation: Temporal Encoding --- GRU vs.\ Cross-Attention}
 \label{sec:temporal_ablation}
@@ -743,6 +745,9 @@ effect does---map\,$\times$\,xattn+PE, $-1.6\%$, $p{<}10^{-4}$---while every oth
 pose margin does not (no-map xattn+PE $p{=}0.70$, GRU+map $p{=}0.99$, pretrained pose
 $p{=}0.35$). The pedestrian-only bootstrap would have called several of these
 significant; requiring seed resampling is what caught two of our own headline claims.
+We test ${\sim}30$ pairs without multiplicity correction; the effects we rely on
+($p{\leq}10^{-4}$) survive a Bonferroni correction at this family size, while
+everything in the $0.01$--$0.05$ range should be read as exploratory.
 The best-checkpoint protocol (kept for comparability) selects on validation noise;
 all CIs cover one validation split only.
 
