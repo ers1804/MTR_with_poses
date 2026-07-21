@@ -356,6 +356,39 @@ baseline→pose30fps −1.9% borderline p=0.05 (n=3, one-seed-driven; encoder wo
 supervision). Paper future-pose ablation updated to 3 seeds; conclusion unchanged
 (the benefit, where present, is the past encoder, not future-pose supervision).
 
+### Phase 5 (2026-07-21): EVERYTHING at n=5 with clean code provenance — FINAL picture
+
+34-run review queue (phase5→5b→5c→5d) + provenance repair: pre-fix cells extended in a
+worktree pinned to the pre-fix commit; the earlier mixed xattn_pe 404/505 renamed to
+xattn_pe_maskedcode. All numbers in experiments/multiseed_analysis.json.
+
+**Headline results:**
+- **xattn_pe clean 5-seed cell = 0.6648 ± 0.0381** (pre-fix 404/505 both fail: .710/.703).
+  The collapse REPLICATES under clean provenance — retraction stands, stronger
+  (+0.7% vs baseline, hier p=0.83). The PE-ordering effect dies with it (no-PE vs PE
+  p=0.76). NO encoder property is resolvable in the no-map regime.
+- **MECHANISM REVERSED: the map-condition benefit is NOT heading re-entry.**
+  map_norootorient (root zeroed) = 0.4800 ± 0.0046 ≈ map_xattn_pe (p=0.58), still
+  −1.55% vs no-pose+map (paired p<1e-4, hier p=0.07 @ n=3). map_agentrot (agent-centric
+  pose frame) = 0.4801 ± 0.0056 (p=0.65) — no frame confound. The one surviving pose
+  benefit (map×xattn+PE −1.57%, p=1e-4, n=5 both arms) is genuine BODY-CONFIGURATION
+  signal. (Opposite of the no-map root-orient story, which is now uninformative because
+  there is no no-map gain to decompose.)
+- Masked audit @ n=5: "WTA still hurts +5.5%" DEAD (all masked cells n.s. vs masked
+  baseline; geo_pure_masked got a .727 failure seed — degraded seeds occur even with no
+  active aux). Masking removes only the WTA-specific catastrophic tail.
+- Pretrain pose @ n=5 both arms: −0.7–0.8%, n.s. (GRU p=0.45, xattn p=0.35); encoders
+  indistinguishable pretrained (p=0.97). map GRU: −0.6% p=0.30 n.s.
+- 30fps supervision null @ n=5: −0.5% p=0.60 (pose30fps got a .708 failure seed).
+- Failure stats: 9/35 no-map pose runs (26%) ≥0.70 — GRU AND attention alike.
+- MR@2m: 0.239 no-map / 0.145 map / 0.093 pretrained; pose moves it ≤0.005 anywhere.
+
+**FINAL story: three of our own headline effects (−7.6% geodesic, −3.5% encoder,
+PE-ordering) were seed artifacts. Pose helps in exactly one configuration
+(map×xattn+PE, −1.6%, p=1e-4) and that benefit is genuine body configuration, robust
+to root-zeroing and frame choice. Context (map −26%, pretrain −23%) dominates.**
+Paper fully rewritten to this (commit 753ba7c); 9 pages, 0 undefined refs.
+
 ### Phase 4e (2026-07-13): 5-seed map/pretrain PAIRS — pretrain pose ALSO collapses
 
 Ran map_nopose & ft_nopose seeds 404/505 so both arms of the map/pretrain pairs are

@@ -26,17 +26,14 @@ pytest 4/4; paper 9 main pages, 0 undefined refs; JSON identical to fresh regene
 
 ## Part 2 — Missing experiments (ranked) & tracking
 
-- [ ] **2.1 Root-orientation ablation in the MAP condition** ← *highest value; IN PROGRESS 2026-07-20*
+- [x] **2.1 Root-orientation ablation in the MAP condition** — DONE 2026-07-21. RESULT: map_norootorient 0.4800±0.0046 ≈ map_xattn_pe (p=0.58), still −1.55% vs no-pose+map → the map-condition benefit is NOT heading re-entry; mechanistic claim reversed in the paper (favorably).
   The mechanistic headline ("even the surviving −1.6% is mostly heading re-entry") is extrapolated
   from the no-map ablation to the map×xattn+PE cell where it was never tested.
   Plan: `mtr+pose_data_cross_attn_pe_with_map_norootorient.yaml`, 3 seeds (101/202/303),
   tag `MS_map_norootorient_s<seed>`. Decision rule: if map_norootorient ≈ map_nopose, the heading
   story extends to the map condition; if map_norootorient ≈ map_xattn_pe, the map-condition gain is
   NOT heading-driven and §4.4/§4.5/Limitations/Conclusion must be softened.
-- [ ] **2.2 n=3 → n=5 for cells supporting claims** (self-consistency with the paper's own thesis)
-  - [ ] `norootorient` seeds 404/505 (σ=0.0031 suspiciously tight — the exact artifact signature)
-  - [ ] `map_wta01` seeds 404/505 (supports "GRU+map gives nothing")
-  - [ ] (scope TBD) `pose30fps`, masked audit cells to n=5
+- [x] **2.2 EVERYTHING to n=5** — DONE 2026-07-21 (34 runs; pre-fix cells via worktree per Part 4). Key: clean xattn_pe collapse replicates (.710/.703); masked '+5.5%' claim dead; pretrain pose n.s.; 30fps null firm.
 - [~] **2.3 External metrics anchor** — MR@2m implemented in analyze_multiseed.py (fraction of
   evaluated pedestrians with best-epoch minFDE > 2 m; NOT the official velocity-gated Waymo
   MissRate). Sanity: baseline 0.239, map 0.145, pretrained 0.093. Paper integration after the
@@ -99,9 +96,9 @@ map_wta01, xattn, gmm_only, mpjpe, full, ft_wta01.
    404/505 — current-code-consistent) → phase5b (pose30fps + 5 masked cells 404/505 —
    current-code-consistent) → phase5c (**worktree, pre-fix code**: xattn_pe, xattn,
    gmm_only, mpjpe, full, map_wta01, ft_wta01 404/505).
-4. After completion: regenerate analysis; **the xattn_pe collapse claim must be
-   re-evaluated on the clean pre-fix 5-seed cell** — if pre-fix 404/505 come out tight,
-   the "second artifact" story changes again and the paper must be updated accordingly.
+4. RESOLVED 2026-07-21: pre-fix 404/505 = 0.7098/0.7029 — the collapse REPLICATES under
+   clean provenance; the retraction stands (stronger). Mixed-cell flaw did not drive the
+   conclusion, but the record is now clean.
 5. Note for mixed-comparator pairs: map_nopose/ft_nopose 404/505 (phase4e) are post-fix,
    but those cells are no-pose; the fix was verified to leave the no-pose baseline
    unchanged (p=0.95), so treating them as one cell is defensible — disclosed here.
@@ -112,3 +109,7 @@ map_wta01, xattn, gmm_only, mpjpe, full, ft_wta01.
   2.1 launched; decisions taken (2.2 = everything to n=5; 2.3 = MR + Waymo mAP;
   2.4 = map_xattn_pe ×3). Mixing flaw found (Part 4); mixed runs renamed; pre-fix
   worktree created; 31-run serial queue launched (phase5 → 5b → 5c).
+
+- 2026-07-21: review queue complete (34/34 OK). Final n=5 picture folded into paper
+  (753ba7c), findings.md, research-state.yaml. Mechanism reversed (map benefit = body
+  configuration, not heading). MR@2m in paper; mAP dropped per decision (b). PPTX next.

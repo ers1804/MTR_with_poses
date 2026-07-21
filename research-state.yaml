@@ -590,6 +590,21 @@ scheduled_2026_07_15:
     effect, not a supervision effect). Paper future-pose ablation updated (single-run -> 3 seeds);
     appendix seed matrix + Gamma backup slide updated. Conclusion unchanged.
 
+phase5_matrix:
+  date: "2026-07-21"
+  runs: 34  # review queue (5->5b->5c worktree->5d) + provenance repair
+  final_picture: >-
+    EVERYTHING at n=5 with clean code provenance. xattn_pe clean cell 0.6648+-0.0381
+    (pre-fix 404/505 fail at .710/.703) -- collapse replicates, +0.7% vs baseline p=0.83;
+    PE-ordering effect dies (p=0.76); NO encoder property resolvable no-map.
+    MECHANISM REVERSED: map_norootorient 0.4800 ~= map_xattn_pe (p=0.58, still -1.55% vs
+    no-pose+map) and map_agentrot 0.4801 (p=0.65) => the one surviving benefit
+    (map x xattn+PE -1.57%, p=1e-4, n=5 both arms) is genuine BODY-CONFIGURATION signal,
+    not heading re-entry, no frame confound. Masked-audit "+5.5% still hurts" dead at n=5.
+    Pretrain pose n.s. both arms. 30fps null -0.5% p=0.60. 9/35 no-map pose runs (26%)
+    >=0.70, GRU and attention alike. MR@2m 0.239/0.145/0.093; pose moves it <=0.005.
+    Paper fully rewritten (753ba7c): 9 pages, 0 undefined refs.
+
 outer_loop:
   cycle: 12
   last_direction: "AUDIT + 42-run multi-seed replication — geodesic claim retracted (inert loss), paper rewritten as seed-replicated study + auxiliary-loss audit; xattn+PE is the stable pose win (−3.5%); pose on pretrained backbone −1.9%."
