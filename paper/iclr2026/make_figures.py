@@ -156,9 +156,9 @@ print("Saved fig_architecture.pdf")
 baseline_v = cell_best_values('mtr+pose_data_no_pose', 'baseline', S5)
 noaux_v    = cell_best_values('mtr+pose_data_geo_pure', 'geo_pure', S5)
 wta_v      = (cell_best_values('mtr+pose_data_geo_only', 'wta01', S5)
-              + cell_best_values('mtr+pose_data_gmm_only', 'gmm_only', S3))  # same config, pooled
-mpjpe_v    = cell_best_values('mtr+pose_data_mpjpe_only', 'mpjpe', S3)
-full_v     = cell_best_values('mtr+pose_data', 'full', S3)
+              + cell_best_values('mtr+pose_data_gmm_only', 'gmm_only', S5))  # same config, pooled
+mpjpe_v    = cell_best_values('mtr+pose_data_mpjpe_only', 'mpjpe', S5)
+full_v     = cell_best_values('mtr+pose_data', 'full', S5)
 xattnpe_v  = cell_best_values('mtr+pose_data_cross_attn_pe', 'xattn_pe', S5)
 
 print("panel (a) data:")
@@ -168,7 +168,7 @@ for name, v in [('baseline', baseline_v), ('no aux', noaux_v), ('WTA pooled', wt
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(6.5, 2.8))
 
-configs = ['No pose\n(baseline)', 'No aux\n(GRU)', 'WTA-L1\n(GRU, 8 runs)',
+configs = ['No pose\n(baseline)', 'No aux\n(GRU)', 'WTA-L1\n(GRU, 10 runs)',
            'MPJPE+WTA\n(GRU)', 'All\n(GRU)']
 values  = [baseline_v, noaux_v, wta_v, mpjpe_v, full_v]
 colors  = [GRAY, LBLUE, LORANGE, LORANGE, LORANGE]
@@ -204,7 +204,7 @@ ax2.axhline(bm, color=GRAY, linestyle='--', linewidth=0.8, zorder=1)
 # the 8 replicates at w=0.1 (same config as the draft's w=0.1 point)
 jitter = rng.uniform(-0.004, 0.004, size=len(wta_v))
 ax2.scatter(0.10 + jitter, wta_v, s=16, facecolor='white', edgecolor=ORANGE,
-            linewidth=0.9, zorder=3, label='replicates at $w{=}0.1$ (8 seeds)')
+            linewidth=0.9, zorder=3, label='replicates at $w{=}0.1$ (10 seeds)')
 
 ax2.plot(weights, draft_sweep, 'o-', color=BLUE, linewidth=1.2, markersize=5,
          zorder=4, label='draft sweep (1 seed)')
@@ -233,7 +233,7 @@ print("Saved fig_ablation.pdf")
 
 CELLS_FIG3 = [
     ('mtr+pose_data_no_pose',        'baseline', S5, GRAY,   '--', 'MTR baseline (no pose)'),
-    ('mtr+pose_data_cross_attn',     'xattn',    S3, ORANGE, '-.', 'Cross-attn, no PE'),
+    ('mtr+pose_data_cross_attn',     'xattn',    S5, ORANGE, '-.', 'Cross-attn, no PE'),
     ('mtr+pose_data_cross_attn_pe',  'xattn_pe', S5, GREEN,  ':',  'Cross-attn + sinus. PE'),
     ('mtr+pose_data_geo_only',       'wta01',    S5, BLUE,   '-',  'GRU + WTA-L1'),
 ]
