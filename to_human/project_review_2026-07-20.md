@@ -103,6 +103,42 @@ map_wta01, xattn, gmm_only, mpjpe, full, ft_wta01.
    but those cells are no-pose; the fix was verified to leave the no-pose baseline
    unchanged (p=0.95), so treating them as one cell is defensible — disclosed here.
 
+## Part 5 — Professor feedback follow-ups (2026-08-12)
+
+Four ToDos from Erik's advisor. All target the ONE surviving result (map x xattn+PE,
+-1.57%, p<1e-4). Scope confirmed with Erik: #4 is a representation ablation inside our
+framework, NOT a head-to-head against a published skeleton method (separate codebase,
+different datasets/metrics -> cited, not benchmarked).
+
+- [~] **F1 Wrong-pose control** (`SHUFFLE_POSES_ACROSS_AGENTS`). Each pedestrian gets
+  another pedestrian's pose sequence (fixed seeded derangement, 0 self-assignments).
+  Donor *content* is placed on the *recipient's* observation grid, so the validity masks
+  are bit-identical (verified 60/60 scenes; 1567 == 1567 valid pose frames) -- otherwise
+  the shuffle silently dropped 28% of valid pose frames and "wrong pose" would have been
+  confounded with "less pose". Decision rule: if the -1.6% survives wrong poses, the
+  benefit is capacity/regularization, not pose information. 5 seeds, phase6.
+- [~] **F2 Two-second horizon.** Both arms retrained at NUM_FUTURE_FRAMES=20 with
+  intention points RE-CLUSTERED from 2s endpoints (shipped goals span 1.7-49.2 m; true
+  2s endpoints span 0.02-7.48 m -- reusing them would mis-specify the goal head).
+  Plus horizon-decomposed minADE@2s/4s/8s now recorded per agent. 10 runs, phase7.
+- [x] **F3 Subgroup selection — COMPLETE, negative result.** Discovery half A / confirmation
+  half B (hash split); pose-independent descriptors in two families (`past_*` deployable,
+  `future_*` oracle); full heuristic x threshold scan on A only; winning rule applied
+  verbatim to B. Best on A: `past_turn` top-10% = **-4.02%**. On held-out B the same rule
+  gives **-1.83% (p=0.30, n=287)** vs -1.59% complement and -1.79% overall.
+  **No subgroup has a materially larger pose benefit**; the -4.02% was selection noise.
+  (Mild, non-significant trend: larger displacement / faster / turning agents benefit
+  slightly more, ~-2.1 to -2.4% at moderate thresholds.) Reporting the A-number naively
+  would have manufactured a fourth artifact of the kind this paper documents.
+  Artifacts: `tools/scripts/subgroup_analysis.py`, `experiments/subgroup_analysis.json`.
+- [~] **F4 SMPL 6D rotations vs 3D skeleton keypoints** (`POSE_REPRESENTATION=joints3d`).
+  72-d root-relative SMPL-derived joints vs 144-d 6D rotations, same poses/model/protocol
+  (`POSE_INPUT_DIM` makes the encoder input configurable; targets stay 6D so the decoder
+  and inert aux losses are untouched). Verified: root joint exactly 0, max extent 0.81 m,
+  masks identical to the 6d cell. This finally *tests* the paper's positioning claim
+  ("parametric SMPL, unlike prior skeleton work"), which is currently only asserted.
+  5 seeds, phase6.
+
 ## Status log
 
 - 2026-07-20: review completed; Part-1 fixes committed; this file created.
@@ -113,3 +149,7 @@ map_wta01, xattn, gmm_only, mpjpe, full, ft_wta01.
 - 2026-07-21: review queue complete (34/34 OK). Final n=5 picture folded into paper
   (753ba7c), findings.md, research-state.yaml. Mechanism reversed (map benefit = body
   configuration, not heading). MR@2m in paper; mAP dropped per decision (b). PPTX next.
+- 2026-08-12: professor follow-ups F1-F4 implemented (commit 74f46e0). F3 complete
+  (negative result: no subgroup amplification survives held-out confirmation). F1/F4
+  running (phase6), F2 chained (phase7). Two implementation confounds caught and fixed
+  before launch: shuffle-induced pose-frame loss, and 8s intention points at a 2s horizon.
