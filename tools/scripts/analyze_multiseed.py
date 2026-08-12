@@ -61,6 +61,11 @@ CELLS = {
     'xattn_pe_maskedcode': 'mtr+pose_data_cross_attn_pe',
     # Review item 2.4 (2026-07-20): agent-centric root-orientation rotation.
     'map_agentrot': 'mtr+pose_data_cross_attn_pe_with_map_agentrot',
+    # Professor follow-ups (2026-08-12).
+    'map_shufflepose': 'mtr+pose_data_cross_attn_pe_with_map_shufflepose',  # #1 wrong pose
+    'map_joints3d':    'mtr+pose_data_cross_attn_pe_with_map_joints3d',     # #4 skeleton keypoints
+    'map_nopose_2s':   'mtr+pose_data_no_pose_with_map_2s',                 # #2 2s horizon
+    'map_xattn_pe_2s': 'mtr+pose_data_cross_attn_pe_with_map_2s',
 }
 SEEDS = [101, 202, 303, 404, 505]  # 404/505 only exist for headline cells (phase 2)
 
@@ -108,6 +113,14 @@ PAIRS = [
     # Review 2.4: world-frame-pose confound — agent-centric root rotation.
     ('map_xattn_pe', 'map_agentrot'),      # does the frame choice change the map result?
     ('map_nopose', 'map_agentrot'),        # pose benefit with agent-centric poses
+    # Follow-up #1: is the benefit pose INFORMATION, or capacity/regularization?
+    ('map_nopose', 'map_shufflepose'),     # wrong poses vs no pose: benefit should vanish
+    ('map_xattn_pe', 'map_shufflepose'),   # wrong vs correct poses: should be a clear loss
+    # Follow-up #4: SMPL 6D rotations vs 3D skeleton keypoints (same poses, same model)
+    ('map_nopose', 'map_joints3d'),
+    ('map_xattn_pe', 'map_joints3d'),
+    # Follow-up #2: 2s horizon (both arms retrained with re-clustered intention points)
+    ('map_nopose_2s', 'map_xattn_pe_2s'),
 ]
 
 EPOCH_RE = re.compile(r'Performance of EPOCH (\d+)')

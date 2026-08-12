@@ -37,11 +37,13 @@ class MTREncoder(nn.Module):
         )
         self.use_pose_encoder = self.model_cfg.get('USE_POSE_ENCODER', True)
         self.use_cross_attn_pose = self.model_cfg.get('USE_CROSS_ATTN_POSE', False)
+        # Pose encoder input dim: 144 (6D rotations, default) or 72 (3D joint keypoints).
+        self.pose_input_dim = self.model_cfg.get('POSE_INPUT_DIM', 144)
         if self.use_pose_encoder:
             if self.use_cross_attn_pose:
                 # H5: cross-attention pose encoder
                 # Projects each pose frame to D_MODEL, then cross-attends from agent feature
-                self.pose_proj = nn.Linear(144, self.model_cfg.D_MODEL)
+                self.pose_proj = nn.Linear(self.pose_input_dim, self.model_cfg.D_MODEL)
                 self.pose_cross_attn = nn.MultiheadAttention(
                     embed_dim=self.model_cfg.D_MODEL,
                     num_heads=self.model_cfg.NUM_ATTN_HEAD,
@@ -62,7 +64,7 @@ class MTREncoder(nn.Module):
             else:
                 # Default: GRU pose encoder
                 self.pose_encoder = torch.nn.GRU(
-                    input_size=144,
+                    input_size=self.pose_input_dim,
                     hidden_size=self.model_cfg.D_MODEL,
                     num_layers=self.model_cfg.NUM_LAYER_IN_POSE_GRU,
                     dropout=self.model_cfg.get('DROPOUT_OF_POSE_GRU', 0.0),

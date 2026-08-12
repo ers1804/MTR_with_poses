@@ -196,6 +196,24 @@ class WaymoPoseDataset(DatasetTemplate):
         # via the orientation-snapped root channel?
         self.zero_root_orient = self.dataset_cfg.get('ZERO_ROOT_ORIENT', False)
 
+        # Professor follow-up #1 (2026-08): negative control -- give each pedestrian a
+        # DIFFERENT pedestrian's pose sequence (a fixed, seeded derangement over the
+        # split's npz files). Realistic pose statistics, destroyed pose<->trajectory
+        # correspondence: if the pose benefit survives this, it is capacity /
+        # regularization, not pose information. A permutation preserves the marginal
+        # distribution of valid-pose-frame counts exactly, unlike noise corruption.
+        self.shuffle_poses = self.dataset_cfg.get('SHUFFLE_POSES_ACROSS_AGENTS', False)
+
+        # Professor follow-up #4: encoder-input pose representation.
+        #   '6d'       -> 144-d (24 joints x 6D rotation)  [default, as in the paper]
+        #   'joints3d' -> 72-d  (24 SMPL joints x 3, root-relative) = skeleton keypoints
+        # Only the ENCODER INPUT changes; future-pose targets stay 6D so the (inert)
+        # auxiliary losses and the decoder heads are untouched and the cells stay comparable.
+        self.pose_representation = self.dataset_cfg.get('POSE_REPRESENTATION', '6d')
+        assert self.pose_representation in ('6d', 'joints3d'), self.pose_representation
+        self.pose_input_dim = 144 if self.pose_representation == '6d' else 72
+        self._smpl_layer = None  # lazily built per worker (joints3d only)
+
         # Review 2.4: rotate the root-orientation channel into each center object's
         # agent-centric frame (Rz(-heading), matching the trajectory transform).
         # Trajectories are agent-centric but poses were left in the world frame — a
@@ -215,6 +233,23 @@ class WaymoPoseDataset(DatasetTemplate):
 
         self.infos = self._build_scene_index()
         self.logger.info(f'Total scenes: {len(self.infos)} | Mode: {self.mode}')
+
+        self._pose_donor = {}
+        if self.shuffle_poses:
+            all_npz = [f for info in self.infos for f in info['npz_files']]
+            rng = np.random.RandomState(12345)   # fixed: the corrupted dataset is identical
+            perm = rng.permutation(len(all_npz))  # across training seeds and across splits
+            for i in range(len(perm)):            # break fixed points -> true derangement
+                if perm[i] == i:
+                    j = (i + 1) % len(perm)
+                    perm[i], perm[j] = perm[j], perm[i]
+            self._pose_donor = {all_npz[i]: all_npz[perm[i]] for i in range(len(all_npz))}
+            n_fixed = sum(1 for k, v in self._pose_donor.items() if k == v)
+            self.logger.info(f'SHUFFLE_POSES_ACROSS_AGENTS: {len(self._pose_donor)} pedestrians '
+                             f'reassigned ({n_fixed} self-assignments remain)')
+        if self.pose_representation != '6d':
+            self.logger.info(f'POSE_REPRESENTATION={self.pose_representation} '
+                             f'(encoder input dim {self.pose_input_dim})')
 
     def _build_scene_index(self):
         """Build an index of all scenes, each with all its pedestrian .npz files."""
@@ -400,7 +435,41 @@ class WaymoPoseDataset(DatasetTemplate):
 
         return (map_polylines.numpy(), map_polylines_mask.numpy(), map_polylines_center.numpy())
 
-    def _load_pedestrian(self, npz_path, waymo_traj=None):
+    def _pose_features(self, root_orient, pose_body, betas):
+        """Per-observation encoder-input pose features.
+
+        '6d'       -> (N, 144) 6D rotations (paper default).
+        'joints3d' -> (N, 72) root-relative 3D SMPL joint positions, i.e. the skeleton
+                      keypoint representation used by prior pose-conditioned forecasters.
+                      Derived from the SAME poses via SMPL forward kinematics, so the
+                      comparison isolates the *representation*, not the estimation pipeline.
+        """
+        if self.pose_representation == '6d':
+            return smpl_params_to_6d(root_orient, pose_body)
+
+        import torch
+        if self._smpl_layer is None:
+            from smplpytorch.pytorch.smpl_layer import SMPL_Layer
+            model_root = self.dataset_cfg.get(
+                'SMPL_MODEL_DIR', str(cfg.ROOT_DIR / 'models'))
+            layer = SMPL_Layer(center_idx=0, gender='neutral', model_root=model_root)
+            # SMPL_NEUTRAL.pkl carries a 300-dim shape space; SMPL uses 10 betas.
+            if layer.th_shapedirs.shape[2] != 10:
+                layer.th_shapedirs = layer.th_shapedirs[:, :, :10].contiguous()
+            if layer.th_betas.shape[1] != 10:
+                layer.th_betas = layer.th_betas[:, :10].contiguous()
+            self._smpl_layer = layer.eval()
+
+        N = root_orient.shape[0]
+        pose_aa = np.concatenate([root_orient, pose_body], axis=-1).astype(np.float32)  # (N,72)
+        with torch.no_grad():
+            _, joints = self._smpl_layer(torch.from_numpy(pose_aa),
+                                         torch.from_numpy(np.tile(betas[None], (N, 1))))
+        joints = joints.numpy()                       # (N, 24, 3), SMPL joint order
+        joints = joints - joints[:, 0:1, :]           # root-relative (translation removed)
+        return joints.reshape(N, -1).astype(np.float32)
+
+    def _load_pedestrian(self, npz_path, waymo_traj=None, pose_src_path=None):
         """Load a single pedestrian .npz file and map to the standard Waymo time grid.
 
         Supports two data formats:
@@ -417,20 +486,26 @@ class WaymoPoseDataset(DatasetTemplate):
 
         Returns:
             traj_full: (total_timestamps, 10) [cx, cy, cz, dx, dy, dz, heading, vx, vy, valid]
-            pose_6d_full: (total_timestamps, 144) 6D rotation representation
+            pose_6d_full: (total_timestamps, 144) 6D rotations -- future-pose TARGETS
+            pose_input_full: (total_timestamps, pose_input_dim) ENCODER INPUT features
+                             (identical to pose_6d_full unless POSE_REPRESENTATION=joints3d)
             betas: (10,) shape parameters
         """
         data = np.load(npz_path)
-        root_orient = data['root_orient'].astype(np.float32)
-        pose_body = data['pose_body'].astype(np.float32)
-        betas = data['betas'].astype(np.float32)           # (10,)
+        # Negative control: take the pose (and its own timing/shape) from a DIFFERENT
+        # pedestrian, while keeping this agent's real trajectory.
+        pose_data = np.load(pose_src_path) if pose_src_path is not None else data
+        root_orient = pose_data['root_orient'].astype(np.float32)
+        pose_body = pose_data['pose_body'].astype(np.float32)
+        betas = pose_data['betas'].astype(np.float32)      # (10,)
 
         pose_6d_full = np.zeros((self.total_timestamps, 144), dtype=np.float32)
+        pose_input_full = np.zeros((self.total_timestamps, self.pose_input_dim), dtype=np.float32)
 
         if '30fps_timestamps' in data:
             # 30fps format: root_orient/pose_body have N consecutive rows starting at
             # waymo_timestamps[0]. Row i maps to Waymo 10fps grid step (start_idx + i).
-            timestamps = data['waymo_timestamps'].astype(np.float64) / 1e6  # µs → s
+            timestamps = data['waymo_timestamps'].astype(np.float64) / 1e6  # µs → s (recipient)
             start_idx = int(round(timestamps[0] / self.dt))
             # A negative start_idx would silently write to the array tail via Python
             # negative indexing (P1.6). NOTE: we do NOT assert uniform spacing here —
@@ -438,24 +513,32 @@ class WaymoPoseDataset(DatasetTemplate):
             # have dropped-frame gaps (e.g. [0.40, 0.70, 0.79, 0.89]); the row->grid
             # mapping uses the dense motion-prior rows, not these timestamps.
             assert start_idx >= 0, f"30fps start_idx {start_idx} < 0 for {npz_path}"
-            N = root_orient.shape[0]
-            pose_6d = smpl_params_to_6d(root_orient, pose_body)  # (N, 144)
+            N = data['root_orient'].shape[0] if pose_src_path is not None else root_orient.shape[0]
+            pose_6d = smpl_params_to_6d(root_orient, pose_body)  # (N_src, 144)
+            pose_in = self._pose_features(root_orient, pose_body, betas)
             end_idx = min(start_idx + N, self.total_timestamps)
             n_copy = end_idx - start_idx
-            pose_6d_full[start_idx:end_idx] = pose_6d[:n_copy]
+            # modulo: a donor with fewer rows cycles, so the recipient's grid span is
+            # filled exactly as in the real condition (identical validity mask)
+            take = np.arange(n_copy) % pose_6d.shape[0]
+            pose_6d_full[start_idx:end_idx] = pose_6d[take]
+            pose_input_full[start_idx:end_idx] = pose_in[take]
         else:
             # 10fps format: sparse observations, map to grid by timestamp.
-            timestamps = data['waymo_timestamps'].astype(np.float64) / 1e6  # (N,) µs → seconds
+            timestamps = data['waymo_timestamps'].astype(np.float64) / 1e6  # recipient's grid
             N = len(timestamps)
             time_grid = np.arange(self.total_timestamps) * self.dt
-            pose_6d = smpl_params_to_6d(root_orient, pose_body)  # (N, 144)
+            pose_6d = smpl_params_to_6d(root_orient, pose_body)  # (N_src, 144)
+            pose_in = self._pose_features(root_orient, pose_body, betas)
+            n_src = pose_6d.shape[0]
             for i in range(N):
                 grid_idx = int(np.argmin(np.abs(time_grid - timestamps[i])))
                 # Only assign when the nearest grid point is within half a grid step;
                 # the old `grid_idx < total` check was dead (argmin is always in range)
                 # and let a stray timestamp snap to a wrong step (P1.6).
                 if abs(time_grid[grid_idx] - timestamps[i]) < self.dt / 2:
-                    pose_6d_full[grid_idx] = pose_6d[i]
+                    pose_6d_full[grid_idx] = pose_6d[i % n_src]
+                    pose_input_full[grid_idx] = pose_in[i % n_src]
 
         if waymo_traj is not None:
             # Use real Waymo trajectory — real past AND future ground truth
@@ -499,8 +582,10 @@ class WaymoPoseDataset(DatasetTemplate):
         if self.zero_root_orient:
             # Zero joint-0 (root orientation) = first 6 dims; body joints untouched.
             pose_6d_full[:, 0:6] = 0.0
+            if self.pose_representation == '6d':
+                pose_input_full[:, 0:6] = 0.0
 
-        return traj_full, pose_6d_full, betas
+        return traj_full, pose_6d_full, pose_input_full, betas
 
     def create_scene_level_data(self, index):
         """Create scene-level data matching the WaymoDataset output interface.
@@ -518,20 +603,25 @@ class WaymoPoseDataset(DatasetTemplate):
         # Load all pedestrians in the scene
         obj_trajs_full_list = []
         pose_6d_full_list = []
+        pose_input_full_list = []
         betas_list = []
         obj_ids = []
 
         for npz_path in npz_files:
             ped_id = int(Path(npz_path).stem)
             waymo_traj = waymo_traj_map.get(ped_id) if waymo_traj_map is not None else None
-            traj_full, pose_6d_full, betas = self._load_pedestrian(npz_path, waymo_traj=waymo_traj)
+            traj_full, pose_6d_full, pose_input_full, betas = self._load_pedestrian(
+                npz_path, waymo_traj=waymo_traj,
+                pose_src_path=self._pose_donor.get(npz_path))
             obj_trajs_full_list.append(traj_full)
             pose_6d_full_list.append(pose_6d_full)
+            pose_input_full_list.append(pose_input_full)
             betas_list.append(betas)
             obj_ids.append(Path(npz_path).stem)
 
         obj_trajs_full = np.stack(obj_trajs_full_list, axis=0)  # (num_objects, total_timestamps, 10)
         pose_6d_full = np.stack(pose_6d_full_list, axis=0)  # (num_objects, total_timestamps, 144)
+        pose_input_all = np.stack(pose_input_full_list, axis=0)  # (num_objects, total, pose_input_dim)
         betas_all = np.stack(betas_list, axis=0)  # (num_objects, 10)
 
         obj_types = np.array(['TYPE_PEDESTRIAN'] * num_objects)
@@ -541,7 +631,8 @@ class WaymoPoseDataset(DatasetTemplate):
         obj_trajs_past = obj_trajs_full[:, :self.num_past]  # (num_objects, 11, 10)
         obj_trajs_future = obj_trajs_full[:, self.num_past:]  # (num_objects, 80, 10)
 
-        pose_past = pose_6d_full[:, :self.num_past]  # (num_objects, 11, 144)
+        # Encoder input (representation-dependent) vs future targets (always 6D).
+        pose_past = pose_input_all[:, :self.num_past]  # (num_objects, 11, pose_input_dim)
         pose_future = pose_6d_full[:, self.num_past:]  # (num_objects, 80, 144)
 
         timestamps = np.arange(self.num_past, dtype=np.float32) * self.dt
@@ -1056,12 +1147,22 @@ class WaymoPoseDataset(DatasetTemplate):
             last_idx = last_valid_idx[-1]
             fde_per_mode = np.linalg.norm(pred_trajs[:, last_idx, 0:2] - gt_xy[last_idx], axis=-1)
 
-            records.append({
+            rec = {
                 'scenario_id': pred['scenario_id'],
                 'object_id': pred['object_id'],
                 'minADE': float(ade_per_mode.min()),
                 'minFDE': float(fde_per_mode.min()),
                 'num_valid_future_steps': int(gt_valid.sum()),
-            })
+            }
+            # Horizon decomposition (follow-up #2): minADE restricted to the first
+            # k steps, so the error can be attributed to short vs long horizons.
+            # Mode selection is per-horizon (min over modes within that horizon).
+            for k in (20, 40, 80):
+                kv = gt_valid[:k]
+                if kv.sum() == 0:
+                    continue
+                ade_k = (dist[:, :k] * kv[None, :]).sum(axis=-1) / kv.sum()
+                rec[f'minADE_{k//10}s'] = float(ade_k.min())
+            records.append(rec)
 
         return records
