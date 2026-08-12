@@ -66,6 +66,7 @@ CELLS = {
     'map_joints3d':    'mtr+pose_data_cross_attn_pe_with_map_joints3d',     # #4 skeleton keypoints
     'map_nopose_2s':   'mtr+pose_data_no_pose_with_map_2s',                 # #2 2s horizon
     'map_xattn_pe_2s': 'mtr+pose_data_cross_attn_pe_with_map_2s',
+    'map_constpose':   'mtr+pose_data_cross_attn_pe_with_map_constpose',  # capacity control
 }
 SEEDS = [101, 202, 303, 404, 505]  # 404/505 only exist for headline cells (phase 2)
 
@@ -121,6 +122,8 @@ PAIRS = [
     ('map_xattn_pe', 'map_joints3d'),
     # Follow-up #2: 2s horizon (both arms retrained with re-clustered intention points)
     ('map_nopose_2s', 'map_xattn_pe_2s'),
+    ('map_nopose', 'map_constpose'),      # does a zero-information pose branch still help?
+    ('map_xattn_pe', 'map_constpose'),
 ]
 
 EPOCH_RE = re.compile(r'Performance of EPOCH (\d+)')

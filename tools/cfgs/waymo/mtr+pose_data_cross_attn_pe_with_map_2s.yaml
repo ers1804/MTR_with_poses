@@ -14,7 +14,10 @@ DATA_CONFIG:
     }
 
     NUM_PAST_TIMESTAMPS: 11
-    NUM_FUTURE_TIMESTAMPS: 20   # follow-up #2: 2.0s horizon
+    NUM_FUTURE_TIMESTAMPS: 80
+
+    # follow-up #2: supervise/evaluate only the first 2.0 s (grid stays 91 steps)
+    PREDICT_HORIZON_STEPS: 20
     DT: 0.1
 
     PROCESSED_SCENARIOS_PATH: '/home/erik/NAS/personal/waymo_agent_batch'

@@ -110,13 +110,21 @@ Four ToDos from Erik's advisor. All target the ONE surviving result (map x xattn
 framework, NOT a head-to-head against a published skeleton method (separate codebase,
 different datasets/metrics -> cited, not benchmarked).
 
-- [~] **F1 Wrong-pose control** (`SHUFFLE_POSES_ACROSS_AGENTS`). Each pedestrian gets
+- [x] **F1 Wrong-pose control — COMPLETE, RESULT OVERTURNS THE POSITIVE CLAIM** (`SHUFFLE_POSES_ACROSS_AGENTS`). Each pedestrian gets
   another pedestrian's pose sequence (fixed seeded derangement, 0 self-assignments).
   Donor *content* is placed on the *recipient's* observation grid, so the validity masks
   are bit-identical (verified 60/60 scenes; 1567 == 1567 valid pose frames) -- otherwise
   the shuffle silently dropped 28% of valid pose frames and "wrong pose" would have been
   confounded with "less pose". Decision rule: if the -1.6% survives wrong poses, the
   benefit is capacity/regularization, not pose information. 5 seeds, phase6.
+  **RESULT (2026-08-12): map_shufflepose = 0.4797 +- 0.0038 (n=5) = -1.18% vs no-pose
+  (paired p=1e-4, hier p=0.05). Correct vs WRONG poses: +0.40%, hier p=0.29 -> NOT
+  distinguishable.** Wrong poses recover ~75% of the -1.57% benefit. Every pose-branch
+  variant clusters at 0.478-0.481 regardless of content (correct .4778 / root-zeroed
+  .4800 / agent-frame .4801 / WRONG .4797 / keypoints .4807 / GRU .4823) vs no-pose
+  .4854. => The gain is the pose BRANCH (capacity/optimization), not pose CONTENT.
+  This also re-reads the 2.1/2.4 controls: root-zeroing and frame-change looked harmless
+  not because body configuration carries the signal, but because content barely matters.
 - [~] **F2 Two-second horizon.** Both arms retrained at NUM_FUTURE_FRAMES=20 with
   intention points RE-CLUSTERED from 2s endpoints (shipped goals span 1.7-49.2 m; true
   2s endpoints span 0.02-7.48 m -- reusing them would mis-specify the goal head).
@@ -131,13 +139,15 @@ different datasets/metrics -> cited, not benchmarked).
   slightly more, ~-2.1 to -2.4% at moderate thresholds.) Reporting the A-number naively
   would have manufactured a fourth artifact of the kind this paper documents.
   Artifacts: `tools/scripts/subgroup_analysis.py`, `experiments/subgroup_analysis.json`.
-- [~] **F4 SMPL 6D rotations vs 3D skeleton keypoints** (`POSE_REPRESENTATION=joints3d`).
+- [x] **F4 SMPL 6D vs 3D skeleton keypoints — COMPLETE** (`POSE_REPRESENTATION=joints3d`).
   72-d root-relative SMPL-derived joints vs 144-d 6D rotations, same poses/model/protocol
   (`POSE_INPUT_DIM` makes the encoder input configurable; targets stay 6D so the decoder
   and inert aux losses are untouched). Verified: root joint exactly 0, max extent 0.81 m,
   masks identical to the 6d cell. This finally *tests* the paper's positioning claim
   ("parametric SMPL, unlike prior skeleton work"), which is currently only asserted.
-  5 seeds, phase6.
+  5 seeds, phase6. **RESULT: map_joints3d = 0.4807 +- 0.0049 (n=5), -0.97% vs no-pose
+  (hier p=0.11); vs 6D rotations +0.61%, hier p=0.20 -> indistinguishable. The paper's
+  positioning claim (parametric SMPL richer than skeleton keypoints) is NOT supported.**
 
 ## Status log
 
@@ -153,3 +163,11 @@ different datasets/metrics -> cited, not benchmarked).
   (negative result: no subgroup amplification survives held-out confirmation). F1/F4
   running (phase6), F2 chained (phase7). Two implementation confounds caught and fixed
   before launch: shuffle-induced pose-frame loss, and 8s intention points at a 2s horizon.
+- 2026-08-12 (later): phase6 COMPLETE. F1 overturns the last positive claim (wrong poses
+  recover ~75% of the benefit; correct-vs-wrong n.s.). F4: SMPL 6D == 3D keypoints (n.s.).
+  Capacity control added (CONSTANT_POSE: identical pose for every pedestrian, zero
+  information, masks unchanged) as phase8 to close the argument. phase7 (2s) rescheduled:
+  a FOREIGN job (navsim_eval, 18.3 GB) took the GPU mid-run and OOM'd my runs; a
+  free-GPU scheduler now waits for the card. A separate bug in the first 2s attempt was
+  mine and is fixed (PREDICT_HORIZON_STEPS truncates the prediction horizon; changing
+  NUM_FUTURE_TIMESTAMPS had desynced the 91-step data grid).

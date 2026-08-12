@@ -190,6 +190,12 @@ class WaymoPoseDataset(DatasetTemplate):
 
         self.without_hdmap = self.dataset_cfg.get('WITHOUT_HDMAP', True)
 
+        # Follow-up #2: shorten the PREDICTION horizon without touching the data grid.
+        # NUM_FUTURE_TIMESTAMPS defines the 91-step Waymo grid the trajectories live on
+        # and must stay 80; this truncates only the supervised/evaluated horizon and must
+        # match MODEL.MOTION_DECODER.NUM_FUTURE_FRAMES.
+        self.pred_horizon = self.dataset_cfg.get('PREDICT_HORIZON_STEPS', None)
+
         # Ablation: zero the root-orientation channel (joint 0 = first 6 dims of the
         # 144-dim 6D pose) while keeping body joints. Controls the heading-snapping
         # circularity — is the pose benefit just past trajectory heading re-entering
@@ -203,6 +209,11 @@ class WaymoPoseDataset(DatasetTemplate):
         # regularization, not pose information. A permutation preserves the marginal
         # distribution of valid-pose-frame counts exactly, unlike noise corruption.
         self.shuffle_poses = self.dataset_cfg.get('SHUFFLE_POSES_ACROSS_AGENTS', False)
+        # Stronger variant: give EVERY pedestrian the same donor pose sequence, so the
+        # pose branch carries zero information about the agent while the architecture,
+        # parameter count and validity masks are unchanged. If this still recovers the
+        # benefit, the gain is capacity/optimization, not pose information at all.
+        self.constant_pose = self.dataset_cfg.get('CONSTANT_POSE', False)
 
         # Professor follow-up #4: encoder-input pose representation.
         #   '6d'       -> 144-d (24 joints x 6D rotation)  [default, as in the paper]
@@ -235,7 +246,12 @@ class WaymoPoseDataset(DatasetTemplate):
         self.logger.info(f'Total scenes: {len(self.infos)} | Mode: {self.mode}')
 
         self._pose_donor = {}
-        if self.shuffle_poses:
+        if self.constant_pose:
+            all_npz = sorted(f for info in self.infos for f in info['npz_files'])
+            donor = all_npz[len(all_npz) // 2]      # one arbitrary but fixed pedestrian
+            self._pose_donor = {f: donor for f in all_npz}
+            self.logger.info(f'CONSTANT_POSE: all {len(all_npz)} pedestrians share {donor}')
+        elif self.shuffle_poses:
             all_npz = [f for info in self.infos for f in info['npz_files']]
             rng = np.random.RandomState(12345)   # fixed: the corrupted dataset is identical
             perm = rng.permutation(len(all_npz))  # across training seeds and across splits
@@ -633,7 +649,8 @@ class WaymoPoseDataset(DatasetTemplate):
 
         # Encoder input (representation-dependent) vs future targets (always 6D).
         pose_past = pose_input_all[:, :self.num_past]  # (num_objects, 11, pose_input_dim)
-        pose_future = pose_6d_full[:, self.num_past:]  # (num_objects, 80, 144)
+        n_fut = self.pred_horizon if self.pred_horizon is not None else self.num_future
+        pose_future = pose_6d_full[:, self.num_past:self.num_past + n_fut]  # (num_objects, H, 144)
 
         timestamps = np.arange(self.num_past, dtype=np.float32) * self.dt
 
@@ -668,6 +685,17 @@ class WaymoPoseDataset(DatasetTemplate):
             sdc_track_index=sdc_track_index,
             timestamps=timestamps, obj_types=obj_types, obj_ids=obj_ids
         )
+
+        if self.pred_horizon is not None:
+            H = self.pred_horizon
+            obj_trajs_future_state = obj_trajs_future_state[:, :, :H]
+            obj_trajs_future_mask = obj_trajs_future_mask[:, :, :H]
+            center_gt_trajs = center_gt_trajs[:, :H]
+            center_gt_trajs_mask = center_gt_trajs_mask[:, :H]
+            # last valid step must be recomputed within the shortened horizon
+            center_gt_final_valid_idx = np.zeros((len(track_index_to_predict_new),), dtype=np.float32)
+            for k in range(center_gt_trajs_mask.shape[1]):
+                center_gt_final_valid_idx[center_gt_trajs_mask[:, k] > 0] = k
 
         # Create pose data for center objects
         # We need to apply the same valid_past_mask filtering as create_agent_data_for_center_objects
