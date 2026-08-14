@@ -1182,6 +1182,28 @@ class WaymoPoseDataset(DatasetTemplate):
                 'minFDE': float(fde_per_mode.min()),
                 'num_valid_future_steps': int(gt_valid.sum()),
             }
+            # Mode-ranking diagnostics (R4): minADE@6 rewards mode COVERAGE, so a real
+            # effect on the most-likely mode or on score quality can hide inside it.
+            if 'pred_scores' in pred:
+                sc = np.asarray(pred['pred_scores']).reshape(-1)
+                if sc.shape[0] == ade_per_mode.shape[0]:
+                    rec['top1_ADE'] = float(ade_per_mode[int(sc.argmax())])
+                    # where the oracle-best mode sits in the predicted ranking (0 = best)
+                    order = np.argsort(-sc)
+                    rec['best_mode_rank'] = int(np.where(order == int(ade_per_mode.argmin()))[0][0])
+
+            # Mode diversity: minADE@K is a min over K modes, so a model that merely
+            # spreads its modes wider scores better without predicting better. Measure
+            # the spread directly (mean pairwise distance between modes).
+            if pred_trajs.shape[0] > 1:
+                ep = pred_trajs[:, -1, 0:2]                      # endpoint of each mode
+                dif = ep[:, None, :] - ep[None, :, :]
+                pw = np.linalg.norm(dif, axis=-1)
+                iu = np.triu_indices(pw.shape[0], k=1)
+                rec['mode_spread_endpoint'] = float(pw[iu].mean())
+                full = np.linalg.norm(pred_trajs[:, None, :, 0:2] - pred_trajs[None, :, :, 0:2], axis=-1).mean(axis=-1)
+                rec['mode_spread_mean'] = float(full[iu].mean())
+
             # Horizon decomposition (follow-up #2): minADE restricted to the first
             # k steps, so the error can be attributed to short vs long horizons.
             # Mode selection is per-horizon (min over modes within that horizon).
