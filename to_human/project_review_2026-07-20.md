@@ -149,6 +149,33 @@ different datasets/metrics -> cited, not benchmarked).
   (hier p=0.11); vs 6D rotations +0.61%, hier p=0.20 -> indistinguishable. The paper's
   positioning claim (parametric SMPL richer than skeleton keypoints) is NOT supported.**
 
+
+## Part 6 — R2: intent-classification task (PRE-REGISTERED 2026-08-17, before any results)
+
+**Motivation.** The skeleton/pose literature (fang2018pedestrian, rasouli2019pie,
+Social-Transmotion-adjacent work) claims pose helps *crossing intent*, not 8s metric
+forecasting. Test pose where the literature says the signal lives, on our data.
+
+**Label (fixed before looking at any model output):** for each evaluated pedestrian,
+using WORLD-frame GT: off-road at t0 (min distance from current position to any LANE
+polyline point > 3.0 m) AND enters roadway within the future (min distance of any
+valid GT future step to a lane polyline < 1.5 m) => positive "will-enter-roadway".
+Population = pedestrians off-road at t0 with >= 10 valid future steps. Primary
+horizon: full 8 s; secondary: 3 s. Parameters (3.0 / 1.5 m) chosen from lane
+half-width reasoning, not tuned.
+
+**Task & models.** Standalone binary classifier on the SAME dataset machinery:
+trajectory-only encoder (GRU over past 11 agent-centric states) vs trajectory+pose
+(adds the xattn+PE pose encoder used in the paper) vs trajectory+WRONG-pose (shuffled
+donor control). Identical training protocol, 5 seeds each, train on training split,
+evaluate AUROC on validation.
+
+**Decision rule (pre-registered):** pose "helps intent" iff AUROC(pose) >
+AUROC(no-pose) with hierarchical bootstrap p < 0.05 over 5 seeds AND
+AUROC(pose) > AUROC(wrong-pose) at p < 0.05. Anything else = null carries over to the
+intent task. No post-hoc threshold/horizon/population changes; secondary horizon is
+reported alongside, not substituted.
+
 ## Status log
 
 - 2026-07-20: review completed; Part-1 fixes committed; this file created.
