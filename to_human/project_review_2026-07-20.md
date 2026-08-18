@@ -230,3 +230,33 @@ paper statement is "consistent with, but not demonstrating, a noise-masked signa
   free-GPU scheduler now waits for the card. A separate bug in the first 2s attempt was
   mine and is fixed (PREDICT_HORIZON_STEPS truncates the prediction horizon; changing
   NUM_FUTURE_TIMESTAMPS had desynced the 91-step data grid).
+
+---
+
+## Part 8 (2026-08-18/19): Export id-collision bug — all prior pose data was cross-scene scrambled
+
+**Discovery** (while checking Erik's "the pipeline ran on all of WOMD" hunch): `export_final_data.py` grouped
+clips by object id alone across all ~326k scenes and both splits. WOMD ids are scene-local → every final npz
+contains the FIRST same-id pedestrian's body motion (walk order) with the LAST scene's metadata. Verified
+bit-identical smoking gun (11f5bcd637d947ce/8899 ← 903a915cc3ddf5a/8899); 19/20 sampled objects mismatch
+their own scene. Also explains the 579/5,171 scene counts (one output per unique id) and drops 4.7× of peds.
+
+**Consequence**: the paper's "correct pose" condition never existed — all pose cells were ~wrong-pose with a
+rescued root offset. The capacity-ladder result (correct ≈ wrong ≈ constant) is now data-explained. Central
+question (do genuine poses help?) is OPEN again.
+
+**Fix**: `Waymo-3DSkelMo/scripts/export_final_data_fixed.py` (per-scene; validated bit-for-bit on
+non-colliding ids). Full re-export DONE 2026-08-19: 299,220 train + 27,156 val scenes, 1.81M sequences,
+13 GB at /home/erik/big1/waymo_motion_poses/final_10fps.
+
+**Running**: clean-data re-run of the three core cells on the SAME 579/5,171 scene subset
+(final_10fps_subset579 symlinks): map_nopose_fix / map_xattn_pe_fix / map_shufflepose_fix, seeds 101/202/303,
+BATCH_SIZE_PER_GPU 10→4 (clean subset has 6,348 train peds vs 1,348 — memory). Queue:
+tools/scripts/run_fixdata_core.sh, log /tmp/multiseed_fixdata.log. Analyzer cells + pairs added.
+
+**Note for interpretation**: ped population per scene changed (1,348 corrupt → 6,348 clean), so fixdata cells
+are compared only against EACH OTHER (internally consistent triad), not against historical MS_* numbers.
+
+**Assessed and rejected**: nuScenes LiDAR poses (median 3 pts/ped), AV2 (no sensor data on disk; forecasting
+split has no LiDAR), image-HMR on WOMD (camera data = VQ-GAN tokens only, verified in proto). Image-HMR
+validation on Waymo Perception (vs 160.6mm LiDAR-HMR) remains queued.
