@@ -197,6 +197,17 @@ reduced). Secondary, reported not substituted: map_denoise vs map_xattn_pe (does
 denoising help at all) and map_nopose -> map_denoise. Any other outcome => the
 redundancy/absence explanation stands; no post-hoc smoothing-parameter search.
 
+**RESULT (2026-08-18): rule NOT met — but directionally suggestive.**
+  map_denoise 0.4774±0.0021 | map_denoise_shuffle 0.4813±0.0049 (5 seeds each)
+  PRIMARY  denoised-wrong -> denoised-correct: −0.82%, hier p=0.062  (rule: p<0.05 → FAIL)
+  denoising vs raw correct poses: −0.08%, p=0.80 (no overall gain)
+  no-pose -> denoised-correct: −1.65%, p=1e-4 (branch benefit unchanged)
+Post-denoising, the content gap DOUBLES vs raw (−0.40% p=0.29 → −0.82% p=0.062) —
+directionally consistent with noise masking a small content signal, but it does not
+clear the pre-registered bar, and this project's history shows p≈0.05–0.1 at n=5 goes
+both ways. Verdict recorded as: noise-as-binding-factor NOT demonstrated; the honest
+paper statement is "consistent with, but not demonstrating, a noise-masked signal".
+
 ## Status log
 
 - 2026-07-20: review completed; Part-1 fixes committed; this file created.
