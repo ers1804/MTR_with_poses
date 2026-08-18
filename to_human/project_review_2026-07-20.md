@@ -176,6 +176,27 @@ AUROC(pose) > AUROC(wrong-pose) at p < 0.05. Anything else = null carries over t
 intent task. No post-hoc threshold/horizon/population changes; secondary horizon is
 reported alongside, not substituted.
 
+
+## Part 7 — Temporal-denoising experiment (PRE-REGISTERED 2026-08-18, before any results)
+
+**Question.** Is measurement noise (~160 mm root-aligned MPJPE, 230-260 mm extremities)
+the binding factor behind the pose-content null, or is the content redundant/absent?
+
+**Method.** Mask-aware temporal smoothing of the ENCODER-INPUT pose sequences only
+(Gaussian kernel over valid frames, sigma = 1 frame, window 5; invalid frames untouched;
+validity masks bit-identical; future-pose targets untouched). This attacks per-frame
+jitter, which is what per-frame LiDAR-HMR error implies.
+
+**Cells (5 seeds each, map condition, xattn+PE):**
+  map_denoise          = correct poses, denoised
+  map_denoise_shuffle  = WRONG (shuffled-donor) poses, denoised  [control]
+
+**Decision rule:** "noise is the binding factor" iff map_denoise beats
+map_denoise_shuffle at hierarchical p < 0.05 (a content signal emerges once jitter is
+reduced). Secondary, reported not substituted: map_denoise vs map_xattn_pe (does
+denoising help at all) and map_nopose -> map_denoise. Any other outcome => the
+redundancy/absence explanation stands; no post-hoc smoothing-parameter search.
+
 ## Status log
 
 - 2026-07-20: review completed; Part-1 fixes committed; this file created.
