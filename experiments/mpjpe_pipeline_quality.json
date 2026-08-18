@@ -1,0 +1,48 @@
+{
+  "note": "Pose-quality measurement of the Waymo-3DSkelMo pipeline (the source of all pose inputs in this project), computed on the Waymo PERCEPTION validation split against lidar_hkp GT keypoints (the Motion split we train on has no GT). 40 segments, intersection of labeled+downloaded.",
+  "raw_world_frame": {
+    "overall_mpjpe_m": 5.031392750328155,
+    "per_segment": {
+      "LEFT_SHOULDER": 5.020250675763477,
+      "LEFT_ELBOW": 5.096038777711869,
+      "LEFT_WRIST": 4.939243867910814,
+      "RIGHT_SHOULDER": 5.0000374774816265,
+      "RIGHT_ELBOW": 5.045778133387066,
+      "RIGHT_WRIST": 4.943744786506697,
+      "LEFT_HIP": 5.040170494060259,
+      "LEFT_KNEE": 5.007136745962082,
+      "LEFT_ANKLE": 5.056771151941906,
+      "RIGHT_HIP": 5.016318238409254,
+      "RIGHT_KNEE": 5.056666297634988,
+      "RIGHT_ANKLE": 5.0433836293296155,
+      "HEAD": 5.150906324429878
+    }
+  },
+  "root_aligned": {
+    "n_frames": 347,
+    "raw_mm": {
+      "mean": 5043.55553804595,
+      "median": 4200.531761279158
+    },
+    "root_aligned_mm": {
+      "mean": 160.6199572328714,
+      "median": 152.93243649645123
+    },
+    "per_joint_aligned_mm": {
+      "LEFT_SHOULDER": 141.1670100287094,
+      "LEFT_ELBOW": 182.48141188970993,
+      "LEFT_WRIST": 235.391790522609,
+      "RIGHT_SHOULDER": 130.27209254485635,
+      "RIGHT_ELBOW": 168.64602988519434,
+      "RIGHT_WRIST": 260.2669496461324,
+      "LEFT_HIP": 60.97031312417421,
+      "LEFT_KNEE": 135.40384917914506,
+      "LEFT_ANKLE": 232.56066231758905,
+      "RIGHT_HIP": 61.0148070063017,
+      "RIGHT_KNEE": 137.46743849052646,
+      "RIGHT_ANKLE": 229.53189791149023,
+      "HEAD": 126.95157989239597
+    }
+  },
+  "interpretation": "Raw world-frame error (~5.0 m, uniform across joints) is a global placement/frame offset. Root-aligned MPJPE = 160.6 mm mean (152.9 median) is the pose-configuration quality. Extremities are worst (ankles/wrists 230-255 mm) - large relative to walking stride amplitude (~300-600 mm), so fine gait articulation is substantially noise in these pose estimates."
+}
