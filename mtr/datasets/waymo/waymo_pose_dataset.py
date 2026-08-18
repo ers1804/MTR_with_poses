@@ -122,6 +122,32 @@ def rotate_root_6d(poses, headings):
     return flat.reshape(poses.shape)
 
 
+def denoise_pose_sequence(seq, sigma=1.0, window=5):
+    """Mask-aware temporal Gaussian smoothing of a pose-feature sequence (Part 7).
+
+    Args:
+        seq: (T, D) pose features; all-zero rows are invalid (padding) and are
+             neither used as support nor modified.
+        sigma, window: Gaussian kernel width (frames) and half-window*2+1 size.
+    Returns:
+        (T, D) with valid rows replaced by the weighted average of neighboring
+        VALID rows; invalid rows untouched (validity masks stay bit-identical).
+    """
+    valid = np.abs(seq).sum(axis=-1) > 0
+    if valid.sum() < 2:
+        return seq
+    out = seq.copy()
+    half = window // 2
+    idxs = np.where(valid)[0]
+    for t in idxs:
+        lo, hi = max(0, t - half), min(len(seq), t + half + 1)
+        nb = [j for j in range(lo, hi) if valid[j]]
+        w = np.exp(-0.5 * ((np.array(nb) - t) / sigma) ** 2)
+        w /= w.sum()
+        out[t] = (w[:, None] * seq[nb]).sum(axis=0)
+    return out
+
+
 def compute_heading_from_positions(positions):
     """Compute heading angle from sequential positions.
 
@@ -214,6 +240,10 @@ class WaymoPoseDataset(DatasetTemplate):
         # parameter count and validity masks are unchanged. If this still recovers the
         # benefit, the gain is capacity/optimization, not pose information at all.
         self.constant_pose = self.dataset_cfg.get('CONSTANT_POSE', False)
+
+        # Part 7 (pre-registered): mask-aware temporal Gaussian smoothing of the
+        # encoder-input pose sequences (targets and validity masks untouched).
+        self.denoise_poses = self.dataset_cfg.get('DENOISE_POSES', False)
 
         # Professor follow-up #4: encoder-input pose representation.
         #   '6d'       -> 144-d (24 joints x 6D rotation)  [default, as in the paper]
@@ -600,6 +630,9 @@ class WaymoPoseDataset(DatasetTemplate):
             pose_6d_full[:, 0:6] = 0.0
             if self.pose_representation == '6d':
                 pose_input_full[:, 0:6] = 0.0
+
+        if self.denoise_poses:
+            pose_input_full = denoise_pose_sequence(pose_input_full)
 
         return traj_full, pose_6d_full, pose_input_full, betas
 

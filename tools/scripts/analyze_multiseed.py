@@ -67,6 +67,9 @@ CELLS = {
     'map_nopose_2s':   'mtr+pose_data_no_pose_with_map_2s',                 # #2 2s horizon
     'map_xattn_pe_2s': 'mtr+pose_data_cross_attn_pe_with_map_2s',
     'map_constpose':   'mtr+pose_data_cross_attn_pe_with_map_constpose',  # capacity control
+    # Part 7 (2026-08-18): temporal denoising discriminator.
+    'map_denoise':         'mtr+pose_data_cross_attn_pe_with_map_denoise',
+    'map_denoise_shuffle': 'mtr+pose_data_cross_attn_pe_with_map_denoise_shuffle',
 }
 SEEDS = [101, 202, 303, 404, 505]  # 404/505 only exist for headline cells (phase 2)
 
@@ -124,6 +127,10 @@ PAIRS = [
     ('map_nopose_2s', 'map_xattn_pe_2s'),
     ('map_nopose', 'map_constpose'),      # does a zero-information pose branch still help?
     ('map_xattn_pe', 'map_constpose'),
+    # Part 7: does a content signal emerge once per-frame jitter is smoothed?
+    ('map_denoise_shuffle', 'map_denoise'),  # PRIMARY (pre-registered decision rule)
+    ('map_xattn_pe', 'map_denoise'),         # does denoising help over raw poses?
+    ('map_nopose', 'map_denoise'),
 ]
 
 EPOCH_RE = re.compile(r'Performance of EPOCH (\d+)')
