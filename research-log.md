@@ -61,3 +61,16 @@ Chronological record of research decisions and actions. Append-only.
   runs fail. (d) MR@2m added as external anchor (0.239/0.145/0.093); official Waymo
   mAP dropped (predictions not retained) and disclosed. Paper, findings.md,
   research-state.yaml and the slide deck all rewritten to this.
+
+## 2026-08-18 — CRITICAL: original pose export had cross-scene id-collision bug; all MTR pose data was effectively wrong-pose
+
+While preparing the WOMD-scale re-export (Erik's question "didn't the pipeline run on all of WOMD?"), traced the full 3DSkelMo funnel:
+extract 199,784+ train scenes → NeMF generation 1,876,000 clips (~326k scenes, 12 groups) → clips/ per-scene staging 299,222 train + 27,156 val → final_10fps **579 train / 5,171 val**.
+
+The collapse is NOT truncation. `export_final_data.py` built `target_files` keyed by object id alone (`file.rsplit('-',1)[0]`) via os.walk over ALL scenes and BOTH splits. WOMD object ids are scene-local (25.3% of ids in a 201-scene sample appear in >1 scene; ids range ~56–10,467). Every output npz therefore contains the body motion of the FIRST same-id pedestrian in walk order and the metadata (timestamps, floor, offset, betas) of the LAST; one output per unique id (~5.7k scene dirs).
+
+Smoking gun: final_10fps/training/11f5bcd637d947ce/8899.npz pose_body rows are bit-identical (0.0000) to clips content of scene 903a915cc3ddf5a object 8899, walked ~275k scenes earlier; own-scene content differs by 0.137 rad. 19/20 sampled objects mismatch their own scene (mean 0.127 rad vs sequence std 0.324); the 1 exact match is a non-colliding id — which also validates the per-scene reimplementation bit-for-bit.
+
+Consequence: MTR configs read final_10fps directly (DATA_ROOT), so every pose-conditioned run in the project trained and evaluated on scrambled pedestrian identity — the "correct pose" condition never existed. This offers a data-level explanation for the capacity ladder (correct ≈ wrong ≈ constant) and requires re-testing the central claims on clean data. 7th and largest self-caught artifact.
+
+Fix + action: `Waymo-3DSkelMo/scripts/export_final_data_fixed.py` (per-scene grouping, resumable, 24 workers ≈ 14 scenes/s). Full re-export of ~326k scenes (~6.5 h) launched to /home/erik/big1/waymo_motion_poses/final_10fps. Next: rebuild the pose subset from clean data, re-run core cells (baseline vs pose vs wrong-pose with map, n=5), then decide paper reframe. nuScenes/AV2 extension assessed and rejected (nuScenes: median 3 LiDAR pts/ped; AV2: no sensor data on disk, no LiDAR in forecasting split; WOMD camera = VQ tokens only, so image-HMR impossible on WOMD).
