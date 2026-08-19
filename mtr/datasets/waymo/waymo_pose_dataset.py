@@ -3,6 +3,7 @@
 
 
 import numpy as np
+import os
 import pickle
 from pathlib import Path
 import torch
@@ -702,6 +703,15 @@ class WaymoPoseDataset(DatasetTemplate):
             current_time_index=self.current_time_index,
             obj_types=obj_types, scene_id=scene_id
         )
+
+        # Cap center objects per scene during training. The fixed export restores up to
+        # 153 pedestrians in one scene (the buggy export had dropped all but ~1 per id),
+        # and an uncapped dense scene OOMs a 24 GB GPU. Eval is never capped.
+        max_centers = int(os.environ.get('TRAIN_MAX_CENTERS', '0'))
+        if self.training and max_centers > 0 and len(track_index_to_predict) > max_centers:
+            sel = np.sort(np.random.choice(len(track_index_to_predict), max_centers, replace=False))
+            center_objects = center_objects[sel]
+            track_index_to_predict = track_index_to_predict[sel]
 
         # Use the first valid pedestrian as a pseudo-SDC
         sdc_track_index = track_index_to_predict[0]

@@ -24,7 +24,7 @@ for seed in 101 202 303; do
       [ "$used" -lt 4000 ] && [ "$used2" -lt 4000 ] && break
       sleep 270
     done
-    WANDB_MODE=offline "$PY" train.py --cfg_file "cfgs/waymo/${C[$cell]}.yaml" --extra_tag "${tag}" \
+    WANDB_MODE=offline PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True TRAIN_MAX_CENTERS=24 "$PY" train.py --cfg_file "cfgs/waymo/${C[$cell]}.yaml" --extra_tag "${tag}" \
       --random_seed "${seed}" --workers 8 --max_ckpt_save_num 1 > "/tmp/${tag}.log" 2>&1 \
       && touch "${out}/DONE" && rm -f "${out}/ckpt/best_model.pth" "${out}/eval/eval_with_train/result.pkl" \
       && echo "OK ${tag}" >> "$LOG" \
