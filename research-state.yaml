@@ -642,7 +642,13 @@ phase5_matrix:
 
 outer_loop:
   cycle: 13
-  last_direction: "EXPORT-BUG DISCOVERY + clean-data retest: all prior pose data was cross-scene scrambled (H10); clean re-export of full WOMD done; core triad + aux-loss recheck running on clean subset (H11). Previous direction: "AUDIT + 42-run multi-seed replication — geodesic claim retracted (inert loss), paper rewritten as seed-replicated study + auxiliary-loss audit; xattn+PE is the stable pose win (−3.5%); pose on pretrained backbone −1.9%."
+  last_direction: >-
+    EXPORT-BUG DISCOVERY + clean-data retest: all prior pose data was cross-scene
+    scrambled (H10); clean re-export of full WOMD done; core triad + aux-loss recheck
+    running on clean subset (H11). Previous direction: AUDIT + 42-run multi-seed
+    replication — geodesic claim retracted (inert loss), paper rewritten as
+    seed-replicated study + auxiliary-loss audit; xattn+PE was reported as the stable
+    pose win (−3.5%) [later revised to n.s. at n=5, then data-invalidated by H10].
   last_reflection: |
     H7 pretrain → H8/H9 fine-tune 2×2 (pretrain × pose) results:
 
