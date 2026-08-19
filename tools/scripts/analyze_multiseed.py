@@ -66,6 +66,7 @@ CELLS = {
     'map_nopose_fix': 'mtr+pose_data_no_pose_with_map_fixdata',            # clean-data re-run (post export bug)
     'map_xattn_pe_fix': 'mtr+pose_data_cross_attn_pe_with_map_fixdata',      # clean-data re-run
     'map_shufflepose_fix': 'mtr+pose_data_cross_attn_pe_with_map_shufflepose_fixdata',  # clean-data wrong-pose control
+    'map_wta01_fix': 'mtr+pose_data_geo_only_with_map_fixdata',             # clean-data aux pose loss
     'map_joints3d':    'mtr+pose_data_cross_attn_pe_with_map_joints3d',     # #4 skeleton keypoints
     'map_nopose_2s':   'mtr+pose_data_no_pose_with_map_2s',                 # #2 2s horizon
     'map_xattn_pe_2s': 'mtr+pose_data_cross_attn_pe_with_map_2s',
@@ -126,6 +127,7 @@ PAIRS = [
     ('map_nopose_fix', 'map_xattn_pe_fix'),        # CLEAN DATA: does correct pose help now?
     ('map_nopose_fix', 'map_shufflepose_fix'),     # CLEAN DATA: capacity control
     ('map_xattn_pe_fix', 'map_shufflepose_fix'),   # CLEAN DATA: content vs capacity
+    ('map_nopose_fix', 'map_wta01_fix'),           # CLEAN DATA: does the aux pose loss help now?
     # Follow-up #4: SMPL 6D rotations vs 3D skeleton keypoints (same poses, same model)
     ('map_nopose', 'map_joints3d'),
     ('map_xattn_pe', 'map_joints3d'),
