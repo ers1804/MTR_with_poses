@@ -1,0 +1,16 @@
+{
+  "corrupt": {
+    "n_heading": 350,
+    "heading_err_deg_mean": 44.66129033350486,
+    "heading_err_deg_median": 41.54896019504838,
+    "n_coupling": 485,
+    "articulation_speed_pearson_r": 0.26048158026903406
+  },
+  "fixed": {
+    "n_heading": 1742,
+    "heading_err_deg_mean": 20.14544908799351,
+    "heading_err_deg_median": 11.433902033395785,
+    "n_coupling": 2464,
+    "articulation_speed_pearson_r": 0.5759850008737885
+  }
+}

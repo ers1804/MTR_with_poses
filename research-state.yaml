@@ -118,6 +118,41 @@ hypotheses:
       best_epoch: 24
       notes: "PARTIALLY CONFIRMED — PE recovers 79% of GRU's advantage (0.6765→0.6337, Δ=-6.0% vs baseline). GRU still wins by 1.6% (0.6337 vs 0.6231). Revised interpretation: temporal ORDERING is the dominant requirement (PE captures this). Sequential INTEGRATION (GRU hidden state) provides an additional incremental gain. Both matter, but ordering dominates."
 
+  - id: H10_export_integrity
+    statement: "The final_10fps pose data used by ALL prior experiments contains, for most pedestrians, another same-id pedestrian's body motion (export_final_data.py grouped clips by scene-local object id across all ~326k scenes and both splits)."
+    status: supported
+    priority: critical
+    started: "2026-08-18"
+    result:
+      notes: >-
+        CONFIRMED 2026-08-19. Smoking gun: training/11f5bcd637d947ce/8899.npz pose content
+        bit-identical to scene 903a915cc3ddf5a object 8899 (walked ~275k scenes earlier);
+        19/20 sampled objects mismatch own-scene content. Also explains 579/5,171 scene
+        counts (one output per unique id) and the 1,348-ped training set (should be 6,348
+        on the same scenes). Every pose-conditioned result before 2026-08-19 was measured
+        on effectively wrong-pose data; the corrupt-era capacity ladder
+        (correct ~ wrong ~ constant) is data-explained. Proxy validation of the fix
+        (experiments/pose_proxy_quality.json): root-heading vs GT walking direction median
+        error 41.5 deg (corrupt) -> 11.4 deg (fixed); leg-articulation/speed correlation
+        r=0.26 -> 0.58. Fix: Waymo-3DSkelMo/scripts/export_final_data_fixed.py (per-scene,
+        validated bit-for-bit on non-colliding ids). Full re-export DONE: 299,220 train +
+        27,156 val scenes, 1.81M sequences, 13 GB, /home/erik/big1/waymo_motion_poses.
+
+  - id: H11_clean_data_retest
+    statement: "On correctly-exported per-pedestrian poses, the core comparison (no-pose vs correct-pose vs shuffled-pose, with map) may show a genuine pose benefit that the corrupt data masked."
+    status: in_progress
+    priority: critical
+    started: "2026-08-19"
+    config: "tools/cfgs/waymo/*_fixdata.yaml (DATA_ROOT=/home/erik/big1/waymo_motion_poses/final_10fps_subset579, BATCH_SIZE 2, TRAIN_MAX_CENTERS=24)"
+    prediction: >-
+      Pre-registered readout: hierarchical bootstrap on map_nopose_fix vs map_xattn_pe_fix
+      vs map_shufflepose_fix (pairs in analyze_multiseed.py). fixdata cells are compared
+      ONLY against each other (6,348 train / 20,034 val peds vs 1,348 / ~8k historical).
+      Phase 2 chained: map_wta01_fix re-tests the aux pose-prediction loss against real
+      targets (corrupt-era loss nulls were measured against scrambled targets).
+    result:
+      notes: "Queue running (tools/scripts/run_fixdata_core.sh + run_fixdata_losses.sh); 7/9 core runs done as of 2026-08-19 morning."
+
 # DATA FIX (resolved 2026-04-02):
 # PROBLEM: final_10fps SMPL data has observations ONLY in the past window (grid indices 0-10).
 #          Future window (indices 11-90) is always zero → zero training signal → mAP=0.
@@ -606,8 +641,8 @@ phase5_matrix:
     Paper fully rewritten (753ba7c): 9 pages, 0 undefined refs.
 
 outer_loop:
-  cycle: 12
-  last_direction: "AUDIT + 42-run multi-seed replication — geodesic claim retracted (inert loss), paper rewritten as seed-replicated study + auxiliary-loss audit; xattn+PE is the stable pose win (−3.5%); pose on pretrained backbone −1.9%."
+  cycle: 13
+  last_direction: "EXPORT-BUG DISCOVERY + clean-data retest: all prior pose data was cross-scene scrambled (H10); clean re-export of full WOMD done; core triad + aux-loss recheck running on clean subset (H11). Previous direction: "AUDIT + 42-run multi-seed replication — geodesic claim retracted (inert loss), paper rewritten as seed-replicated study + auxiliary-loss audit; xattn+PE is the stable pose win (−3.5%); pose on pretrained backbone −1.9%."
   last_reflection: |
     H7 pretrain → H8/H9 fine-tune 2×2 (pretrain × pose) results:
 
@@ -680,6 +715,13 @@ outer_loop:
     - H5b cross-attn + PE:     0.6337 (Δ=-6.0% — PE recovers 79% of GRU advantage)
     - GRU geo_only (best):     0.6231 (Δ=-7.6% — sequential integration adds final 1.6%)
     Paper updated: F5 refined, Table 2 extended, Figure 3 updated with H5b curve.
+  next_steps_2026_08_19:
+    - "Analyze fixdata triad with hierarchical bootstrap; extend to n=5 if any pair is near-significant"
+    - "Repeat triad in the finetune regime (trajectory-only full-Waymo pretrain checkpoint is unaffected by the bug)"
+    - "Full-pipeline MPJPE on Waymo Perception (through HuMoR/NeMF) - 160.6mm covers only the LiDAR-HMR stage"
+    - "Image-HMR validation on Perception raw images vs LiDAR-HMR 160.6mm"
+    - "WOMD camera tokens: 256 tokens per full image = 16x16 patch grid via official codebook (8192x32); no public RGB decoder in waymo-open-dataset; pedestrians span ~1-4 patches, so RGB-based SMPL estimation from tokens is NOT viable; possible alternative use: scene-level conditioning features (MoST-style)"
+    - "Scale-up: pose-conditioned training beyond the 579-scene subset (299k clean scenes now exist); consider Helma for multi-seed full-scale training"
 
 paper:
   status: "rewritten_after_audit"
@@ -717,7 +759,9 @@ workspace:
   experiments_dir: "experiments/"
   to_human_dir: "to_human/"
   paper_dir: "paper/"
-  data_root: "/home/erik/NAS/publicdatasets/waymo_motion/v_1_3_0/uncompressed/generated_motion/final_10fps"
+  data_root_corrupt_DO_NOT_USE: "/home/erik/NAS/publicdatasets/waymo_motion/v_1_3_0/uncompressed/generated_motion/final_10fps"  # id-collision bug, kept as evidence
+  data_root: "/home/erik/big1/waymo_motion_poses/final_10fps"  # fixed per-scene export 2026-08-19, full WOMD
+  data_root_subset: "/home/erik/big1/waymo_motion_poses/final_10fps_subset579"  # same 579/5,171 scenes as paper
   processed_scenarios_path: "/home/erik/NAS/personal/waymo_agent_batch"
   config_pose: "tools/cfgs/waymo/mtr+pose_data.yaml"
   config_no_pose: "tools/cfgs/waymo/mtr+pose_data_no_pose.yaml"
