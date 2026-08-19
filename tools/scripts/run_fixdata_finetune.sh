@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 PY=/home/erik/anaconda3/envs/mtr_smpl/bin/python
 LOG=/tmp/multiseed_fixdata.log
 H7_CKPT=../output/waymo/mtr+full_ped_pretrain/H7_full_pretrain/ckpt/checkpoint_epoch_30.pth
-until grep -q "fixdata losses queue finished" "$LOG" 2>/dev/null; do sleep 300; done
+until grep -q "fixdata extend queue finished" "$LOG" 2>/dev/null; do sleep 300; done
 echo "=== fixdata finetune queue started $(date) ===" >> "$LOG"
 declare -A C=(
   [ft_nopose_fix]=mtr+full_ped_finetune_no_pose_fixdata
