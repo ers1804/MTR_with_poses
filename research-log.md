@@ -74,3 +74,18 @@ Smoking gun: final_10fps/training/11f5bcd637d947ce/8899.npz pose_body rows are b
 Consequence: MTR configs read final_10fps directly (DATA_ROOT), so every pose-conditioned run in the project trained and evaluated on scrambled pedestrian identity — the "correct pose" condition never existed. This offers a data-level explanation for the capacity ladder (correct ≈ wrong ≈ constant) and requires re-testing the central claims on clean data. 7th and largest self-caught artifact.
 
 Fix + action: `Waymo-3DSkelMo/scripts/export_final_data_fixed.py` (per-scene grouping, resumable, 24 workers ≈ 14 scenes/s). Full re-export of ~326k scenes (~6.5 h) launched to /home/erik/big1/waymo_motion_poses/final_10fps. Next: rebuild the pose subset from clean data, re-run core cells (baseline vs pose vs wrong-pose with map, n=5), then decide paper reframe. nuScenes/AV2 extension assessed and rejected (nuScenes: median 3 LiDAR pts/ped; AV2: no sensor data on disk, no LiDAR in forecasting split; WOMD camera = VQ tokens only, so image-HMR impossible on WOMD).
+
+## 2026-08-19 (later) — clean-data core triad at n=5: the n=3 harm signal dissolves; full null
+
+Extension seeds 404/505 complete (pre-registered trigger: hier p<0.05 at n=3). Final n=5 picture on clean data
+(579-scene subset, 6,348 train peds):
+- map_nopose_fix      0.4599 ± 0.0206  (seed 404 is a 0.4954 outlier — the n=3 mean was flattered)
+- map_xattn_pe_fix    0.4620 ± 0.0094  → vs no-pose +0.45%, hier p=0.76 (was +1.85%, p=0.037 at n=3)
+- map_shufflepose_fix 0.4589 ± 0.0075  → vs no-pose −0.21%, hier p=0.96
+- correct vs shuffled: −0.66%, hier p=0.46
+- map_wta01_fix (n=3) +1.44% vs no-pose, hier p=0.33 — aux loss on real targets: no effect
+
+VERDICT: with genuinely correct poses (proxy-validated), 4.7× more pedestrians than the corrupt era, and the
+aux-loss recheck, the from-scratch map regime shows a complete null: no help, no harm, content
+indistinguishable from scrambled content. The n=3 harm report is the project's 8th self-caught
+seed artifact. Remaining levers: finetune regime (running), 299k-scene scale-up, better pose quality (image-HMR).
