@@ -89,3 +89,14 @@ VERDICT: with genuinely correct poses (proxy-validated), 4.7× more pedestrians 
 aux-loss recheck, the from-scratch map regime shows a complete null: no help, no harm, content
 indistinguishable from scrambled content. The n=3 harm report is the project's 8th self-caught
 seed artifact. Remaining levers: finetune regime (running), 299k-scene scale-up, better pose quality (image-HMR).
+
+## 2026-08-20 — finetune triad (clean data, n=3): SHUFFLED poses significantly best; n=5 extension launched
+
+- ft_nopose_fix      0.3683 ± 0.0033
+- ft_xattn_pe_fix    0.3690 ± 0.0045  → vs no-pose +0.19%, hier p=0.80 (null)
+- ft_shufflepose_fix 0.3636 ± 0.0009  → vs no-pose −1.27% hier p=0.016; vs correct −1.46% hier p=0.037
+
+The wrong-pose control BEATS both no-pose and correct-pose in the finetune regime, with unusually tight seeds.
+If it survives n=5 (seeds 404/505 queued: run_fixdata_ft_extend.sh), the reading is structured-noise
+regularization during finetuning — realistic-but-uninformative input helps where correlated input does not.
+Given 8 prior 3-seed artifacts, no interpretation before n=5.
