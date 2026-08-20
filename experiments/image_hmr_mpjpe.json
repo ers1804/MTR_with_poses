@@ -1,0 +1,214 @@
+{
+  "description": "RGB HMR2.0 (4D-Humans, ViT-H) vs GT LiDAR keypoints on Waymo Perception pedestrians, 40 segments; same 13-joint matching, hip-midpoint root alignment and neutral SMPL as the LiDAR-HMR eval (mpjpe_root_aligned.json). lidar_hmr_published reproduces the 160.6mm protocol (30fps sequence indexed by track entry -> temporally misaligned); lidar_hmr_ts_aligned indexes the 30fps sequence at the GT frame timestamp and is the fair number. PA = per-frame Procrustes rotation+translation; _scale variant also fits scale. Image-HMR primary numbers use predicted betas; zero_betas variant matches the LiDAR pipeline convention (betas=0).",
+  "n_frames": 347,
+  "n_pedestrians": 113,
+  "n_segments": 24,
+  "n_skipped_missing_hips": 11,
+  "image_hmr": {
+    "root_aligned_mm": {
+      "mean": 106.20765703755403,
+      "median": 100.7159457734113
+    },
+    "pa_mm_noscale": {
+      "mean": 82.45619281275714,
+      "median": 76.60250293064756
+    },
+    "pa_mm_scale": {
+      "mean": 72.38607266066721,
+      "median": 67.65800155479377
+    },
+    "zero_betas": {
+      "root_aligned_mean": 103.41350645631717,
+      "pa_noscale_mean": 81.87238381479085,
+      "pa_scale_mean": 72.33864519663382
+    },
+    "per_joint_root_aligned_mm": {
+      "LEFT_SHOULDER": 88.90388945006255,
+      "LEFT_ELBOW": 100.81344558539759,
+      "LEFT_WRIST": 128.80198053737985,
+      "RIGHT_SHOULDER": 94.4387417828508,
+      "RIGHT_ELBOW": 104.69135333121697,
+      "RIGHT_WRIST": 139.53369781978424,
+      "LEFT_HIP": 41.37943849998104,
+      "LEFT_KNEE": 120.74730849920076,
+      "LEFT_ANKLE": 154.02254786511287,
+      "RIGHT_HIP": 41.3794384999811,
+      "RIGHT_KNEE": 113.86532860026809,
+      "RIGHT_ANKLE": 157.8425029181529,
+      "HEAD": 98.77161531023886
+    },
+    "per_joint_root_aligned_mm_zero_betas": {
+      "LEFT_SHOULDER": 85.48114443899814,
+      "LEFT_ELBOW": 98.65949050018766,
+      "LEFT_WRIST": 121.614856893529,
+      "RIGHT_SHOULDER": 91.60647595202353,
+      "RIGHT_ELBOW": 102.76519187959745,
+      "RIGHT_WRIST": 131.62913434797005,
+      "LEFT_HIP": 36.6271826375823,
+      "LEFT_KNEE": 118.20347228023067,
+      "LEFT_ANKLE": 152.59274064278193,
+      "RIGHT_HIP": 36.627182637582365,
+      "RIGHT_KNEE": 112.54034756191182,
+      "RIGHT_ANKLE": 156.2260931710161,
+      "HEAD": 103.47593104607411
+    }
+  },
+  "crop_height_px": {
+    "min": 125.71382168330899,
+    "q25": 190.20285389327853,
+    "median": 258.30046204203336,
+    "q75": 369.08605424488076,
+    "max": 664.9927664140318,
+    "mean": 288.3423132467734
+  },
+  "error_by_crop_height_quartile": [
+    {
+      "n": 87,
+      "box_h_range": [
+        125.71382168330899,
+        189.6829284437581
+      ],
+      "root_mm": 108.0427695949829,
+      "pa_mm": 77.13574304789476
+    },
+    {
+      "n": 86,
+      "box_h_range": [
+        190.72277934279896,
+        257.9754763059634
+      ],
+      "root_mm": 101.94040923779401,
+      "pa_mm": 83.99487905181309
+    },
+    {
+      "n": 87,
+      "box_h_range": [
+        258.30046204203336,
+        368.58870964821494
+      ],
+      "root_mm": 105.16872427438088,
+      "pa_mm": 83.91959725580196
+    },
+    {
+      "n": 87,
+      "box_h_range": [
+        369.58339884154657,
+        664.9927664140318
+      ],
+      "root_mm": 109.62967621777369,
+      "pa_mm": 84.79223794424352
+    }
+  ],
+  "lidar_hmr": {
+    "n_frames": 347,
+    "published": {
+      "root_aligned_mm": {
+        "mean": 160.6199572328714,
+        "median": 152.93243649645123,
+        "n": 347
+      },
+      "pa_mm_noscale": {
+        "mean": 115.05743172608275,
+        "median": 111.4619362591731,
+        "n": 347
+      },
+      "pa_mm_scale": {
+        "mean": 107.39848855955837,
+        "median": 102.09084814027734,
+        "n": 347
+      },
+      "per_joint_root_aligned_mm": {
+        "LEFT_SHOULDER": 141.1670100287094,
+        "LEFT_ELBOW": 182.48141188970993,
+        "LEFT_WRIST": 235.391790522609,
+        "RIGHT_SHOULDER": 130.27209254485635,
+        "RIGHT_ELBOW": 168.64602988519434,
+        "RIGHT_WRIST": 260.2669496461324,
+        "LEFT_HIP": 60.97031312417421,
+        "LEFT_KNEE": 135.40384917914506,
+        "LEFT_ANKLE": 232.56066231758905,
+        "RIGHT_HIP": 61.0148070063017,
+        "RIGHT_KNEE": 137.46743849052646,
+        "RIGHT_ANKLE": 229.53189791149023,
+        "HEAD": 126.95157989239597
+      }
+    },
+    "ts_aligned": {
+      "root_aligned_mm": {
+        "mean": 87.64675896117399,
+        "median": 74.99133616118758,
+        "n": 347
+      },
+      "pa_mm_noscale": {
+        "mean": 72.40095455205054,
+        "median": 61.32456056996097,
+        "n": 347
+      },
+      "pa_mm_scale": {
+        "mean": 62.77911726600866,
+        "median": 54.54325937581761,
+        "n": 347
+      },
+      "per_joint_root_aligned_mm": {
+        "LEFT_SHOULDER": 82.62711637870166,
+        "LEFT_ELBOW": 90.3653124610238,
+        "LEFT_WRIST": 128.07056229175853,
+        "RIGHT_SHOULDER": 90.0338406902727,
+        "RIGHT_ELBOW": 86.09483516061164,
+        "RIGHT_WRIST": 135.60564959802977,
+        "LEFT_HIP": 38.11969703126386,
+        "LEFT_KNEE": 72.85433397413478,
+        "LEFT_ANKLE": 106.76042852398011,
+        "RIGHT_HIP": 38.094797346271044,
+        "RIGHT_KNEE": 73.06918251845109,
+        "RIGHT_ANKLE": 103.6833982098119,
+        "HEAD": 99.15727958735677
+      }
+    }
+  },
+  "matched_frames": {
+    "n_frames": 347,
+    "image_hmr": {
+      "root_aligned_mm": {
+        "mean": 106.20765703755401,
+        "median": 100.7159457734113
+      },
+      "pa_mm_noscale": {
+        "mean": 82.45619281275714,
+        "median": 76.60250293064756
+      },
+      "pa_mm_scale": {
+        "mean": 72.38607266066722,
+        "median": 67.65800155479377
+      }
+    },
+    "lidar_hmr_published": {
+      "root_aligned_mm": {
+        "mean": 160.6199572328714,
+        "median": 152.93243649645123
+      },
+      "pa_mm_noscale": {
+        "mean": 115.05743172608274,
+        "median": 111.4619362591731
+      },
+      "pa_mm_scale": {
+        "mean": 107.39848855955836,
+        "median": 102.09084814027734
+      }
+    },
+    "lidar_hmr_ts_aligned": {
+      "root_aligned_mm": {
+        "mean": 87.64675896117399,
+        "median": 74.99133616118758
+      },
+      "pa_mm_noscale": {
+        "mean": 72.40095455205054,
+        "median": 61.32456056996097
+      },
+      "pa_mm_scale": {
+        "mean": 62.77911726600865,
+        "median": 54.54325937581761
+      }
+    }
+  }
+}

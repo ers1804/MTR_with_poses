@@ -113,3 +113,20 @@ from-scratch triad (n=5): null | aux pose loss (n=3): null | finetune triad (n=5
 Pose conditioning contributes nothing detectable in any regime on clean data — no help, no harm,
 correct indistinguishable from scrambled. Remaining open levers: pose-quality ceiling
 (image-HMR / full-pipeline MPJPE on Perception) and scale (299k clean scenes).
+
+## 2026-08-20 (evening) — MPJPE protocol bug (artifact #10): 160.6mm was inflated; corrected 87.6mm; image-HMR does not beat LiDAR
+
+Image-HMR validation (HMR2.0/4D-Humans, same 347 frames / 113 peds / 13 joints / neutral SMPL as the LiDAR eval)
+surfaced a bug in OUR harness: root_aligned_mpjpe.py indexed the 30fps joint sequence by track-entry index, but
+Waymo frame i sits at fps30 index 1+3i (verified on raw timestamps; buggy protocol reproduces 160.6mm exactly).
+
+Corrected numbers (timestamp-aligned):
+- LiDAR-HMR: 87.6mm root-aligned (median 75.0) / 72.4mm PA-no-scale   [was published as 160.6]
+- image HMR2.0: 106.2mm root-aligned / 82.5mm PA — LOSES to corrected LiDAR-HMR by ~18mm; error flat vs
+  crop height (126-665px). RGB-based estimation on Waymo cameras is NOT the better pose source.
+- Per-joint (LiDAR ts-aligned): ankles ~104-107, wrists ~128-136 — well below stride amplitude (300-600mm),
+  so the paper's "gait at the noise floor" argument is retracted.
+
+Story impact: pose quality can no longer explain the null. Clean data + decent poses + all-null (n=5, both
+regimes) = the null is about information redundancy at this scale, not data quality. Data:
+experiments/image_hmr_mpjpe.json; code /home/erik/big1/image_hmr/eval/. 10th self-caught artifact.
