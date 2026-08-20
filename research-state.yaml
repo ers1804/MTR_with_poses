@@ -151,7 +151,15 @@ hypotheses:
       Phase 2 chained: map_wta01_fix re-tests the aux pose-prediction loss against real
       targets (corrupt-era loss nulls were measured against scrambled targets).
     result:
-      notes: "Queue running (tools/scripts/run_fixdata_core.sh + run_fixdata_losses.sh); 7/9 core runs done as of 2026-08-19 morning."
+      notes: >-
+        COMPLETE 2026-08-20, all null at n=5 (hierarchical): from-scratch triad
+        nopose 0.4599 / xattn_pe 0.4620 (+0.45% p=0.76) / shuffle 0.4589 (-0.21% p=0.96);
+        aux loss map_wta01_fix +1.44% p=0.33 (n=3); finetune triad nopose 0.3692 /
+        xattn_pe 0.3708 (+0.44% p=0.49) / shuffle 0.3676 (-0.44% p=0.46). Two more
+        3-seed artifacts self-caught en route (n=3 "pose harm" p=0.037 and n=3
+        "shuffle-best" p=0.016 both dissolved at n=5; artifacts #8 and #9). Verdict:
+        with clean, quality-validated poses, pose conditioning contributes nothing
+        detectable at this scale in either regime.
 
 # DATA FIX (resolved 2026-04-02):
 # PROBLEM: final_10fps SMPL data has observations ONLY in the past window (grid indices 0-10).

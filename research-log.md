@@ -100,3 +100,16 @@ The wrong-pose control BEATS both no-pose and correct-pose in the finetune regim
 If it survives n=5 (seeds 404/505 queued: run_fixdata_ft_extend.sh), the reading is structured-noise
 regularization during finetuning — realistic-but-uninformative input helps where correlated input does not.
 Given 8 prior 3-seed artifacts, no interpretation before n=5.
+
+## 2026-08-20 (later) — finetune triad at n=5: shuffle advantage dissolves; project-wide clean-data null is final
+
+- ft_nopose_fix      0.3692 ± 0.0031
+- ft_xattn_pe_fix    0.3708 ± 0.0040  → vs no-pose +0.44%, hier p=0.49
+- ft_shufflepose_fix 0.3676 ± 0.0055  → vs no-pose −0.44%, hier p=0.46 (was −1.27% p=0.016 at n=3 — 9th artifact)
+- shuffle vs correct: −0.88%, hier p=0.11
+
+COMPLETE CLEAN-DATA PICTURE (all hierarchical, 579-scene subset):
+from-scratch triad (n=5): null | aux pose loss (n=3): null | finetune triad (n=5): null.
+Pose conditioning contributes nothing detectable in any regime on clean data — no help, no harm,
+correct indistinguishable from scrambled. Remaining open levers: pose-quality ceiling
+(image-HMR / full-pipeline MPJPE on Perception) and scale (299k clean scenes).
