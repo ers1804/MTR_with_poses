@@ -1,0 +1,100 @@
+{
+  "description": "Full Waymo-3DSkelMo pipeline output (final_30fps: LiDAR-HMR -> HuMoR -> NeMF motion inbetweening -> export) vs GT LiDAR keypoints, timestamp-aligned protocol matching image_hmr/eval/lidar_pa_mpjpe.py ts_aligned. betas = HuMoR-fitted pipeline betas; zero_betas matches LiDAR-HMR-stage convention.",
+  "n_frames": 347,
+  "n_pedestrians_with_gt": 113,
+  "n_pedestrians_covered": 113,
+  "n_segments": 24,
+  "dt_us_max": 0,
+  "n_frames_dt_nonzero": 0,
+  "betas": {
+    "root_aligned_mm": {
+      "mean": 93.09296496650911,
+      "median": 84.62850996197857,
+      "n": 347
+    },
+    "pa_mm_noscale": {
+      "mean": 78.58352265599427,
+      "median": 71.74168307886279,
+      "n": 347
+    },
+    "pa_mm_scale": {
+      "mean": 66.93707455678003,
+      "median": 59.83703659692697,
+      "n": 347
+    },
+    "per_joint_root_aligned_mm": {
+      "LEFT_SHOULDER": 78.30094334330543,
+      "LEFT_ELBOW": 87.41615490194951,
+      "LEFT_WRIST": 119.46160502910382,
+      "RIGHT_SHOULDER": 84.3991547218321,
+      "RIGHT_ELBOW": 83.0848872206402,
+      "RIGHT_WRIST": 134.49850901473334,
+      "LEFT_HIP": 35.34487121866584,
+      "LEFT_KNEE": 91.88543695892506,
+      "LEFT_ANKLE": 137.26836488772545,
+      "RIGHT_HIP": 35.39441544910572,
+      "RIGHT_KNEE": 90.62933422909425,
+      "RIGHT_ANKLE": 126.77485715291064,
+      "HEAD": 110.8374797142807
+    }
+  },
+  "zero_betas": {
+    "root_aligned_mm": {
+      "mean": 92.68573792992308,
+      "median": 84.246513464494,
+      "n": 347
+    },
+    "pa_mm_noscale": {
+      "mean": 77.82138802264497,
+      "median": 69.18333529224293,
+      "n": 347
+    },
+    "pa_mm_scale": {
+      "mean": 68.84785502439465,
+      "median": 60.45764362125902,
+      "n": 347
+    },
+    "per_joint_root_aligned_mm": {
+      "LEFT_SHOULDER": 81.13742413274795,
+      "LEFT_ELBOW": 88.47552417326669,
+      "LEFT_WRIST": 120.34150085972426,
+      "RIGHT_SHOULDER": 88.69083468141255,
+      "RIGHT_ELBOW": 84.85060431427102,
+      "RIGHT_WRIST": 138.77263303413275,
+      "LEFT_HIP": 36.09395458868372,
+      "LEFT_KNEE": 91.88367808306958,
+      "LEFT_ANKLE": 131.3778871901473,
+      "RIGHT_HIP": 36.01577455014023,
+      "RIGHT_KNEE": 89.9293507033527,
+      "RIGHT_ANKLE": 120.61848766021527,
+      "HEAD": 101.51433257497276
+    }
+  },
+  "paired_vs_lidar_hmr_stage_ts_aligned": {
+    "note": "Same 347 frames; full-pipeline zero_betas vs LiDAR-HMR-stage ts_aligned (per_frame_lidar_hmr.npz). delta = full - lidar_hmr, positive = pipeline tail hurts.",
+    "root_aligned": {
+      "full_mean": 92.68573792992308,
+      "lidar_hmr_mean": 87.646758961174,
+      "paired_delta_mean_mm": 5.038978968749093,
+      "paired_delta_median_mm": 2.9247586719023815,
+      "frames_full_worse": 222,
+      "n": 347
+    },
+    "pa_noscale": {
+      "full_mean": 77.82138802264497,
+      "lidar_hmr_mean": 72.40095455205055,
+      "paired_delta_mean_mm": 5.42043347059442,
+      "paired_delta_median_mm": 2.2665570055850353,
+      "frames_full_worse": 226,
+      "n": 347
+    },
+    "pa_scale": {
+      "full_mean": 68.84785502439465,
+      "lidar_hmr_mean": 62.77911726600864,
+      "paired_delta_mean_mm": 6.068737758386011,
+      "paired_delta_median_mm": 2.5473807901813075,
+      "frames_full_worse": 225,
+      "n": 347
+    }
+  }
+}

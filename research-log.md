@@ -130,3 +130,18 @@ Corrected numbers (timestamp-aligned):
 Story impact: pose quality can no longer explain the null. Clean data + decent poses + all-null (n=5, both
 regimes) = the null is about information redundancy at this scale, not data quality. Data:
 experiments/image_hmr_mpjpe.json; code /home/erik/big1/image_hmr/eval/. 10th self-caught artifact.
+
+## 2026-08-20 (night) — full-pipeline MPJPE: 92.7mm; HuMoR/NeMF adds ~5mm, concentrated in gait joints; quality chain complete
+
+Full Perception pipeline output (what the predictor consumes) vs GT keypoints, corrected ts-aligned protocol,
+same 347 frames / 113 peds, zero attrition:
+- LiDAR-HMR stage 87.6mm root-aligned / 72.4 PA  →  full pipeline 92.7 / 77.8 (paired +5.0mm, p=3e-4)
+- Damage concentrated in legs: knees +19mm (73→92), ankles +17/+25mm (→121/131) — NeMF inbetweening washes
+  out gait phase; upper body neutral. Betas vs zero-betas: immaterial.
+- Also verified: the export id-collision bug is HARMLESS on Perception (22,648 ids, 0 cross-scene collisions —
+  base64 globally-unique ids, unlike WOMD numeric ids). The MPJPE data was never affected by that bug.
+
+FINAL QUALITY CHAIN: LiDAR-HMR 87.6 → +HuMoR/NeMF 92.7 (gait joints ~121-131) → all well below stride
+amplitude. Alternative RGB source (HMR2) 106.2 — worse. Pose quality cannot carry the all-null; the mild
+gait-phase smoothing cost is the only quality caveat worth a paper sentence. Experimental program of the
+2026-08 audit cycle is COMPLETE. Data: experiments/full_pipeline_mpjpe.json.
