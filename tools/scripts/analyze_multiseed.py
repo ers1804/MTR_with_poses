@@ -70,6 +70,9 @@ CELLS = {
     'ft_nopose_fix': 'mtr+full_ped_finetune_no_pose_fixdata',             # clean-data finetune regime
     'ft_xattn_pe_fix': 'mtr+full_ped_finetune_xattn_pe_fixdata',
     'ft_shufflepose_fix': 'mtr+full_ped_finetune_shufflepose_fixdata',
+    'scale5k_nopose': 'mtr+pose_data_no_pose_with_map_scale5k',              # scale rung 1 (31.3k peds)
+    'scale5k_xattn_pe': 'mtr+pose_data_cross_attn_pe_with_map_scale5k',
+    'scale5k_shufflepose': 'mtr+pose_data_cross_attn_pe_with_map_shufflepose_scale5k',
     'map_joints3d':    'mtr+pose_data_cross_attn_pe_with_map_joints3d',     # #4 skeleton keypoints
     'map_nopose_2s':   'mtr+pose_data_no_pose_with_map_2s',                 # #2 2s horizon
     'map_xattn_pe_2s': 'mtr+pose_data_cross_attn_pe_with_map_2s',
@@ -134,6 +137,9 @@ PAIRS = [
     ('ft_nopose_fix', 'ft_xattn_pe_fix'),          # CLEAN DATA finetune: pose benefit on pretrained backbone
     ('ft_nopose_fix', 'ft_shufflepose_fix'),       # CLEAN DATA finetune: capacity control
     ('ft_xattn_pe_fix', 'ft_shufflepose_fix'),     # CLEAN DATA finetune: content vs capacity
+    ('scale5k_nopose', 'scale5k_xattn_pe'),        # SCALE 4.9x: does pose help with more data?
+    ('scale5k_nopose', 'scale5k_shufflepose'),     # SCALE 4.9x: capacity control
+    ('scale5k_xattn_pe', 'scale5k_shufflepose'),   # SCALE 4.9x: content vs capacity
     # Follow-up #4: SMPL 6D rotations vs 3D skeleton keypoints (same poses, same model)
     ('map_nopose', 'map_joints3d'),
     ('map_xattn_pe', 'map_joints3d'),
