@@ -186,3 +186,24 @@ more steps at LR 1e-4 before the first decay. Diagnostic launched (run_lrdiag.sh
 at LR 5e-5, 8 epochs, seed 101. If the pose arm tracks the baseline at the lower LR, the "pose hurts at
 scale" reading is a tuning artifact and the rung must be rerun with a schedule where BOTH arms converge.
 Queue halted meanwhile to avoid burning ~18 h on a possibly mis-tuned grid.
+
+## 2026-08-21 (late) — LR diagnostic: the 5k pose collapse is largely an OPTIMIZATION artifact
+
+Both arms at LR 5e-5 / 8 epochs (seed 101), same data, same schedule:
+- nopose  best 0.4690   pose best 0.5037  -> pose penalty +7.4%
+vs at LR 1e-4 / 30 epochs:
+- nopose  best 0.4270   pose best 0.5852  -> pose penalty +37%
+
+Halving the LR shrinks the pose penalty 5-fold, so "pose conditioning collapses at scale" is NOT a property
+of the data — the pose-conditioned model needs gentler optimization when each epoch is 4.9x longer (~5x more
+steps at the initial LR before the first decay). Caveat: the 8-epoch schedule is too short — BOTH arms are
+unconverged and degrade late (nopose 0.469 -> 0.7115), so the +7.4% is only indicative.
+
+Consequence for the scale study: comparing architectures at a single LR tuned on the 579-scene subset is not
+a fair test at 4.9x data. Each arm must be trained where IT converges (per-arm tuning, best-of-sweep), which
+multiplies the run count: 3 cells x ~3 LRs x 3 seeds x 3 h = ~80 GPU-h PER RUNG. That is the real Helma
+argument — not the raw data volume.
+
+Launched now: rung-1 triad at LR 5e-5 / 30 epochs (proper length), seed 101, 3 runs ~9 h
+(run_scale5k_lr5.sh). Combined with the existing 1e-4 numbers this gives a per-arm best-of-two comparison
+before committing seeds.
