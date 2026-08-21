@@ -161,3 +161,28 @@ Cost: ~3 h/run → ~27 h for the 9-run triad (nopose/xattn_pe/shufflepose x 3 se
 
 Implication for 25k: ~15 h/run x 9 = ~135 h locally — that rung, not this one, is the Helma decision point.
 GPU is shared with Erik's navsim_eval (Latent_Diff) job; queue waits rather than preempting.
+
+## 2026-08-21 (evening) — scale rung 1 halted for diagnosis: pose BRANCH degrades at 4.9x data; LR check running
+
+Rung-1 (5k scenes, 30 epochs, matched schedule) first three runs, seed 101:
+- nopose      0.4270  (vs 0.4584 at 579 scenes — scale HELPS the baseline by 6.8%)
+- xattn_pe    0.5852  (+37% WORSE than nopose; eval curve degrades monotonically 0.586 -> 0.848)
+- shufflepose 0.6775 at first eval (degrading too) -> it is the pose BRANCH, not pose content
+
+Ruled out by direct measurement:
+- pathological pose values (0 nonfinite, max|rot| 4.7 rad, identical to the 579 subset)
+- pose/trajectory join failure (center-pose coverage 0.881 at 5k vs 0.891 at 579)
+- eval-population mismatch (both 20,034 peds / 5,171 scenes), NaN (none), grad explosion (clip=1.0 active)
+- AUX-LOSS HIJACK: instrumented loss components show geo/gmm_pose/cls_pose/mpjpe are ALL EXACTLY 0.0 --
+  sequences are past-only (max 11 frames), so the future-pose mask is empty.
+
+  IMPORTANT COROLLARY: the aux-loss cells (map_wta01*, geo/gmm variants) have NEVER exercised the pose
+  losses on clean data -- they differ from the no-pose baseline only by having a pose ENCODER. The
+  "auxiliary-loss audit" framing in the paper needs revisiting: on this data the losses are inert by
+  construction (no future pose targets), not merely ineffective.
+
+Remaining hypothesis: optimization/tuning -- at 5k each epoch is 4.9x longer, so the pose branch takes ~5x
+more steps at LR 1e-4 before the first decay. Diagnostic launched (run_lrdiag.sh): nopose and xattn_pe both
+at LR 5e-5, 8 epochs, seed 101. If the pose arm tracks the baseline at the lower LR, the "pose hurts at
+scale" reading is a tuning artifact and the rung must be rerun with a schedule where BOTH arms converge.
+Queue halted meanwhile to avoid burning ~18 h on a possibly mis-tuned grid.
