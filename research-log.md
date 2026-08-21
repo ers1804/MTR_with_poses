@@ -145,3 +145,19 @@ FINAL QUALITY CHAIN: LiDAR-HMR 87.6 → +HuMoR/NeMF 92.7 (gait joints ~121-131) 
 amplitude. Alternative RGB source (HMR2) 106.2 — worse. Pose quality cannot carry the all-null; the mild
 gait-phase smoothing cost is the only quality caveat worth a paper sentence. Experimental program of the
 2026-08 audit cycle is COMPLETE. Data: experiments/full_pipeline_mpjpe.json.
+
+## 2026-08-21 — scale-up launched: nested ladder on clean data
+
+Join verified: all 299,220 clean pose scenes have processed_scenarios pkls (checked against the 486,995-scene
+WOMD training index) — full-scale pose-conditioned training is unblocked; only compute binds.
+
+Ladder (nested supersets, validation IDENTICAL to every clean-data run = 5,171 scenes / 20,034 peds):
+  579 scenes / 6,348 peds (done, all-null)  →  5k / 31,302 (4.9x)  →  25k / 142,807 (22.5x)  →  [299k / ~1.8M]
+
+Rung-1 sizing note: a first attempt at 10 epochs (decay [3,7,8]) UNDERTRAINED — best 0.4971 at epoch 5 vs
+0.4599 for the 579-scene/30-epoch runs, curve still bouncing at 0.512 after early LR decay. Discarded and
+relaunched with the SAME 30 epochs / decay [10,20,25] as the 579 runs, so data volume is the only difference.
+Cost: ~3 h/run → ~27 h for the 9-run triad (nopose/xattn_pe/shufflepose x 3 seeds).
+
+Implication for 25k: ~15 h/run x 9 = ~135 h locally — that rung, not this one, is the Helma decision point.
+GPU is shared with Erik's navsim_eval (Latent_Diff) job; queue waits rather than preempting.
