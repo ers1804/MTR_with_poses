@@ -207,3 +207,23 @@ argument — not the raw data volume.
 Launched now: rung-1 triad at LR 5e-5 / 30 epochs (proper length), seed 101, 3 runs ~9 h
 (run_scale5k_lr5.sh). Combined with the existing 1e-4 numbers this gives a per-arm best-of-two comparison
 before committing seeds.
+
+## 2026-08-22 — SCALE RUNG 1 COMPLETE (5k scenes, 4.9x data, tuned LR, n=3): null persists
+
+Tuned recipe (LR 5e-5, 30 epochs, decay [10,20,25]); validation identical to all clean-data runs:
+- scale5k_lr5_nopose      0.4176 ± 0.0060
+- scale5k_lr5_xattn_pe    0.4138 ± 0.0053   vs nopose  -0.90%, hier p=0.52
+- scale5k_lr5_shufflepose 0.4181 ± 0.0068   vs nopose  +0.12%, hier p=0.85
+- correct vs shuffled: -1.02%, hier p=0.44
+
+Data DOES help the pipeline: nopose 0.4599 (579 scenes, n=5) -> 0.4176 (5k, n=3) = -9.2%. So the null is not
+"model can't learn"; it is specific to pose conditioning. At 4.9x data the pose delta remains indistinguishable
+from zero AND from its own wrong-pose control — same picture as 579 scenes, now with a genuinely stronger
+baseline.
+
+Optimization-sensitivity note for the paper (important methodological finding): the SAME comparison read
++37% (LR 1e-4, the recipe tuned on the 579 subset), +7.4% (LR 5e-5, 8 epochs), and -0.90% (LR 5e-5,
+30 epochs, converged). Architecture comparisons at a new data scale are hostage to per-arm optimization
+sensitivity; a single inherited LR manufactures large fake effects in BOTH directions.
+
+Scale ladder so far (hier p, pose vs no-pose): 579 scenes +0.45% p=0.76 (n=5) | 5k scenes -0.90% p=0.52 (n=3).
