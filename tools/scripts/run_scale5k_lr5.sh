@@ -11,7 +11,7 @@ declare -A C=(
   [scale5k_lr5_shufflepose]=mtr+pose_data_cross_attn_pe_with_map_shufflepose_scale5k_lr5
 )
 echo "=== scale5k LR5e-5 queue started $(date) ===" >> "$LOG"
-for seed in 101; do
+for seed in 202 303; do
   for cell in scale5k_lr5_nopose scale5k_lr5_xattn_pe scale5k_lr5_shufflepose; do
     tag="MS_${cell}_s${seed}"; out="../output/waymo/${C[$cell]}/${tag}"
     [ -f "${out}/DONE" ] && continue
