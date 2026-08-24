@@ -39,7 +39,10 @@ pip install numpy==1.24.4 easydict pyyaml tensorboardX tqdm scikit-image scikit-
 
 echo "=== compiling CUDA extensions (knn_cuda, attention_cuda) ==="
 cd "$WS/MTR_with_poses"
-python setup.py develop
+# NOT `setup.py develop`: modern setuptools routes it through an isolated PEP 517 build that
+# has no torch installed, so setup.py's `from torch.utils.cpp_extension import CUDAExtension`
+# dies with ModuleNotFoundError. Build against the env's own torch instead.
+pip install -e . --no-build-isolation
 python - <<'PY'
 import torch, knn_cuda, attention_cuda
 print("torch", torch.__version__, "| cuda available:", torch.cuda.is_available())
