@@ -21,9 +21,11 @@ RUNG=${RUNG:-25k}                     # which ladder rung (payload dir name)
 # (`bash -l`, or sbatch's `#!/bin/bash -l`) defines `module` as a function; a plain `ssh host
 # "cmd"` does not, and the script then dies with "module: command not found".
 if ! type -t module >/dev/null 2>&1; then
+  set +u                      # site profile scripts reference unset vars (e.g. $GROUP)
   for f in /etc/profile.d/zz-rrze-local.sh /etc/profile.d/modules.sh /usr/share/Modules/init/bash; do
     [ -r "$f" ] && . "$f" && break
   done
+  set -u
 fi
 module add gpu-env/2025
 module add python/3.12-conda
