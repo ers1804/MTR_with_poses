@@ -251,3 +251,24 @@ produced the +37% phantom "pose hurts" effect at the 5k rung.
 
 Blocked on: workspace path (scripts default to /hnvme/workspace/v103fe12-mtr_pose) and go-ahead to
 push 30 GB to the cluster.
+
+## 2026-08-24 (cont.) — Helma port executed
+
+Workspace: /hnvme/workspace/v103fe12-mtr_smpl. Shipped: repo working tree (2,118 files, rsync not clone --
+branch mtr_smpl is 39 commits ahead of origin), poses_25k.tar (785 MB), scenarios_25k.tar (29 GB),
+cluster_64_center_dict.pkl. Transfer ran at ~165 MB/s.
+
+Cluster constraints that shaped the design:
+- /hnvme file quota ~82k soft / 102k hard with 33k already used, while a torch conda env is 100k+ files
+  -> env is built in node-local $TMPDIR and stored as ONE conda-pack archive; datasets stay as two tars;
+  nothing is ever extracted into the workspace.
+- $TMPDIR is wiped after each job -> every job re-stages env + data; outputs and the compiled .so files
+  live in the workspace.
+- Env builds only inside an allocation (salloc/srun), not on login nodes.
+
+Three failures fixed en route (all cluster-porting issues, none scientific):
+1. transient EACCES on a freshly created workspace (mount not settled) -> retry
+2. `python setup.py develop` on modern setuptools routes through an isolated PEP 517 build with no torch
+   -> ModuleNotFoundError; fixed with an install that skips build isolation
+3. verification imported `knn_cuda` top-level; the extensions are `mtr.ops.knn.knn_cuda` and
+   `mtr.ops.attention.attention_cuda` -> both .so files had in fact compiled fine
