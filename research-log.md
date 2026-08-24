@@ -272,3 +272,24 @@ Three failures fixed en route (all cluster-porting issues, none scientific):
    -> ModuleNotFoundError; fixed with an install that skips build isolation
 3. verification imported `knn_cuda` top-level; the extensions are `mtr.ops.knn.knn_cuda` and
    `mtr.ops.attention.attention_cuda` -> both .so files had in fact compiled fine
+
+## 2026-08-24 (cont.) — Helma validation status
+
+Env packed (3.0 GB single archive; workspace file count 35.6k of 82k -- the packed design cost ~2k files
+instead of ~130k). Data verified staged on a compute node: 25,000 train + 5,171 val scenes.
+
+Porting failures fixed and committed (all mechanical, none scientific):
+4. conda-pack refuses envs containing editable installs -> pack around it (the editable path is the
+   persistent workspace repo, so it still resolves after unpack)
+5. `set -u` aborts on conda-pack's activate script ($CONDA_PREFIX unbound) -> relax strict mode across
+   activation. This one killed a job in 44 s and would have killed all 27 identically.
+6. smplpytorch is a TOP-LEVEL import in mtr_decoder.py, so training cannot import without it even though
+   the SMPL layer only feeds the inert MPJPE loss; chumpy needed for it, installed without build isolation.
+   Also SMPL_MODEL_DIR was a hardcoded workstation path -> overridden to the workspace copy at run time.
+   (tensorflow / waymo_open_dataset are NOT needed: only data_preprocess.py and waymo_eval.py import them,
+   neither on the training path; the workstation env lacks them too.)
+
+Operational lesson (documented in slurm/README.md): polling the login node with a fresh ssh every ~60 s from
+several watchers triggered connection refusal (kex_exchange_identification). Running jobs are unaffected but
+visibility is lost. Use one multiplexed ssh (ControlMaster/ControlPersist) and poll at minute-plus intervals,
+or have the job write status into $WS/logs and read that.
