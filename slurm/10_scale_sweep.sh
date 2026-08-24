@@ -26,8 +26,12 @@ module add cuda/12.6.2
 echo "unpacking env to $TMPDIR/env ..."
 mkdir -p "$TMPDIR/env"
 tar xzf "$WS/env/mtr_smpl.tar.gz" -C "$TMPDIR/env"
+# `set -u` must be off across activation: conda-pack's activate script reads $CONDA_PREFIX
+# before defining it, which aborts the job under strict mode.
+set +u
 source "$TMPDIR/env/bin/activate"
 conda-unpack
+set -u
 export PYTHONNOUSERSITE=1
 export OMP_NUM_THREADS=8
 export WANDB_MODE=offline
