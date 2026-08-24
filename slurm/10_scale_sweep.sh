@@ -56,6 +56,13 @@ lrtag=$(echo "$lr" | sed 's/0\.0*//')
 tag="HELMA_${RUNG}_${cell}_lr${lrtag}_s${seed}"
 echo "task $i -> cell=$cell lr=$lr seed=$seed tag=$tag"
 
+# Self-reported status: one shared file so progress can be read with a SINGLE cheap ssh for
+# the whole array, instead of polling Slurm per task (which rate-limited the jump host once).
+STATUS="$WS/logs/status.txt"
+note() { flock "$STATUS.lock" -c "echo \"$(date +%H:%M:%S) task$i $tag $*\" >> '$STATUS'"; }
+note "START"
+trap 'note "EXIT rc=$?"' EXIT
+
 cd "$WS/MTR_with_poses/tools"
 python train.py \
   --cfg_file "cfgs/waymo/mtr+pose_data_${cell}_scale5k_lr5.yaml" \
@@ -68,4 +75,5 @@ python train.py \
 # keep logs/metrics, drop bulky checkpoints
 out="$WS/MTR_with_poses/output/waymo/mtr+pose_data_${cell}_scale5k_lr5/$tag"
 rm -f "$out/ckpt/best_model.pth" "$out/eval/eval_with_train/result.pkl" 2>/dev/null || true
+note "DONE best=$(grep -hE "^minADE" "$out"/log_train_*.txt 2>/dev/null | awk "{print \$2}" | sort -g | head -1)"
 echo "DONE $tag"

@@ -1,0 +1,36 @@
+# SSH config for automated access to Helma.
+#
+# WHY THIS EXISTS: /home/erik/.ssh/config is root-owned and has no connection multiplexing,
+# and `Host helma` goes through ProxyJump csnhr — so every `ssh helma` opens TWO connections
+# (jump host + target). Polling job status in a loop therefore hammers the jump host and gets
+# the account rate-limited ("kex_exchange_identification: Connection closed by remote host"),
+# which is exactly what happened on 2026-08-24.
+#
+# Use via slurm/helma_ssh.sh, which additionally rate-limits master-connection attempts.
+
+Host csnhr.nhr.fau.de
+    HostName csnhr.nhr.fau.de
+    User v103fe12
+    IdentityFile ~/.ssh/id_rsa
+    IdentitiesOnly yes
+    PasswordAuthentication no
+    PreferredAuthentications publickey
+    ControlMaster auto
+    ControlPath ~/.ssh/cm/%r@%h:%p
+    ControlPersist 8h
+    ServerAliveInterval 60
+    ServerAliveCountMax 5
+
+Host helma
+    HostName helma.nhr.fau.de
+    User v103fe12
+    ProxyJump csnhr.nhr.fau.de
+    IdentityFile ~/.ssh/id_rsa
+    IdentitiesOnly yes
+    PasswordAuthentication no
+    PreferredAuthentications publickey
+    ControlMaster auto
+    ControlPath ~/.ssh/cm/%r@%h:%p
+    ControlPersist 8h
+    ServerAliveInterval 60
+    ServerAliveCountMax 5

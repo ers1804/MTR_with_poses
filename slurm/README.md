@@ -57,6 +57,19 @@ then add cells to `tools/scripts/analyze_multiseed.py` and run the hierarchical 
   can go up, but **changing it changes the effective recipe** — if you raise it, re-tune LR
   and treat the rung as a new experiment rather than comparing to the workstation numbers.
 
+## Talking to Helma from automation: use slurm/helma_ssh.sh
+
+    slurm/helma_ssh.sh 'squeue -u $USER'      # any command, over a reused connection
+    slurm/helma_ssh.sh --status               # queue snapshot
+    slurm/helma_ssh.sh 'cat $WS/logs/status.txt'   # whole-array progress in ONE round trip
+
+It multiplexes (one master connection reused for 8 h, so repeat checks cost no handshakes on
+Helma *or* on the csnhr jump host), rate-limits new master connections to one per 2 min with a
+lock so parallel watchers cannot stampede, and backs off progressively after refusals.
+
+Sweep jobs also self-report into `$WS/logs/status.txt` (START / DONE+best / EXIT rc), so the
+whole 27-task array can be checked with a single cheap read instead of per-task Slurm queries.
+
 ## Do not poll the login node from a loop
 
 Watching jobs by opening a fresh `ssh helma` every ~60 s (several watchers in parallel) got the
