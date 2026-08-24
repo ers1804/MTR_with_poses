@@ -44,7 +44,9 @@ cd "$WS/MTR_with_poses"
 # dies with ModuleNotFoundError. Build against the env's own torch instead.
 pip install -e . --no-build-isolation
 python - <<'PY'
-import torch, knn_cuda, attention_cuda
+import torch
+from mtr.ops.knn import knn_cuda            # submodules, not top-level imports
+from mtr.ops.attention import attention_cuda
 print("torch", torch.__version__, "| cuda available:", torch.cuda.is_available())
 print("CUDA extensions import OK")
 PY
