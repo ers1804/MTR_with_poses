@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #SBATCH --job-name=mtrpose_sweep
-#SBATCH --output=/hnvme/workspace/v103fe12-mtr_pose/logs/sweep_%A_%a.txt
+#SBATCH --output=/hnvme/workspace/v103fe12-mtr_smpl/logs/sweep_%A_%a.txt
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --partition=h100
@@ -14,13 +14,20 @@
 unset SLURM_EXPORT_ENV
 set -eu
 
-WS=${WS:-/hnvme/workspace/v103fe12-mtr_pose}
-ENV_NAME=${ENV_NAME:-mtr_smpl}
+WS=${WS:-/hnvme/workspace/v103fe12-mtr_smpl}
 RUNG=${RUNG:-25k}                     # which ladder rung (payload dir name)
 
+module add gpu-env/2025
 module add python/3.12-conda
 module add cuda/12.6.2
-conda activate "$WS/envs/$ENV_NAME"
+
+# The env lives in the workspace as ONE conda-pack archive (file quota: ~82k soft, 33k used,
+# a torch env alone is 100k+ files). Unpack it node-local per job.
+echo "unpacking env to $TMPDIR/env ..."
+mkdir -p "$TMPDIR/env"
+tar xzf "$WS/env/mtr_smpl.tar.gz" -C "$TMPDIR/env"
+source "$TMPDIR/env/bin/activate"
+conda-unpack
 export PYTHONNOUSERSITE=1
 export OMP_NUM_THREADS=8
 export WANDB_MODE=offline

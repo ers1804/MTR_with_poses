@@ -5,7 +5,7 @@ Slurm cluster, workspaces on NVMe (`/hnvme/workspace/<user>-<id>`), h100/h200 pa
 ## One-time setup
 
 1. **Workspace** (Erik creates, or):
-   `ws_allocate mtr_pose 60`  → `/hnvme/workspace/v103fe12-mtr_pose`
+   `ws_allocate mtr_smpl 60`  → `/hnvme/workspace/v103fe12-mtr_smpl`
    Export `WS=<that path>` if the id differs; every script takes `WS` as an env var.
 
 2. **Code**: `git clone git@github.com:ers1804/MTR_with_poses.git $WS/MTR_with_poses && cd $WS/MTR_with_poses && git checkout mtr_smpl`
@@ -35,6 +35,18 @@ Runs write `output/waymo/<cfg>/HELMA_<rung>_<cell>_lr<lr>_s<seed>/`; checkpoints
 at job end, logs+metrics kept. Sync back with:
 `rsync -av helma:$WS/MTR_with_poses/output/waymo/ <local>/output/waymo/`
 then add cells to `tools/scripts/analyze_multiseed.py` and run the hierarchical bootstrap.
+
+## Cluster-specific constraints (learned the hard way)
+
+- **`$TMPDIR` is wiped after every job.** Nothing durable may live there. Each job re-stages
+  the env archive and the data tars into it; outputs go to `$WS/MTR_with_poses/output/`.
+- **File quota on /hnvme: ~82k soft / 102k hard, ~33k already used.** A torch conda env is
+  100k+ files on its own, so the env is stored as ONE `conda-pack` archive and the datasets
+  stay as two tars. Never extract either into the workspace.
+- **Env builds only inside an allocation** (`salloc --gres=gpu:h100:1 --time=01:00:00`), not
+  on login nodes.
+- The compiled CUDA extensions (`.so`) live in the workspace repo and are ABI-bound to the
+  packed env's torch 2.3.1 — rebuild both together if either changes.
 
 ## Gotchas carried over from the workstation
 

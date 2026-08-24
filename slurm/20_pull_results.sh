@@ -2,7 +2,7 @@
 # Pull sweep results back from Helma and register the cells for hierarchical-bootstrap
 # analysis. Run from the workstation, after the array finishes.
 set -eu
-WS=${WS:-/hnvme/workspace/v103fe12-mtr_pose}
+WS=${WS:-/hnvme/workspace/v103fe12-mtr_smpl}
 REPO=/home/erik/ssd2/gitprojects/MTR_with_poses
 RUNG=${RUNG:-25k}
 
