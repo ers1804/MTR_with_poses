@@ -17,6 +17,14 @@ set -eu
 WS=${WS:-/hnvme/workspace/v103fe12-mtr_smpl}
 RUNG=${RUNG:-25k}                     # which ladder rung (payload dir name)
 
+# Make the module system available regardless of how this script is invoked. A login shell
+# (`bash -l`, or sbatch's `#!/bin/bash -l`) defines `module` as a function; a plain `ssh host
+# "cmd"` does not, and the script then dies with "module: command not found".
+if ! type -t module >/dev/null 2>&1; then
+  for f in /etc/profile.d/zz-rrze-local.sh /etc/profile.d/modules.sh /usr/share/Modules/init/bash; do
+    [ -r "$f" ] && . "$f" && break
+  done
+fi
 module add gpu-env/2025
 module add python/3.12-conda
 module add cuda/12.6.2
