@@ -41,6 +41,23 @@ pip install numpy==1.24.4 easydict pyyaml tensorboardX tqdm scikit-image scikit-
 # chumpy is its dependency and needs build isolation off: its setup.py imports numpy.
 pip install chumpy==0.70 --no-build-isolation
 pip install smplpytorch==0.0.8 --no-deps
+# chumpy 0.70 does `from numpy import bool, int, float, ...`, aliases numpy removed in 1.24,
+# so importing it raises ImportError. The workstation env has this same one-line patch applied
+# by hand; replicate it here or the decoder cannot import smplpytorch.
+python - <<'PATCH'
+import pathlib, re, site
+for sp in site.getsitepackages():
+    f = pathlib.Path(sp) / "chumpy" / "__init__.py"
+    if f.exists():
+        txt = f.read_text()
+        fixed = re.sub(r"^from numpy import .*\bbool\b.*$", "from numpy import nan, inf",
+                       txt, count=1, flags=re.M)
+        if fixed != txt:
+            f.write_text(fixed); print("patched", f)
+        else:
+            print("no patch needed", f)
+PATCH
+python -c "import chumpy; from smplpytorch.pytorch.smpl_layer import SMPL_Layer; print('smplpytorch import OK')"
 # tensorflow / waymo-open-dataset are imported only by data_preprocess.py and waymo_eval.py,
 # neither of which is on the training path (the workstation env does not have them either).
 
