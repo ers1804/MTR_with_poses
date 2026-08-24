@@ -53,6 +53,9 @@ PY
 rm -rf "$WS/MTR_with_poses/build"       # keep the .so files, drop object-file clutter
 
 echo "=== packing env to a single workspace file ==="
-conda pack -p "$BUILD/env" -o "$WS/env/mtr_smpl.tar.gz" --force
+# conda-pack refuses envs containing editable installs. Ours (motiontransformer) points at
+# $WS/MTR_with_poses, a persistent path that exists on every compute node, so the .pth
+# reference still resolves after the env is unpacked into a job-local $TMPDIR.
+conda pack -p "$BUILD/env" -o "$WS/env/mtr_smpl.tar.gz" --force --ignore-editable-packages
 ls -lh "$WS/env/mtr_smpl.tar.gz"
 echo "ENV PACKED. Training jobs unpack this to their own \$TMPDIR."
