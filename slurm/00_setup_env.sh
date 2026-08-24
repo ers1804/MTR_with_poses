@@ -36,6 +36,13 @@ pip install --upgrade pip
 pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cu121
 pip install numpy==1.24.4 easydict pyyaml tensorboardX tqdm scikit-image scikit-learn \
             scipy pandas opencv-python-headless protobuf wandb ninja conda-pack
+# smplpytorch is a TOP-LEVEL import in mtr/models/motion_decoder/mtr_decoder.py, so training
+# cannot even import without it — despite the SMPL layer only feeding the (inert) MPJPE loss.
+# chumpy is its dependency and needs build isolation off: its setup.py imports numpy.
+pip install chumpy==0.70 --no-build-isolation
+pip install smplpytorch==0.0.8 --no-deps
+# tensorflow / waymo-open-dataset are imported only by data_preprocess.py and waymo_eval.py,
+# neither of which is on the training path (the workstation env does not have them either).
 
 echo "=== compiling CUDA extensions (knn_cuda, attention_cuda) ==="
 cd "$WS/MTR_with_poses"

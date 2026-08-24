@@ -62,6 +62,7 @@ python train.py \
   --extra_tag "$tag" --random_seed "$seed" --workers 8 --max_ckpt_save_num 1 \
   --set DATA_CONFIG.DATA_ROOT "$TMPDIR/poses" \
         DATA_CONFIG.PROCESSED_SCENARIOS_PATH "$TMPDIR/scenarios" \
+        MODEL.MOTION_DECODER.SMPL_MODEL_DIR "$WS/MTR_with_poses/models" \
         OPTIMIZATION.LR "$lr"
 
 # keep logs/metrics, drop bulky checkpoints
