@@ -227,3 +227,27 @@ Optimization-sensitivity note for the paper (important methodological finding): 
 sensitivity; a single inherited LR manufactures large fake effects in BOTH directions.
 
 Scale ladder so far (hier p, pose vs no-pose): 579 scenes +0.45% p=0.76 (n=5) | 5k scenes -0.90% p=0.52 (n=3).
+
+## 2026-08-24 — Helma port prepared
+
+Payload staged and verified on big1 (/home/erik/big1/helma_stage): the nested 25k training ladder
+(25,000 scenes, 142,807 peds — contains the 5k rung and the original 579) plus the fixed 5,171-scene
+validation split. 30 GB total: pose npz (1.7 GB) + processed_scenarios pkls (28 GB). Integrity checked
+(40 random scene pairs load; 0 pose scenes missing a scenario pkl on either split).
+
+Cluster facts (helma, NHR@FAU): partitions h100/h200 (24 h) and preempt (48 h); modules
+python/3.12-conda + cuda/12.6.2 under gpu-env/2025; workspaces on /hnvme (Lustre, 1.2 P free).
+IMPORTANT: $HOME is at 96 G/100 G and 483k/500k inodes -> conda env, conda/pip caches and
+TORCH_EXTENSIONS_DIR all must live in the workspace (handled in slurm/00_setup_env.sh).
+
+Scripts (slurm/, committed): 00_setup_env.sh builds the env and compiles MTR's CUDA extensions
+(knn_cuda, attention_cuda) on a GPU node; 10_scale_sweep.sh runs a 27-task array
+(3 cells x 3 LRs x 3 seeds, 12 concurrent) staging tars to node-local $TMPDIR; README.md carries the
+porting gotchas. Transfer helpers live in the staging dir: pack_and_ship.sh, ship_code.sh (rsync of the
+working tree, NOT a clone -- branch mtr_smpl has ~25 unpushed commits and the _scale5k_lr5 configs).
+
+Design note: the sweep tunes LR PER ARM by construction. Comparing arms at one inherited LR is what
+produced the +37% phantom "pose hurts" effect at the 5k rung.
+
+Blocked on: workspace path (scripts default to /hnvme/workspace/v103fe12-mtr_pose) and go-ahead to
+push 30 GB to the cluster.
