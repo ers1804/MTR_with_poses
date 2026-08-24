@@ -293,3 +293,27 @@ Operational lesson (documented in slurm/README.md): polling the login node with 
 several watchers triggered connection refusal (kex_exchange_identification). Running jobs are unaffected but
 visibility is lost. Use one multiplexed ssh (ControlMaster/ControlPersist) and poll at minute-plus intervals,
 or have the job write status into $WS/logs and read that.
+
+## 2026-08-24 (evening) — Helma sweep LAUNCHED
+
+Validation task passed end-to-end on an H100 (first eval minADE 0.4970, a sane early value): env unpacked
+from the packed archive, both data tars staged to node scratch (25,000 train / 5,171 val scenes), SMPL layer
+constructed, compiled CUDA extensions working. Remaining 26 array tasks released (job 776244,
+3 cells x 3 LRs x 3 seeds, 12 concurrent).
+
+Porting fixes 7-9 (all committed):
+7. chumpy 0.70 cannot import on numpy >= 1.24 (`from numpy import bool, ...`). The workstation env had a
+   hand-applied one-line patch that existed nowhere in the repo and would have been lost on any fresh setup;
+   the env build now applies it automatically and verifies the smplpytorch import before packing.
+8. `module: command not found` — caused by my own ssh hardening: the wrapper opens a NON-login shell and
+   `module` is a shell function from /etc/profile.d/zz-rrze-local.sh. Scripts now bootstrap the module system
+   themselves, so they behave identically under sbatch / srun / ssh / interactive.
+9. that same profile script references an unset $GROUP, so sourcing it under `set -u` aborted -> strict mode
+   relaxed only around the sourcing.
+
+SSH lockout prevention (Erik's request), now structural rather than procedural:
+- slurm/ssh_config + slurm/helma_ssh.sh: multiplexed master connection reused 8 h (crucially covering the
+  csnhr ProxyJump hop too — every `ssh helma` was previously TWO connections), new-master attempts
+  rate-limited to one per 2 min behind a flock, progressive backoff after refusals.
+- sweep jobs self-report START / DONE+best / EXIT rc into $WS/logs/status.txt, so the whole array is
+  readable in ONE round trip instead of 27 Slurm queries. Watchers now poll at 15 min.
