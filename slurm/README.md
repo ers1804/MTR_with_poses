@@ -56,3 +56,19 @@ then add cells to `tools/scripts/analyze_multiseed.py` and run the hierarchical 
 - Batch size 2 in the `_scale5k_lr5` configs was chosen for a 24 GB card; on 80 GB H100 it
   can go up, but **changing it changes the effective recipe** — if you raise it, re-tune LR
   and treat the rung as a new experiment rather than comparing to the workstation numbers.
+
+## Do not poll the login node from a loop
+
+Watching jobs by opening a fresh `ssh helma` every ~60 s (several watchers in parallel) got the
+login node to refuse connections outright (`kex_exchange_identification: Connection closed by
+remote host`). Running jobs are unaffected — they live on compute nodes — but you lose visibility
+until the throttle clears.
+
+Use one multiplexed connection instead, and poll at minutes, not seconds:
+
+    ssh -o ControlMaster=auto -o ControlPath=~/.ssh/cm-%r@%h -o ControlPersist=60m helma true
+    # subsequent commands reuse the socket:
+    ssh -o ControlPath=~/.ssh/cm-%r@%h helma 'squeue -u $USER'
+
+Better still for long sweeps: have the job itself write a status line into `$WS/logs/` and check
+that file every 10+ minutes, rather than querying Slurm repeatedly.
