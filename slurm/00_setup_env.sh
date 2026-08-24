@@ -17,6 +17,12 @@ ENV_NAME=${ENV_NAME:-mtr_smpl}
 module add python/3.12-conda
 module add cuda/12.6.2
 export PYTHONNOUSERSITE=1
+# HOME sits at ~96G of 100G and 483k of 500k inodes. Keep every cache off it, or env
+# creation dies partway through with quota errors.
+export CONDA_PKGS_DIRS="$WS/.conda_pkgs"
+export PIP_CACHE_DIR="$WS/.pip_cache"
+export TORCH_EXTENSIONS_DIR="$WS/.torch_extensions"
+mkdir -p "$CONDA_PKGS_DIRS" "$PIP_CACHE_DIR" "$TORCH_EXTENSIONS_DIR"
 export http_proxy=http://proxy.nhr.fau.de:80  https_proxy=http://proxy.nhr.fau.de:80
 export HTTP_PROXY=$http_proxy HTTPS_PROXY=$https_proxy
 
