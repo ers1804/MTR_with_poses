@@ -317,3 +317,29 @@ SSH lockout prevention (Erik's request), now structural rather than procedural:
   rate-limited to one per 2 min behind a flock, progressive backoff after refusals.
 - sweep jobs self-report START / DONE+best / EXIT rc into $WS/logs/status.txt, so the whole array is
   readable in ONE round trip instead of 27 Slurm queries. Watchers now poll at 15 min.
+
+## 2026-08-26 — SCALE RUNG 2 COMPLETE (25k scenes, 22.5x data, Helma, per-arm LR sweep)
+
+36 runs on Helma (3 cells x 4 LRs x 3 seeds), 0 failures. LR optimum is INTERIOR for every arm at
+2.5e-5 (1e-4: 0.4329 / 5e-5: 0.3865 / 2.5e-5: 0.3711 / 1.25e-5: 0.3821 for no-pose), so the
+extension resolved the boundary-optimum risk and per-arm best-of-sweep is trustworthy. All three
+arms peak at the same LR -- no per-arm optimisation divergence at this scale.
+
+Per-arm best (all at LR 2.5e-5, n=3):
+- scale25k_nopose      0.3711 +- 0.0036
+- scale25k_xattn_pe    0.3774 +- 0.0028   vs nopose +1.68%, hier p=0.0004
+- scale25k_shufflepose 0.3770 +- 0.0064   vs nopose +1.58%, hier p=0.061
+- correct vs shuffled: -0.09%, hier p=0.92   <-- content signal is nil
+
+READING: at 22.5x data the pose BRANCH now carries a small but statistically resolvable COST
+(+1.7%, p=0.0004), while pose CONTENT remains worth exactly nothing (correct vs shuffled 0.09%,
+p=0.92). The cost is a capacity/optimisation tax that becomes measurable once the baseline is
+strong enough and seeds tight enough to resolve it -- not evidence that poses carry harmful
+information, since scrambled poses cost the same.
+
+Scale ladder, pose vs no-pose (hierarchical): 579 scenes +0.45% p=0.76 (n=5) | 5k -0.90% p=0.52
+(n=3) | 25k +1.68% p=0.0004 (n=3). Baseline keeps improving with data: 0.4599 -> 0.4176 -> 0.3711
+(-19% overall), so the pipeline is far from saturated while the pose delta never turns positive.
+
+CONCLUSION: the scale hypothesis is exhausted. More data makes the baseline better and pose
+conditioning no better; the only thing that grows with scale is the cost of carrying the branch.

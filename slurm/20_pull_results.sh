@@ -7,7 +7,7 @@ REPO=/home/erik/ssd2/gitprojects/MTR_with_poses
 RUNG=${RUNG:-25k}
 
 echo "[1/3] syncing outputs (logs + metrics only; checkpoints are deleted cluster-side)"
-rsync -avh --info=progress2 \
+rsync -e "ssh -F $(dirname "$0")/ssh_config" -avh --info=progress2 \
   --include '*/' --include 'log_train_*.txt' --include 'metrics_epoch_*.pkl' \
   --include 'best_eval_record.txt' --include 'DONE' --exclude '*' \
   helma:"$WS/MTR_with_poses/output/waymo/" "$REPO/output/waymo/"

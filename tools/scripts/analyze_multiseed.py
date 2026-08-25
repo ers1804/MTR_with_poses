@@ -76,6 +76,9 @@ CELLS = {
     'scale5k_lr5_nopose': 'mtr+pose_data_no_pose_with_map_scale5k_lr5',        # rung 1 @ tuned LR 5e-5
     'scale5k_lr5_xattn_pe': 'mtr+pose_data_cross_attn_pe_with_map_scale5k_lr5',
     'scale5k_lr5_shufflepose': 'mtr+pose_data_cross_attn_pe_with_map_shufflepose_scale5k_lr5',
+    'scale25k_nopose': 'mtr+pose_data_no_pose_with_map_scale5k_lr5',                   # rung 2 (Helma, 142.8k peds)
+    'scale25k_xattn_pe': 'mtr+pose_data_cross_attn_pe_with_map_scale5k_lr5',           # all at per-arm best LR 2.5e-5
+    'scale25k_shufflepose': 'mtr+pose_data_cross_attn_pe_with_map_shufflepose_scale5k_lr5',
     'map_joints3d':    'mtr+pose_data_cross_attn_pe_with_map_joints3d',     # #4 skeleton keypoints
     'map_nopose_2s':   'mtr+pose_data_no_pose_with_map_2s',                 # #2 2s horizon
     'map_xattn_pe_2s': 'mtr+pose_data_cross_attn_pe_with_map_2s',
@@ -146,6 +149,9 @@ PAIRS = [
     ('scale5k_lr5_nopose', 'scale5k_lr5_xattn_pe'),      # SCALE 4.9x @tuned LR: pose benefit?
     ('scale5k_lr5_nopose', 'scale5k_lr5_shufflepose'),   # SCALE 4.9x @tuned LR: capacity control
     ('scale5k_lr5_xattn_pe', 'scale5k_lr5_shufflepose'), # SCALE 4.9x @tuned LR: content vs capacity
+    ('scale25k_nopose', 'scale25k_xattn_pe'),      # SCALE 22.5x @per-arm best: pose benefit?
+    ('scale25k_nopose', 'scale25k_shufflepose'),   # SCALE 22.5x: capacity control
+    ('scale25k_xattn_pe', 'scale25k_shufflepose'), # SCALE 22.5x: content vs capacity
     # Follow-up #4: SMPL 6D rotations vs 3D skeleton keypoints (same poses, same model)
     ('map_nopose', 'map_joints3d'),
     ('map_xattn_pe', 'map_joints3d'),
