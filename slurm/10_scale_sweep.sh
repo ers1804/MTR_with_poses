@@ -89,4 +89,5 @@ python train.py \
 out="$WS/MTR_with_poses/output/waymo/mtr+pose_data_${cell}_scale5k_lr5/$tag"
 rm -f "$out/ckpt/best_model.pth" "$out/eval/eval_with_train/result.pkl" 2>/dev/null || true
 note "DONE best=$(grep -hE "^minADE" "$out"/log_train_*.txt 2>/dev/null | awk "{print \$2}" | sort -g | head -1)"
+touch "$out/DONE"          # completion marker the watchdog checks
 echo "DONE $tag"
