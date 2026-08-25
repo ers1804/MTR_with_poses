@@ -56,12 +56,15 @@ echo "staged: $(ls "$TMPDIR/poses/training" | wc -l) train scenes, $(ls "$TMPDIR
 
 # ---- sweep grid -------------------------------------------------------------
 CELLS=(no_pose_with_map cross_attn_pe_with_map cross_attn_pe_with_map_shufflepose)
-LRS=(0.0001 0.00005 0.000025)
 SEEDS=(101 202 303)
+# LR grid is a parameter: `sbatch 10_scale_sweep.sh 0.0000125` sweeps a single extra LR
+# (array 0-8), which is how boundary optima get checked without redoing the whole grid.
+IFS=',' read -r -a LRS <<< "${1:-0.0001,0.00005,0.000025}"
+nlr=${#LRS[@]}; nseed=${#SEEDS[@]}
 i=$SLURM_ARRAY_TASK_ID
-cell=${CELLS[$(( i / 9 ))]}
-lr=${LRS[$(( (i / 3) % 3 ))]}
-seed=${SEEDS[$(( i % 3 ))]}
+cell=${CELLS[$(( i / (nlr * nseed) ))]}
+lr=${LRS[$(( (i / nseed) % nlr ))]}
+seed=${SEEDS[$(( i % nseed ))]}
 lrtag=$(echo "$lr" | sed 's/0\.0*//')
 tag="HELMA_${RUNG}_${cell}_lr${lrtag}_s${seed}"
 echo "task $i -> cell=$cell lr=$lr seed=$seed tag=$tag"
