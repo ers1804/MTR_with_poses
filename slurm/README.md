@@ -85,3 +85,16 @@ Use one multiplexed connection instead, and poll at minutes, not seconds:
 
 Better still for long sweeps: have the job itself write a status line into `$WS/logs/` and check
 that file every 10+ minutes, rather than querying Slurm repeatedly.
+
+## Watchdog / restarting failed tasks
+
+    bash slurm/30_check_and_resubmit.sh            # report only
+    bash slurm/30_check_and_resubmit.sh --apply    # resubmit dead tasks
+
+A task is complete when its output dir holds a `DONE` marker (written only after training AND
+eval succeeded). Anything missing that is *not* currently queued or running counts as dead —
+node failure, timeout, preemption, OOM — and is resubmitted by index, so nothing already
+finished is recomputed. Safe to run repeatedly; also handles both LR grids (main + extension).
+
+Run it from cron every couple of hours during a sweep. Watch for the same index dying
+repeatedly: after two resubmits, stop and diagnose rather than spending more allocation.
