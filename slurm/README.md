@@ -98,3 +98,21 @@ finished is recomputed. Safe to run repeatedly; also handles both LR grids (main
 
 Run it from cron every couple of hours during a sweep. Watch for the same index dying
 repeatedly: after two resubmits, stop and diagnose rather than spending more allocation.
+
+## Frame / architecture waves (review follow-up, 2026-08-26)
+
+    sbatch --array=0-8 slurm/40_frame_arch_sweep.sh wave1   # coordinate-frame fix + control
+    sbatch --array=0-8 slurm/40_frame_arch_sweep.sh wave2   # derived descriptors, early fusion + control
+    bash slurm/41_check_frame_arch.sh [--apply]             # watchdog for both waves
+
+The task grid lives ONLY in `40_frame_arch_sweep.sh` as explicit `cfg|lr|seed` strings; the
+watchdog parses it back out, so the two cannot drift apart. Status goes to `$WS/logs/status_fa.txt`.
+
+wave1 sets `AGENT_CENTRIC_POSE_ROT`, which rotates the pose root orientation into the center
+agent's frame — the frame the trajectory features already use. wave2 replaces the raw 144-d pose
+with 8 frame-invariant descriptors concatenated onto the agent's per-timestep features and turns
+the pose branch OFF (`USE_POSE_ENCODER: False`, `NUM_INPUT_ATTR_AGENT: 37`), so it adds input
+channels rather than an encoder — relevant because the branch itself measured +1.7% cost at 25k.
+
+Read results against the 25k rung (no-pose 0.3711 / pose 0.3774 / shuffled 0.3770) and judge on
+CORRECT vs ITS OWN CONTROL.
