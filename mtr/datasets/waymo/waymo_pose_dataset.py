@@ -123,6 +123,52 @@ def rotate_root_6d(poses, headings):
     return flat.reshape(poses.shape)
 
 
+def derive_pose_features(pose_6d, headings):
+    """Low-dimensional, frame-INVARIANT pose descriptors (review 2026-08-26, option 1).
+
+    The raw 144-d 6D pose puts 6 dims (root orientation) in the WORLD frame while every other
+    agent feature is agent-centric, so the most informative cue — where the body faces relative
+    to where the agent is going — is not expressible. These 8 descriptors are intrinsic
+    (differences of angles), hence invariant to any yaw convention:
+
+      0,1  cos/sin of (body yaw - travel heading)   <- facing relative to motion
+      2,3  cos/sin of frame-to-frame body yaw change <- turning of the torso
+      4    hip flexion difference L-R                <- stride phase
+      5    |change of 4|                             <- cadence / gait energy
+      6    shoulder flexion difference L-R           <- arm swing
+      7    spine tilt magnitude                      <- torso lean
+
+    Args:
+        pose_6d:  (..., T, 144) 6D pose features (root 0:6, then 23 body joints).
+        headings: (..., T) world-frame travel heading of the SAME agent.
+    Returns:
+        (..., T, 8) float32
+    """
+    lead = pose_6d.shape[:-2]
+    T = pose_6d.shape[-2]
+    p = pose_6d.reshape(-1, T, 144)
+    h = headings.reshape(-1, T)
+
+    a, b = p[..., 0:3], p[..., 3:6]          # first two columns of the root rotation matrix
+    fwd = np.cross(a, b)                      # third column = body forward axis
+    body_yaw = np.arctan2(fwd[..., 1], fwd[..., 0])
+    rel = body_yaw - h
+    dyaw = np.zeros_like(body_yaw)
+    dyaw[:, 1:] = body_yaw[:, 1:] - body_yaw[:, :-1]
+
+    body = p[..., 6:].reshape(p.shape[0], T, 23, 6)
+    flex = body[..., 0]                       # first 6D component ~ flexion about the body x-axis
+    stride = flex[..., 0] - flex[..., 1]      # pose_body idx 0/1 = L_Hip / R_Hip
+    cadence = np.zeros_like(stride)
+    cadence[:, 1:] = np.abs(stride[:, 1:] - stride[:, :-1])
+    arm = flex[..., 15] - flex[..., 16]       # idx 15/16 = L_Shoulder / R_Shoulder
+    spine = np.linalg.norm(body[..., 2, 0:2], axis=-1)   # idx 2 = Spine1
+
+    out = np.stack([np.cos(rel), np.sin(rel), np.cos(dyaw), np.sin(dyaw),
+                    stride, cadence, arm, spine], axis=-1)
+    return out.reshape(*lead, T, 8).astype(np.float32)
+
+
 def denoise_pose_sequence(seq, sigma=1.0, window=5):
     """Mask-aware temporal Gaussian smoothing of a pose-feature sequence (Part 7).
 
@@ -263,6 +309,8 @@ class WaymoPoseDataset(DatasetTemplate):
         # in the Waymo world frame (z-up), which holds for the 3DSkelMo pipeline
         # (its heading-snapping is a yaw about world-z).
         self.agent_centric_pose_rot = self.dataset_cfg.get('AGENT_CENTRIC_POSE_ROT', False)
+        # review option 2: fuse pose per-timestep into the agent encoder instead of a side branch
+        self.pose_early_fusion = self.dataset_cfg.get('POSE_EARLY_FUSION', False)
 
         # Path to preprocessed Waymo scenario pkl files with real 91-step trajectories.
         # When set, real Waymo future trajectories replace SMPL-estimated ones.
@@ -796,6 +844,18 @@ class WaymoPoseDataset(DatasetTemplate):
         center_shape_params = betas_filtered[track_index_to_predict_new]  # (num_center, 10)
 
         # Build return dict (matching WaymoDataset interface)
+        if self.pose_early_fusion:
+            # Option 2: concatenate frame-invariant pose descriptors onto the per-timestep agent
+            # features so the SAME polyline encoder sees trajectory and pose jointly, instead of
+            # summarising pose in a side branch and adding it to a finished agent embedding.
+            # Headings come from the agent-centric trajectory (channel 6 of obj_trajs_past), and
+            # the descriptors are angle differences, so the result is frame-consistent.
+            head_ac = obj_trajs_past_filtered[:, :, 6]                       # (num_filtered, T)
+            head_tiled = np.tile(head_ac[None], (num_center_objects, 1, 1))  # (C, N, T)
+            derived = derive_pose_features(obj_poses, head_tiled)            # (C, N, T, 8)
+            derived = derived * obj_poses_mask[..., None].astype(np.float32) # invalid frames -> 0
+            obj_trajs_data = np.concatenate([obj_trajs_data, derived], axis=-1)
+
         ret_dict = {
             'scenario_id': np.array([scene_id] * num_center_objects),
             'obj_trajs': obj_trajs_data,
