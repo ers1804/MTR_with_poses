@@ -355,3 +355,67 @@ best-of-sweep comparison is sound and the 1.25e-5 extension did its job. Note al
 tuning effect is compared with the effect under study: LR choice moves minADE by up to 17%, while
 the entire pose content signal is 0.09%. Any single-LR comparison at a new data scale is therefore
 dominated by tuning, not by the treatment -- the methodological point of this whole rung.
+
+## 2026-08-26 — REVIEW: pose coordinate frame (a real, untested bug) + architecture integration
+
+### 1. Coordinate frame: MISMATCHED by default
+
+Verified in code and empirically on clean data:
+- Trajectories ARE agent-centric: transform_trajs_to_center_coords translates by center_xyz, rotates
+  positions/velocities by Rz(-center_heading) and subtracts center_heading from heading channels.
+- Pose root orientation is left in WORLD frame. rotate_root_6d() exists but runs ONLY under
+  AGENT_CENTRIC_POSE_ROT, and NO clean-data config (fixdata / scale5k / scale25k) enables it.
+- Empirical confirmation (n=400 clean pedestrians): SMPL root yaw std 1.91 rad (not canonicalised),
+  correlation with Waymo WORLD heading 0.72 (sin) / 0.72 (cos), median |difference| 13.6 deg.
+  So the root channel encodes world-frame facing while every other feature for that agent is
+  expressed in the agent's own rotated frame.
+
+Scope of the defect:
+- '6d' representation: 6 of 144 dims affected (root). Body joints are SMPL parent-relative =>
+  frame-invariant, so 138 dims are fine.
+- 'joints3d' representation: ALL 72 dims affected — _pose_features runs SMPL FK on
+  [root_orient, pose_body] and removes only root TRANSLATION, so world-frame global rotation is
+  baked into every joint coordinate. The F4 "SMPL vs skeleton keypoints" comparison was therefore
+  confounded by the frame as well.
+
+Why this was never caught: the AGENT_CENTRIC_POSE_ROT ablation (map_agentrot, 2026-07-21) and
+ZERO_ROOT_ORIENT (2026-07-08/20) BOTH ran against the corrupt final_10fps, where the root
+orientation belonged to a different pedestrian. Rotating a donor's orientation into the recipient's
+frame is still meaningless, so those nulls carry no information about the frame question. The frame
+hypothesis is UNTESTED on clean data.
+
+Note the frame bug PREDICTS the observed correct-vs-shuffled null on the root channel: in world
+frame both a correct and a donor orientation are un-anchored relative to an agent-centric
+trajectory (the agent's world heading is not recoverable — it is subtracted out), so both are
+equally unusable. It does NOT explain the whole null: the 138 frame-invariant body dims still
+showed nothing.
+
+Bounded expected payoff (measured, clean data):
+- Moving pedestrians (speed>0.5 m/s, n=1500): corr(body-facing-minus-heading, future 3 s turn)
+  = +0.068; left- vs right-facing quartiles differ by only ~4.5 deg of future turn. Weak.
+- STANDING pedestrians who then walk >1 m (n=169 of 13,288 scanned, 1.3%): body facing predicts
+  the direction of motion onset far above chance — within 30 deg for 43.8% (chance 17%), within
+  45 deg for 56.8% (chance 25%), median error 35 deg.
+=> the cue is REAL and is exactly what the current frame destroys, but it applies to ~1% of agents,
+so a frame fix is cheap and worth running yet unlikely to overturn the population-level null.
+
+### 2. Architecture integration — how pose enters today
+
+Verified in mtr/models/context_encoder/mtr_encoder.py:
+obj_poses (num_center, num_objects, 11, 144) -> GRU final hidden state OR cross-attention (agent
+polyline feature as the single query, 11 pose tokens as keys/values) -> ONE D_MODEL vector per
+agent -> concat with the agent polyline feature -> pose_fuser MLP (optionally zero-init residual)
+-> replaces the agent feature -> global self-attention with map -> decoder.
+
+Structural limitations this implies:
+(a) temporal bottleneck: 11x144 collapses to one vector before any scene-level reasoning;
+(b) late fusion: the agent polyline encoder that BUILDS the trajectory representation never sees
+    pose — pose can only additively perturb a finished summary;
+(c) decoder isolation: the 64 intention-point queries / 6 mode heads never attend to pose, so pose
+    cannot directly disambiguate WHICH mode, only nudge the shared context;
+(d) zero-init residual starts the branch at exactly zero contribution against an already-strong
+    baseline;
+(e) 144 raw dims at 6k-143k training pedestrians is a poor SNR trade — and we measured the branch
+    itself costs +1.7% (p=0.0004) at the 25k rung, so any added-parameter design starts in a hole;
+(f) no pose-pose interaction: each agent's pose is summarised independently; the social/interaction
+    structure Waymo-3DSkelMo was built for is not modelled at all.
