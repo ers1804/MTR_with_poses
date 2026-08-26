@@ -343,3 +343,15 @@ Scale ladder, pose vs no-pose (hierarchical): 579 scenes +0.45% p=0.76 (n=5) | 5
 
 CONCLUSION: the scale hypothesis is exhausted. More data makes the baseline better and pose
 conditioning no better; the only thing that grows with scale is the cost of carrying the branch.
+
+### Rung-2 final grid (all 36 runs, 0 failures)
+
+  no_pose_with_map     2.5e-5=0.3711  1.25e-5=0.3821  5e-5=0.3865  1e-4=0.4329
+  cross_attn_pe        2.5e-5=0.3774  5e-5=0.3787     1.25e-5=0.3801  1e-4=0.4224
+  shufflepose          2.5e-5=0.3770  1.25e-5=0.3807  5e-5=0.3845  1e-4=0.4259
+
+Every arm peaks at 2.5e-5 with worse values on BOTH sides -- interior optima, so the per-arm
+best-of-sweep comparison is sound and the 1.25e-5 extension did its job. Note also how large the
+tuning effect is compared with the effect under study: LR choice moves minADE by up to 17%, while
+the entire pose content signal is 0.09%. Any single-LR comparison at a new data scale is therefore
+dominated by tuning, not by the treatment -- the methodological point of this whole rung.
