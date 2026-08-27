@@ -419,3 +419,25 @@ Structural limitations this implies:
     itself costs +1.7% (p=0.0004) at the 25k rung, so any added-parameter design starts in a hole;
 (f) no pose-pose interaction: each agent's pose is summarised independently; the social/interaction
     structure Waymo-3DSkelMo was built for is not modelled at all.
+
+## 2026-08-26/27 — review follow-up launched (frame fix + architecture variant), first attempt lost to a wall-clock cap
+
+Wave 1: AGENT_CENTRIC_POSE_ROT on clean data (2 LRs x 3 seeds) + rotated wrong-pose control (3 seeds).
+Rotation verified before launch: center-agent root yaw circular std 2.045 rad (world, ~uniform)
+-> 0.819 rad (agent frame), i.e. the body now faces roughly along travel.
+
+Wave 2: 8 frame-INVARIANT descriptors (facing-vs-motion cos/sin, torso yaw rate cos/sin, hip-flexion
+stride phase, cadence, arm swing, spine tilt) concatenated onto the agent's per-timestep features,
+with the pose branch DISABLED (USE_POSE_ENCODER False, NUM_INPUT_ATTR_AGENT 29->37). This adds input
+channels instead of an encoder, which matters because the branch itself measured +1.7% cost at 25k.
+Validated: 4 unit tests incl. invariance to arbitrary global yaw (the first fixture was wrong -- a
+pure yaw leaves body-forward vertical where yaw is undefined -- and the tests caught it); on real
+data correct poses give median |body facing - heading| = 12.0 deg vs 93.4 deg for the shuffled
+control, so for the FIRST TIME the control is genuinely distinguishable from the treatment (under
+the world-frame encoding both were equally un-anchored, which is what the null was measuring).
+
+FAILURE + FIX: all 18 tasks were cancelled at epoch ~21/30 by a 12 h #SBATCH cap. The runs were
+healthy (0.16 s/iter, sensible losses); 25k-rung runs need ~16.5 h (12,500 iters/epoch x 30 epochs)
+and the main 25k sweep only survived because it used 24 h. My earlier "~3 h/run" estimate for the
+25k rung was wrong -- those runs took ~13 h; I had misread the submission time. Limit raised to the
+24 h partition maximum and both waves resubmitted (790366 / 790367).
