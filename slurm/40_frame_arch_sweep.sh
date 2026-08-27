@@ -1,7 +1,9 @@
 #!/bin/bash -l
 #SBATCH --job-name=mtr_framearch
 #SBATCH --output=/hnvme/workspace/v103fe12-mtr_smpl/logs/fa_%A_%a.txt
-#SBATCH --time=12:00:00
+#SBATCH --time=24:00:00
+# 25k-rung runs need ~16.5 h (12,500 iters/epoch x 30 epochs at ~0.16 s/iter). A 12 h cap
+# killed all 18 tasks at epoch ~21/30 on 2026-08-26; 24 h is the h100 partition maximum.
 #SBATCH --nodes=1
 #SBATCH --partition=h100
 #SBATCH --gres=gpu:h100:1
