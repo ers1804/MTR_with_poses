@@ -441,3 +441,38 @@ healthy (0.16 s/iter, sensible losses); 25k-rung runs need ~16.5 h (12,500 iters
 and the main 25k sweep only survived because it used 24 h. My earlier "~3 h/run" estimate for the
 25k rung was wrong -- those runs took ~13 h; I had misread the submission time. Limit raised to the
 24 h partition maximum and both waves resubmitted (790366 / 790367).
+
+## 2026-08-27 — REVIEW FOLLOW-UP COMPLETE: frame fix does not rescue pose; early fusion removes the cost
+
+18 runs on Helma (2 waves x 3 cells-ish x LRs x 3 seeds), 0 failures. Per-arm best LR = 2.5e-5 for
+every cell, matching the 25k rung. Hierarchical bootstrap, n=3:
+
+  reference 25k rung: nopose 0.3711 | branch-pose 0.3774 | branch-shuffle 0.3770
+
+  WAVE 1 — coordinate-frame fix (AGENT_CENTRIC_POSE_ROT), pose branch retained
+    fa_agentrot        0.3794 +- 0.0024
+    fa_agentrot_shuf   0.3768 +- 0.0071
+    correct vs its own control: -0.68%, hier p=0.37   -> NO content signal
+    vs no-pose:                 +2.23%, hier p=0.0006 -> branch cost persists (and is not smaller)
+
+  WAVE 2 — 8 frame-invariant descriptors, early fusion, NO pose branch
+    fa_derived         0.3711 +- 0.0051
+    fa_derived_shuf    0.3728 +- 0.0027
+    correct vs its own control: +0.48%, hier p=0.65   -> NO content signal
+    vs no-pose:                 -0.01%, hier p=0.9988 -> capacity tax GONE (exactly baseline)
+    vs the branch design:       -1.66%, hier p=0.0056 -> early fusion is significantly cheaper
+
+CONCLUSION. The coordinate-frame defect was real (verified: world-frame root vs agent-centric
+trajectories; correct/shuffled facing separation 12 deg vs 93 deg after the fix, i.e. the control is
+now genuinely different from the treatment), but correcting it does NOT produce a pose benefit, in
+either the branch architecture or a branch-free early-fusion design. The informative cue exists in
+the data and is now expressible; it still does not convert into trajectory accuracy.
+
+The one positive, reproducible result: pose conditioning can be made FREE. Replacing the 144-d side
+branch with 8 frame-invariant descriptors concatenated onto the agent features lands exactly on the
+trajectory-only baseline (-0.01%, p=0.9988) and beats the branch design by 1.66% (p=0.0056). So the
++1.7% "cost of pose" measured at the 25k rung is an artifact of the ENCODER BRANCH, not of pose
+conditioning as such.
+
+This closes the architecture/representation line: content signal is absent under raw 6D, joints3d,
+world-frame root, agent-centric root, high-dim branch encoding, and low-dim early fusion.

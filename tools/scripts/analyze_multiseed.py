@@ -79,6 +79,10 @@ CELLS = {
     'scale25k_nopose': 'mtr+pose_data_no_pose_with_map_scale5k_lr5',                   # rung 2 (Helma, 142.8k peds)
     'scale25k_xattn_pe': 'mtr+pose_data_cross_attn_pe_with_map_scale5k_lr5',           # all at per-arm best LR 2.5e-5
     'scale25k_shufflepose': 'mtr+pose_data_cross_attn_pe_with_map_shufflepose_scale5k_lr5',
+    'fa_agentrot': 'mtr+pose_data_cross_attn_pe_with_map_agentrot25k',                    # frame fix (review)
+    'fa_agentrot_shuf': 'mtr+pose_data_cross_attn_pe_with_map_shufflepose_agentrot25k',
+    'fa_derived': 'mtr+pose_data_cross_attn_pe_with_map_derived25k',                      # derived + early fusion
+    'fa_derived_shuf': 'mtr+pose_data_cross_attn_pe_with_map_shufflepose_derived25k',
     'map_joints3d':    'mtr+pose_data_cross_attn_pe_with_map_joints3d',     # #4 skeleton keypoints
     'map_nopose_2s':   'mtr+pose_data_no_pose_with_map_2s',                 # #2 2s horizon
     'map_xattn_pe_2s': 'mtr+pose_data_cross_attn_pe_with_map_2s',
@@ -152,6 +156,11 @@ PAIRS = [
     ('scale25k_nopose', 'scale25k_xattn_pe'),      # SCALE 22.5x @per-arm best: pose benefit?
     ('scale25k_nopose', 'scale25k_shufflepose'),   # SCALE 22.5x: capacity control
     ('scale25k_xattn_pe', 'scale25k_shufflepose'), # SCALE 22.5x: content vs capacity
+    ('fa_agentrot', 'fa_agentrot_shuf'),           # FRAME FIX: content vs capacity (the decisive pair)
+    ('scale25k_nopose', 'fa_agentrot'),            # FRAME FIX vs no-pose
+    ('fa_derived', 'fa_derived_shuf'),             # EARLY FUSION: content vs capacity (decisive)
+    ('scale25k_nopose', 'fa_derived'),             # EARLY FUSION vs no-pose (capacity tax?)
+    ('scale25k_xattn_pe', 'fa_derived'),           # early fusion vs the branch design
     # Follow-up #4: SMPL 6D rotations vs 3D skeleton keypoints (same poses, same model)
     ('map_nopose', 'map_joints3d'),
     ('map_xattn_pe', 'map_joints3d'),
