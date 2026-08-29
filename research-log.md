@@ -476,3 +476,28 @@ conditioning as such.
 
 This closes the architecture/representation line: content signal is absent under raw 6D, joints3d,
 world-frame root, agent-centric root, high-dim branch encoding, and low-dim early fusion.
+
+## 2026-08-29 — AVO harness implemented (Erik's request: agentic evolutionary search over pose integration)
+
+Goal as stated: find a pose integration whose minADE beats no-pose. Framing agreed with the record:
+the loop SEARCHES; any candidate it accepts is validated out-of-band (30-epoch recipe, n=5, shuffled
+control, hierarchical bootstrap, eval-FINAL split) before being believed; stagnation is itself a result.
+
+Design (Erik's choices: 25k corrected data, Helma-backed f, 2 fixed seeds, pose-overlay-only scope,
+Sonnet nightly 10h):
+- Search space = ONE file (workspace/src/overlay.py): derive_features() + optional fusion module.
+  MODE "early" (features onto agent input channels) or "module" (custom fusion vs 256-d agent feat).
+  Hook committed in the MTR repo (mtr/utils/pose_overlay.py + dataset/encoder branches); 7 unit tests
+  incl. bit-identity of the seed overlay with the built-in 8 descriptors.
+- f (harness/eval/score.py): local contract check -> rsync overlay -> 2 sbatch jobs against a FROZEN
+  repo clone ($WS/MTR_avo @ 4016e12, verified per job, tracked-file cleanliness enforced) -> poll ->
+  gates (sane range, dev-agent count, per-seed status) -> scores {seed101, seed202}, direction=min.
+- Proxy recipe (search only, never paper numbers): 25k scenes, batch 8 on H100, 12 epochs, LR 1e-4,
+  ~2.5 h/eval with seeds parallel -> ~4 attempts per 10 h night.
+- Anti-selection-bias: loop scores ONLY the dev half of validation (2,617 scenes, md5-parity split,
+  committed); the final half (2,554) is reserved for out-of-band confirmation.
+- Agent constraints (AGENT.md): pose overlay only; no cluster contact; optimizer/data frozen; known
+  dead ends and measured cues provided in knowledge/ so 4 attempts/night are not wasted rediscovering.
+
+Calibration running (6 jobs): no-pose proxy baselines (s101/s202) + 2 repeats of the seed overlay per
+seed -> pins BASELINE_DEV_MINADE constants and sets min_relative_gain above the measured repeat spread.
