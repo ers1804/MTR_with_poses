@@ -844,7 +844,12 @@ class WaymoPoseDataset(DatasetTemplate):
         center_shape_params = betas_filtered[track_index_to_predict_new]  # (num_center, 10)
 
         # Build return dict (matching WaymoDataset interface)
-        if self.pose_early_fusion:
+        # AVO hook: a candidate overlay (POSE_OVERLAY_DIR) replaces the built-in derived
+        # features and chooses the integration mode; without one, behaviour is unchanged.
+        from mtr.utils.pose_overlay import get_overlay
+        _ov = get_overlay()
+
+        if self.pose_early_fusion or (_ov is not None and _ov.MODE == 'early'):
             # Option 2: concatenate frame-invariant pose descriptors onto the per-timestep agent
             # features so the SAME polyline encoder sees trajectory and pose jointly, instead of
             # summarising pose in a side branch and adding it to a finished agent embedding.
@@ -852,9 +857,19 @@ class WaymoPoseDataset(DatasetTemplate):
             # the descriptors are angle differences, so the result is frame-consistent.
             head_ac = obj_trajs_past_filtered[:, :, 6]                       # (num_filtered, T)
             head_tiled = np.tile(head_ac[None], (num_center_objects, 1, 1))  # (C, N, T)
-            derived = derive_pose_features(obj_poses, head_tiled)            # (C, N, T, 8)
+            _fn = _ov.derive_features if _ov is not None else derive_pose_features
+            derived = np.asarray(_fn(obj_poses, head_tiled), dtype=np.float32)  # (C, N, T, F)
+            assert np.isfinite(derived).all(), 'overlay produced non-finite features'
             derived = derived * obj_poses_mask[..., None].astype(np.float32) # invalid frames -> 0
             obj_trajs_data = np.concatenate([obj_trajs_data, derived], axis=-1)
+        elif _ov is not None and _ov.MODE == 'module':
+            # Ship overlay features through the existing obj_poses tensor; the encoder-side
+            # overlay fusion module consumes them (POSE_INPUT_DIM must equal FEATURE_DIM).
+            head_ac = obj_trajs_past_filtered[:, :, 6]
+            head_tiled = np.tile(head_ac[None], (num_center_objects, 1, 1))
+            feats = np.asarray(_ov.derive_features(obj_poses, head_tiled), dtype=np.float32)
+            assert np.isfinite(feats).all(), 'overlay produced non-finite features'
+            obj_poses = feats * obj_poses_mask[..., None].astype(np.float32)
 
         ret_dict = {
             'scenario_id': np.array([scene_id] * num_center_objects),

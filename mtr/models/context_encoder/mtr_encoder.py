@@ -37,6 +37,15 @@ class MTREncoder(nn.Module):
         )
         self.use_pose_encoder = self.model_cfg.get('USE_POSE_ENCODER', True)
         self.use_cross_attn_pose = self.model_cfg.get('USE_CROSS_ATTN_POSE', False)
+        # AVO hook: candidate-supplied fusion module (overlay MODE="module").
+        self.use_overlay_fusion = self.model_cfg.get('USE_OVERLAY_FUSION', False)
+        if self.use_overlay_fusion:
+            from mtr.utils.pose_overlay import get_overlay
+            _ov = get_overlay()
+            assert _ov is not None and _ov.MODE == 'module', \
+                'USE_OVERLAY_FUSION requires a POSE_OVERLAY_DIR overlay with MODE="module"'
+            self.pose_overlay_fusion = _ov.build_fusion(
+                self.model_cfg.D_MODEL, self.model_cfg.get('POSE_INPUT_DIM', _ov.FEATURE_DIM))
         # Pose encoder input dim: 144 (6D rotations, default) or 72 (3D joint keypoints).
         self.pose_input_dim = self.model_cfg.get('POSE_INPUT_DIM', 144)
         if self.use_pose_encoder:
@@ -217,8 +226,14 @@ class MTREncoder(nn.Module):
         obj_polylines_feature = self.agent_polyline_encoder(obj_trajs_in, obj_trajs_mask)  # (num_center_objects, num_objects, C)
         map_polylines_feature = self.map_polyline_encoder(map_polylines, map_polylines_mask)  # (num_center_objects, num_polylines, C)
 
+        # AVO hook: overlay fusion module consumes obj_poses (C,N,T,F) directly.
+        if self.use_overlay_fusion:
+            obj_poses, obj_poses_mask = input_dict['obj_poses'].cuda(), input_dict['obj_poses_mask'].cuda()
+            combined_mask = torch.logical_and(obj_trajs_mask, obj_poses_mask)
+            obj_polylines_feature = self.pose_overlay_fusion(
+                obj_polylines_feature, obj_poses, combined_mask)
         # Apply Pose Encoder (optional — disabled for trajectory-only baseline)
-        if self.use_pose_encoder:
+        elif self.use_pose_encoder:
             obj_poses, obj_poses_mask = input_dict['obj_poses'].cuda(), input_dict['obj_poses_mask'].cuda()
             combined_mask = torch.logical_and(obj_trajs_mask, obj_poses_mask)
             combined_valid_mask = (combined_mask.sum(dim=-1) > 0)  # (num_center_objects, num_objects)
