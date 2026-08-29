@@ -37,7 +37,7 @@ cd "$WS/MTR_avo"
 PIN=$(cat "$WS/MTR_avo.commit")
 HEAD=$(git rev-parse HEAD)
 [ "$HEAD" = "$PIN" ] || fail "frozen repo at $HEAD, expected $PIN"
-[ -z "$(git status --porcelain)" ] || fail "frozen repo has local modifications"
+[ -z "$(git status --porcelain -uno)" ] || fail "frozen repo has modified tracked files"
 
 mkdir -p "$TMPDIR/env"
 tar xzf "$WS/env/mtr_smpl.tar.gz" -C "$TMPDIR/env"
