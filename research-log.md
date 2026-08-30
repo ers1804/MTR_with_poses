@@ -501,3 +501,24 @@ Sonnet nightly 10h):
 
 Calibration running (6 jobs): no-pose proxy baselines (s101/s202) + 2 repeats of the seed overlay per
 seed -> pins BASELINE_DEV_MINADE constants and sets min_relative_gain above the measured repeat spread.
+
+## 2026-08-30 — AVO night 1 was a PHANTOM (agent could not edit); two harness defects fixed
+
+Journal forensics: all 3 "attempts" show the variation agent denied Edit/Write — claude 2.1.x
+treats permission-mode `dontAsk` as deny-without-asking for edit tools (it IS a listed mode, so the
+config parsed fine and the harness README's recommendation is stale for this CLI). The three
+"rejections" were re-scores of the UNCHANGED seed. Fixed: bypassPermissions for both agent and
+supervisor commands.
+
+The phantom bought real metrology, though: 3 no-op evals through the loop path agree to ~0.1%
+aggregate spread, but sit 0.5-0.8% BELOW the manually-submitted calibration runs on s101/s303.
+Submission flags differ (loop: sbatch --export=ALL,AVO_LR=...; manual: header --export=NONE) and
+correlate perfectly with the two eras. Whatever the mechanism, baselines measured through one path
+are not comparable to scores measured through the other -> all three no-pose baselines re-measured
+through the EXACT loop submission path (calbase2) before the search restarts. Floor stays 0.8%
+(8x the within-path spread). Lineage journal archived (state/archive/journal_night1_phantom.jsonl);
+night 2 restarts with a clean x0 under the fixed agent command.
+
+Lesson for the paper's methodology section: even the measurement harness's SUBMISSION PATH is a
+treatment. Two identical training jobs differing only in `sbatch --export` flags shifted minADE by
+up to 0.8% — larger than every pose effect we ever measured.
