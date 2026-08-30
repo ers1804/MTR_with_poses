@@ -522,3 +522,20 @@ night 2 restarts with a clean x0 under the fixed agent command.
 Lesson for the paper's methodology section: even the measurement harness's SUBMISSION PATH is a
 treatment. Two identical training jobs differing only in `sbatch --export` flags shifted minADE by
 up to 0.8% — larger than every pose effect we ever measured.
+
+## 2026-08-30 (cont.) — CORRECTION: no submission-path effect; s101 is simply a fat-tailed seed
+
+The calbase2 re-measurement refutes my own "submission path is a treatment" claim from this morning:
+s303 no-pose agrees to 0.07% across the two submission paths, s202 to 0.2%. What actually happened:
+seed 101 has sigma ~1.5% (range 3.4% over 8 identical-code runs) REGARDLESS of code or path, and I
+pattern-matched eras on n=3 samples of a fat-tailed distribution — the same class of error as the
+project's seed artifacts, now committed by me at the metrology level. Retracted in place.
+
+Operational state for the search (night 2, running):
+- configs = seeds {202, 303} (sigma 0.3-0.5%); s101 dropped entirely
+- loop-path no-pose baselines: s202 0.35044, s303 0.35541 (calbase2)
+- floor 0.8% (~2.5x aggregate sigma), per-seed cap 1.5%
+- agent permission mode fixed (bypassPermissions) — night 1 was a phantom (agent could not edit)
+Incidental observation, not a claim: on the stable seeds the 8-descriptor seed overlay has run
+~0.3-1.0% BELOW no-pose across 6 identical-code evals under the 12-epoch proxy. If the loop's x0
+rescore confirms that, the search starts from a small real advantage under the proxy recipe.
