@@ -1,0 +1,72 @@
+\documentclass[9pt,a4paper]{extarticle}
+\usepackage[margin=1.4cm]{geometry}
+\usepackage{booktabs,multicol,xcolor,titlesec,enumitem}
+\usepackage[sfdefault]{FiraSans}
+\definecolor{navy}{HTML}{152D47}
+\definecolor{good}{HTML}{1a7a4a}
+\definecolor{bad}{HTML}{b03030}
+\titleformat{\section}{\normalsize\bfseries\color{navy}}{}{0pt}{}
+\titlespacing{\section}{0pt}{5pt}{2pt}
+\setlist[itemize]{nosep,leftmargin=1em}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\columnsep}{0.8cm}
+
+\begin{document}
+
+{\LARGE\bfseries\color{navy} How Much Does Body Pose Help Pedestrian Trajectory Forecasting?}\\[2pt]
+{\large A seed-replicated study, a data-forensics audit, and an agentic architecture search \hfill \normalsize Erik Sch\"utz · Sept 2026}
+\vspace{2pt}\hrule\vspace{6pt}
+
+\textbf{Answer: it doesn't --- and the null is unusually well defended.} Across 100+ multi-seed runs, three data scales (579\,$\to$\,25{,}000 scenes, 40$\times$), two training regimes, and six pose representations/integrations, \emph{correct} SMPL poses are statistically indistinguishable from \emph{scrambled} poses in every test (all hierarchical $p\geq0.37$). The decisive comparison throughout is correct pose vs.\ the same architecture fed another pedestrian's pose --- capacity and regularization cancel; only information content survives.
+
+\begin{multicols}{2}
+
+\section{Forensics: two bugs that reframed everything}
+\textbf{Export bug (upstream pipeline).} Pose clips were grouped by scene-\emph{local} object id across all $\sim$326k scenes: nearly every training sequence carried \emph{another pedestrian's} body motion (verified bit-identical), and 4.7$\times$ of the pedestrians were silently dropped. All pre-fix results were effectively wrong-pose experiments. Fixed by per-scene re-export (299k scenes, 1.81M sequences); validated: root-heading error $41.5^\circ\!\to\!11.4^\circ$, gait--speed correlation $r\,0.26\!\to\!0.58$.
+
+\textbf{MPJPE harness bug (ours).} Published 160.6\,mm was a frame-indexing error. Corrected chain: LiDAR-HMR \textbf{87.6\,mm} $\to$ full pipeline \textbf{92.7\,mm} root-aligned --- well below stride amplitude (300--600\,mm). RGB estimation (HMR2.0) is \emph{worse} (106.2\,mm). \textcolor{bad}{Pose quality cannot explain the null.}
+
+\section{Core result (clean data, $n{=}5$, hierarchical bootstrap)}
+\begin{center}\footnotesize
+\begin{tabular}{lccc}
+\toprule
+& no-pose & correct vs.\ base & correct vs.\ shuffled \\
+\midrule
+from scratch & 0.4599 & $+0.45\%$, $p{=}.76$ & $-0.66\%$, $p{=}.46$ \\
+fine-tuned & 0.3692 & $+0.44\%$, $p{=}.49$ & $-0.88\%$, $p{=}.11$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+Auxiliary pose losses are \emph{provably inert}: sequences are past-only, so future-pose targets never exist.
+
+\section{Scale ladder (per-arm LR tuning at every rung)}
+\begin{center}\footnotesize
+\begin{tabular}{lccc}
+\toprule
+rung & no-pose & pose vs.\ base & correct vs.\ shuffled \\
+\midrule
+579 sc.\ (6.3k peds) & 0.4599 & $+0.45\%$, $p{=}.76$ & $-0.66\%$, $p{=}.46$ \\
+5k (31k) & 0.4176 & $-0.90\%$, $p{=}.52$ & $-1.02\%$, $p{=}.44$ \\
+25k (143k) & 0.3711 & $+1.68\%$, $p{=}.0004$ & $\mathbf{-0.09\%}$, $p{=}.92$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+The baseline gains \textcolor{good}{$-19\%$} from data alone; pose content stays at zero. The 25k ``cost'' is a branch-capacity tax (scrambled poses cost the same). \textbf{Cautionary tale:} one inherited learning rate read as \textcolor{bad}{$+37\%$ ``pose is catastrophic''}; per-arm tuning: $-0.9\%$ n.s. LR moves minADE up to 17\%, the content signal is 0.09\% --- \emph{tuning is $\sim$190$\times$ the treatment}.
+
+\section{New approaches}
+\textbf{1. Coordinate-frame fix.} Trajectories are agent-centric but the SMPL root stayed world-frame, making body-facing-vs-travel \emph{inexpressible} (the prior frame ablation ran on corrupt data --- void). The cue is real: for standing pedestrians who then walk, facing predicts onset direction at 2.6$\times$ chance --- but only 1.3\% of agents. Frame-correct pose vs.\ its shuffled control: $-0.68\%$, $p{=}.37$. Expressible, still not convertible.
+
+\textbf{2. Frame-invariant descriptors + early fusion (positive result).} Eight intrinsic descriptors (facing-vs-motion, turn rate, stride phase, cadence, arm swing, lean) concatenated onto the agent's input channels, \emph{no pose encoder}: \textbf{0.3711 = baseline exactly} ($-0.01\%$, $p{=}.9988$), beating the 144-d branch by \textcolor{good}{$1.66\%$ ($p{=}.0056$)}. \textbf{Pose can be carried for free --- it just doesn't pay.}
+
+\textbf{3. Agentic search (AVO, NVIDIA 2026), running.} A headless coding agent is the variation operator over the pose-integration code: frozen commit-pinned training repo, 25k-scene proxy ($\sim$2.5\,h/eval on H100s), calibrated 0.8\% noise floor, dev/final eval split, integrity hashing. Any accepted candidate faces full confirmation (30 epochs, $n{=}5$, shuffled control, held-out split). Its hypotheses so far target temporal max-pool blindness; none accepted yet --- stagnation itself would bound what directed search can find here.
+
+\section{Methodology as contribution}
+Ten self-caught artifacts: six $n{\leq}3$ seed effects (up to $-7.6\%$, all dissolved at $n{=}5$), a last-epoch protocol artifact ($+13.4\%$, $p{=}.0002$ $\to$ n.s.), a control-revealed capacity effect, one measurement-harness bug, one tuning phantom. Paired bootstraps said $p{=}.0001$ for most; hierarchical testing + mandatory replication + wrong-pose controls killed every one. \emph{At sub-1\% effect sizes, everything is a treatment.}
+
+\end{multicols}
+
+\vspace{2pt}\hrule\vspace{3pt}
+{\footnotesize\textbf{Takeaway:} with provably correct, quality-verified poses and every confound tested, body pose adds nothing measurable to pedestrian minADE on Waymo. What might still change the answer: pose-to-pose interaction modelling, event-conditioned metrics (standing-onset subpopulation), or the ongoing agentic search. All numbers regenerable from committed runs (\texttt{research-log.md}, \texttt{experiments/}).}
+
+\end{document}
