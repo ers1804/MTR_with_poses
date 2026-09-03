@@ -25,7 +25,15 @@ LOCK="$STATE/.helma_lock"
 MIN_INTERVAL=${HELMA_MIN_INTERVAL:-120}
 mkdir -p "$STATE"; chmod 700 "$STATE"
 
-master_alive() { ssh -F "$CFG" -O check helma >/dev/null 2>&1; }
+master_alive() {
+  # -O check can HANG on a stale master (socket file outlives the connection after
+  # network changes). Bound it, and tear down the corpse so reconnection can work.
+  if timeout 10 ssh -F "$CFG" -O check helma >/dev/null 2>&1; then return 0; fi
+  timeout 10 ssh -F "$CFG" -O exit helma >/dev/null 2>&1
+  timeout 10 ssh -F "$CFG" -O exit csnhr.nhr.fau.de >/dev/null 2>&1   # the JUMP master hangs too
+  rm -f "$STATE"/v103fe12@* 2>/dev/null
+  return 1
+}
 
 ensure_master() {
   master_alive && return 0

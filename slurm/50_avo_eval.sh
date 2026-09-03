@@ -1,5 +1,5 @@
 #!/bin/bash -l
-#SBATCH --job-name=avo_eval
+#SBATCH --job-name=mtrpose_avo   # unique: a sibling project also names jobs avo_eval
 #SBATCH --output=/hnvme/workspace/v103fe12-mtr_smpl/logs/avo_%j.txt
 #SBATCH --time=06:00:00
 #SBATCH --nodes=1
