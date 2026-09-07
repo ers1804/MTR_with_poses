@@ -5,7 +5,16 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-SEED_OVERLAY_DIR = '/home/erik/ssd2/gitprojects/avo_harness/avo/workspace/src'
+import subprocess, tempfile, pathlib
+_WS = '/home/erik/ssd2/gitprojects/avo_harness/avo/workspace'
+# The live workspace holds whatever candidate the search is currently mutating; the seed
+# is the committed x0 (`avo: seed x0` commit) — read it from git so a running attempt can
+# never make this test fail spuriously.
+_seed_dir = pathlib.Path(tempfile.mkdtemp(prefix='seed_overlay_'))
+_seed_src = subprocess.run(['git', '-C', _WS, 'show', 'e8db1a0:src/overlay.py'],
+                           capture_output=True, text=True, check=True).stdout
+(_seed_dir / 'overlay.py').write_text(_seed_src)
+SEED_OVERLAY_DIR = str(_seed_dir)
 
 
 def _fresh_loader():
