@@ -48,7 +48,9 @@ class MTREncoder(nn.Module):
                 self.model_cfg.D_MODEL, self.model_cfg.get('POSE_INPUT_DIM', _ov.FEATURE_DIM))
         # Pose encoder input dim: 144 (6D rotations, default) or 72 (3D joint keypoints).
         self.pose_input_dim = self.model_cfg.get('POSE_INPUT_DIM', 144)
-        if self.use_pose_encoder:
+        # The built-in branch (GRU / cross-attn + pose_fuser) is not constructed when an
+        # overlay fusion module replaces it — its config keys need not exist then.
+        if self.use_pose_encoder and not self.use_overlay_fusion:
             if self.use_cross_attn_pose:
                 # H5: cross-attention pose encoder
                 # Projects each pose frame to D_MODEL, then cross-attends from agent feature

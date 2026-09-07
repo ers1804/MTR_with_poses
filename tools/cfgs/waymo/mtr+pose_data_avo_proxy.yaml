@@ -57,6 +57,10 @@ MODEL:
 
         # H5b: cross-attention pose encoder WITH sinusoidal positional encoding
         USE_POSE_ENCODER: False
+        # AVO MODE="module" overrides need these keys to EXIST (cfg_from_list asserts on unknown keys)
+        USE_OVERLAY_FUSION: False
+        POSE_INPUT_DIM: 144
+
         USE_POSE_SINUSOIDAL_PE: True
         NUM_PAST_TIMESTAMPS: 11
         DROPOUT_OF_POSE_FUSER: 0.1
