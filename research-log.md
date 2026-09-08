@@ -625,3 +625,28 @@ subpopulation analysis on existing metrics under both selection rules:
 
 Consequence: the expanded-validation rerun is scoped to the pose-vs-shuffle test only, and reported
 as a supplementary high-agent-count check, not as a replacement for the best-epoch headline numbers.
+
+## 2026-09-08 (cont.) — expanded-validation subpopulation test: 6.8x more agents, still null
+
+Re-scored the nine epoch-30 checkpoints of the 25k triad on the FULL clean validation split
+(27,156 scenes) — inference only, ~1.5 h of H100 time, no retraining. Evaluated agents went
+16,342 -> 121,964; the rare standing-then-moves population went 267 -> 1,809 (6.8x).
+
+Decisive test (correct pose vs its OWN shuffled control), epoch-30 operating point:
+
+  ALL                  n=121,964   -2.65%  CI [-0.055,+0.013]  p=0.60
+  standing_then_moves  n=  1,809   +0.38%  CI [-0.061,+0.058]  p=0.80
+  standing_stays       n= 22,840   +0.66%  CI [-0.000,+0.003]  p=0.19
+  walking              n= 86,214   -3.28%  CI [-0.078,+0.019]  p=0.60
+
+standing_then_moves is the key row: with 6.8x the agents the point estimate collapses from +2.39%
+(n=267, best epoch) to +0.38%, i.e. toward exactly zero, and the CI is now roughly +/-5% ABSOLUTE
+on a mean of 1.19 (about +/-5% relative). No pose-content benefit where the measured cue lives.
+
+Caveat kept explicit: these are LAST-epoch checkpoints, so the no-pose comparisons in this table
+(+5% to +10%) are NOT trustworthy — the 2026-09-08 robustness check showed the cross-architecture
+comparison flips sign under epoch selection while the content test does not. Only the content test
+is read from this run. Data: experiments/subpopulation_pose_analysis_valfull.json.
+
+With this, the "the aggregate hides a real effect in the population where the cue exists" hypothesis
+is closed at ~7x the original resolution.

@@ -25,14 +25,21 @@ import numpy as np
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 SCEN = '/home/erik/NAS/personal/waymo_agent_batch/processed_scenarios_validation'
-DYN_CACHE = os.path.join(REPO, 'experiments', 'val_agent_dynamics_25k.pkl')
-OUT_JSON = os.path.join(REPO, 'experiments', 'subpopulation_pose_analysis.json')
+DYN_CACHE = os.path.join(REPO, 'experiments',
+                         'val_agent_dynamics%s.pkl' % ('_valfull' if os.environ.get('VALFULL') else '_25k'))
+OUT_JSON = os.path.join(REPO, 'experiments',
+                        'subpopulation_pose_analysis%s.json' % ('_valfull' if os.environ.get('VALFULL') else ''))
 
+# VALFULL=1 selects the expanded-validation re-scoring (27,156 scenes, epoch-30 checkpoints).
+# Those checkpoints are a LAST-epoch operating point: verified 2026-09-08 that the pose-vs-shuffle
+# CONTENT test is stable across epoch selection while no-pose-vs-pose is not, so only the content
+# test is reported from this mode.
+_PREFIX = 'VALFULL_' if os.environ.get('VALFULL') else ''
 CELLS = {
-    'nopose': 'mtr+pose_data_no_pose_with_map_scale5k_lr5/HELMA_25k_no_pose_with_map_lr25_s{}',
-    'pose': 'mtr+pose_data_cross_attn_pe_with_map_scale5k_lr5/HELMA_25k_cross_attn_pe_with_map_lr25_s{}',
+    'nopose': f'mtr+pose_data_no_pose_with_map_scale5k_lr5/{_PREFIX}HELMA_25k_no_pose_with_map_lr25_s{{}}',
+    'pose': f'mtr+pose_data_cross_attn_pe_with_map_scale5k_lr5/{_PREFIX}HELMA_25k_cross_attn_pe_with_map_lr25_s{{}}',
     'shuffle': ('mtr+pose_data_cross_attn_pe_with_map_shufflepose_scale5k_lr5/'
-                'HELMA_25k_cross_attn_pe_with_map_shufflepose_lr25_s{}'),
+                f'{_PREFIX}HELMA_25k_cross_attn_pe_with_map_shufflepose_lr25_s{{}}'),
 }
 SEEDS = (101, 202, 303)
 CUR = 10                       # index of "now" on the 91-step grid
@@ -89,14 +96,14 @@ def per_agent_at_best_epoch(run_dir: str) -> dict:
     (which is what the surviving checkpoints correspond to, so the expanded-validation rerun
     must use the same rule)."""
     if EPOCH_MODE == 'last':
-        files = glob.glob(os.path.join(run_dir, 'eval/eval_with_train/metrics_epoch_*.pkl'))
+        files = glob.glob(os.path.join(run_dir, '**', 'metrics_epoch_*.pkl'), recursive=True)
         if not files:
             return {}
         f = max(files, key=lambda x: int(x.rsplit('_', 1)[1].split('.')[0]))
         recs = pickle.load(open(f, 'rb'))
         return {(r['scenario_id'], str(r['object_id'])): float(r['minADE']) for r in recs}
     best, best_m = None, np.inf
-    for p in glob.glob(os.path.join(run_dir, 'eval/eval_with_train/metrics_epoch_*.pkl')):
+    for p in glob.glob(os.path.join(run_dir, '**', 'metrics_epoch_*.pkl'), recursive=True):
         try:
             recs = pickle.load(open(p, 'rb'))
         except Exception:
