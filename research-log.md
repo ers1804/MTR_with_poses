@@ -578,3 +578,30 @@ Cost accounting: ~$25 of agent reasoning, ~40 H100-hours of scored evaluations, 
 attempts lost to infrastructure (cluster reservations/NODE_FAIL/account limits) and 3 harness bugs
 of mine (integrity trip, module-mode config keys, agent self-running bench.sh) - all annotated in
 the journal so no hypothesis was recorded as refuted when it was never tested.
+
+## 2026-09-08 — Event-conditioned re-analysis: the null holds inside every subpopulation
+
+Motivation: the aggregate averages over 16.5k pedestrians, so a real effect confined to the ~1.5%
+where the measured cue exists (standing pedestrians whose body facing predicts motion onset at 2.6x
+chance) would be invisible. Re-analysis of the 25k triad's existing per-agent metrics (best epoch,
+3 seeds, same hierarchical bootstrap as the headline numbers) — no training, no cluster.
+
+Decisive comparison (correct pose vs its OWN shuffled control), by subpopulation:
+
+  ALL                  n=16,342 (99.1%)   +0.08%  p=0.95
+  standing_then_moves  n=267    ( 1.6%)   +2.39%  p=0.50   <- where the cue lives; correct is WORSE
+  standing_stays       n=2,739  (16.6%)   +0.28%  p=0.72
+  walking              n=11,956 (72.5%)   +0.19%  p=0.83
+
+No subpopulation shows a pose-content benefit; the sign is positive (correct worse) in all four,
+and the widest CI (standing_then_moves, +/-5% relative on n=267) cannot exclude a moderate effect
+there but shows no hint of one. Note also the difficulty structure: standing-then-moves is the
+hardest population by far (minADE ~1.29 vs 0.41 walking, 0.17 standing-stays) — exactly the
+high-uncertainty regime where pose was hypothesised to help, and where it does not.
+
+Secondary observation, consistent across every subpopulation: the pose BRANCH costs ~1.6% vs
+no-pose (ALL p=0.0008, walking p=0.0056), while correct-vs-shuffled is flat — capacity, not content,
+reproduced at subpopulation resolution.
+
+Conclusion: the "the average hides it" explanation is now closed. Data: experiments/
+subpopulation_pose_analysis.json; script: tools/scripts/subpopulation_pose_analysis.py.
