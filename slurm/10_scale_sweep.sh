@@ -56,7 +56,9 @@ echo "staged: $(ls "$TMPDIR/poses/training" | wc -l) train scenes, $(ls "$TMPDIR
 
 # ---- sweep grid -------------------------------------------------------------
 CELLS=(no_pose_with_map cross_attn_pe_with_map cross_attn_pe_with_map_shufflepose)
-SEEDS=(101 202 303)
+# Seed list is also a parameter: `sbatch 10_scale_sweep.sh 0.000025 404,505` extends an
+# existing rung with more seeds (the CI on correct-vs-shuffled is seed-dominated).
+IFS=',' read -r -a SEEDS <<< "${2:-101,202,303}"
 # LR grid is a parameter: `sbatch 10_scale_sweep.sh 0.0000125` sweeps a single extra LR
 # (array 0-8), which is how boundary optima get checked without redoing the whole grid.
 IFS=',' read -r -a LRS <<< "${1:-0.0001,0.00005,0.000025}"
