@@ -5,6 +5,10 @@ DATA_CONFIG:
     OBJECT_TYPE: &object_type ['TYPE_PEDESTRIAN']
 
     DATA_ROOT: '/home/erik/big1/waymo_motion_poses/scale_5k'
+    # AVO round 2: overlays receive rotations AND canonical-frame joint positions
+    # (216-d = 144 6D + 72 FK positions) so HumanML3D-style features — joint
+    # velocities, foot contacts — become constructible. FK runs on the fly at load.
+    POSE_REPRESENTATION: '6d+joints'
     # review option 2: 8 frame-invariant pose descriptors concatenated onto the agent's
     # per-timestep features; no separate pose branch (see USE_POSE_ENCODER below).
     SPLIT_DIR: {

@@ -146,7 +146,8 @@ def derive_pose_features(pose_6d, headings):
     """
     lead = pose_6d.shape[:-2]
     T = pose_6d.shape[-2]
-    p = pose_6d.reshape(-1, T, 144)
+    D = pose_6d.shape[-1]          # 144 (rotations) or 216 ('6d+joints'); rotations lead
+    p = pose_6d.reshape(-1, T, D)
     h = headings.reshape(-1, T)
 
     a, b = p[..., 0:3], p[..., 3:6]          # first two columns of the root rotation matrix
@@ -156,7 +157,7 @@ def derive_pose_features(pose_6d, headings):
     dyaw = np.zeros_like(body_yaw)
     dyaw[:, 1:] = body_yaw[:, 1:] - body_yaw[:, :-1]
 
-    body = p[..., 6:].reshape(p.shape[0], T, 23, 6)
+    body = p[..., 6:144].reshape(p.shape[0], T, 23, 6)
     flex = body[..., 0]                       # first 6D component ~ flexion about the body x-axis
     stride = flex[..., 0] - flex[..., 1]      # pose_body idx 0/1 = L_Hip / R_Hip
     cadence = np.zeros_like(stride)
@@ -298,8 +299,9 @@ class WaymoPoseDataset(DatasetTemplate):
         # Only the ENCODER INPUT changes; future-pose targets stay 6D so the (inert)
         # auxiliary losses and the decoder heads are untouched and the cells stay comparable.
         self.pose_representation = self.dataset_cfg.get('POSE_REPRESENTATION', '6d')
-        assert self.pose_representation in ('6d', 'joints3d'), self.pose_representation
-        self.pose_input_dim = 144 if self.pose_representation == '6d' else 72
+        assert self.pose_representation in ('6d', 'joints3d', '6d+joints', 'both'), self.pose_representation
+        self.pose_input_dim = {'6d': 144, 'joints3d': 72,
+                               '6d+joints': 216, 'both': 216}[self.pose_representation]
         self._smpl_layer = None  # lazily built per worker (joints3d only)
 
         # Review 2.4: rotate the root-orientation channel into each center object's
@@ -533,8 +535,14 @@ class WaymoPoseDataset(DatasetTemplate):
     def _pose_features(self, root_orient, pose_body, betas):
         """Per-observation encoder-input pose features.
 
-        '6d'       -> (N, 144) 6D rotations (paper default).
-        'joints3d' -> (N, 72) root-relative 3D SMPL joint positions, i.e. the skeleton
+        '6d'        -> (N, 144) 6D rotations (paper default).
+        '6d+joints' -> (N, 216) = the 144 rotations followed by 72 CANONICAL-FRAME joint
+                       positions (SMPL FK with root orientation zeroed, root-centred), so the
+                       position block is pure articulation and frame-invariant. This is what an
+                       AVO overlay needs to build HumanML3D-style features (joint velocities,
+                       foot contacts) — 'joints3d' below bakes the WORLD root rotation into
+                       every coordinate and must not be used for that.
+        'joints3d'  -> (N, 72) root-relative 3D SMPL joint positions, i.e. the skeleton
                       keypoint representation used by prior pose-conditioned forecasters.
                       Derived from the SAME poses via SMPL forward kinematics, so the
                       comparison isolates the *representation*, not the estimation pipeline.
@@ -556,13 +564,21 @@ class WaymoPoseDataset(DatasetTemplate):
             self._smpl_layer = layer.eval()
 
         N = root_orient.shape[0]
-        pose_aa = np.concatenate([root_orient, pose_body], axis=-1).astype(np.float32)  # (N,72)
+        # For '6d+joints' the FK runs with a ZEROED root: the resulting coordinates are the
+        # body's own articulation, invariant to world/agent yaw. Orientation is still available
+        # to the consumer through the 6D root block and the agent-centric heading input.
+        root_for_fk = (np.zeros_like(root_orient) if self.pose_representation in ('6d+joints', 'both')
+                       else root_orient)
+        pose_aa = np.concatenate([root_for_fk, pose_body], axis=-1).astype(np.float32)  # (N,72)
         with torch.no_grad():
             _, joints = self._smpl_layer(torch.from_numpy(pose_aa),
                                          torch.from_numpy(np.tile(betas[None], (N, 1))))
         joints = joints.numpy()                       # (N, 24, 3), SMPL joint order
         joints = joints - joints[:, 0:1, :]           # root-relative (translation removed)
-        return joints.reshape(N, -1).astype(np.float32)
+        joints = joints.reshape(N, -1).astype(np.float32)
+        if self.pose_representation in ('6d+joints', 'both'):
+            return np.concatenate([smpl_params_to_6d(root_orient, pose_body), joints], axis=-1)
+        return joints
 
     def _load_pedestrian(self, npz_path, waymo_traj=None, pose_src_path=None):
         """Load a single pedestrian .npz file and map to the standard Waymo time grid.
