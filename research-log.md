@@ -539,3 +539,42 @@ Operational state for the search (night 2, running):
 Incidental observation, not a claim: on the stable seeds the 8-descriptor seed overlay has run
 ~0.3-1.0% BELOW no-pose across 6 identical-code evals under the 12-epoch proxy. If the loop's x0
 rescore confirms that, the search starts from a small real advantage under the proxy recipe.
+
+## 2026-09-08 — AVO SEARCH CONCLUDED (stopping rule fired): no pose integration beat the incumbent
+
+The agentic evolutionary search (NVIDIA AVO harness, Sonnet variation operator, Fable 5.1 supervisor)
+terminated on its own pre-registered rule: 3 supervisor interventions produced no acceptance.
+
+Setup: search space = the pose-integration overlay only (feature construction + optional fusion
+module); frozen commit-pinned training repo; f = 25k-scene proxy (batch 8, 12 epochs), 2 stable
+seeds in parallel on H100s, ~2.5-3 h per evaluation; acceptance = >=0.8% aggregate gain (>=2.5x the
+measured noise) with no seed regressing >1.5%; loop scored ONLY the dev half of validation.
+
+Result: 13 scored candidates, 0 accepted. Incumbent remained x0 (the 8 frame-invariant descriptors,
+early fusion) at aggregate 0.3505.
+
+  -0.49%  Tiled circular-mean body-facing + von Mises concentration   <- best; split seeds, below floor
+  +0.02%  Gait-energy-gated body-facing (the standing-onset cue)
+  +0.09%  Rotation-angle stride + tiled gait amplitude
+  +0.42%  cos/sin maxpool decoupling fix
+  +0.54%, +0.58%, +0.60%, +0.64%, +0.80%  (facing context, gait amplitude, head-gaze chain, ...)
+  +0.98%  Descriptor pruning (8->6)
+  +1.19%  Tiled aggregate facing context
+  +1.44%  Module-mode last-frame FiLM gate            <- Fable-supervised final attempt
+  +4.66%  Module-mode mean+max pooled fusion          <- worst; reproduces the branch capacity tax
+
+Levers explored across the 13: temporal max-pool blindness (5 variants), body-facing concentration,
+gait-energy gating, kinematic-chain features (head gaze, knees), angular encoding fixes, descriptor
+pruning, and two module-mode architectures. The supervisor steered the last three.
+
+Interpretation. A directed agent with the full dead-end list, the measured cue inventory, and 40+
+H100-hours found nothing that clears a 0.8% floor on the dev split; the single best candidate
+(-0.49%) fell to seed disagreement. Both module-mode designs reproduced the branch capacity tax
+independently discovered in the manual study (+1.4% and +4.7%). This is a bound, not a proof: it says
+that within this integration space, at this data scale, with this proxy, directed search does not
+find a pose representation that helps. It is the natural closing experiment for the paper's null.
+
+Cost accounting: ~$25 of agent reasoning, ~40 H100-hours of scored evaluations, plus 9 unscored
+attempts lost to infrastructure (cluster reservations/NODE_FAIL/account limits) and 3 harness bugs
+of mine (integrity trip, module-mode config keys, agent self-running bench.sh) - all annotated in
+the journal so no hypothesis was recorded as refuted when it was never tested.
