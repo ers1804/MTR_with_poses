@@ -605,3 +605,23 @@ reproduced at subpopulation resolution.
 
 Conclusion: the "the average hides it" explanation is now closed. Data: experiments/
 subpopulation_pose_analysis.json; script: tools/scripts/subpopulation_pose_analysis.py.
+
+## 2026-09-08 (cont.) — epoch-selection robustness check before re-using checkpoints
+
+Only epoch-30 checkpoints survived the 25k runs, so an expanded-validation rerun would evaluate a
+LAST-epoch operating point rather than the best-epoch one behind every headline number. Re-ran the
+subpopulation analysis on existing metrics under both selection rules:
+
+  decisive test (correct pose vs its own shuffled control):
+      ALL                  best-epoch +0.08% p=0.95   |  last-epoch -2.49% p=0.58
+      standing_then_moves  best-epoch +2.39% p=0.50   |  last-epoch +1.26% p=0.63
+  => the pose-CONTENT conclusion is robust to epoch selection (null either way).
+
+  cross-architecture comparison (no-pose vs pose) is NOT robust:
+      ALL                  best-epoch -1.61% p=0.0008 |  last-epoch +8.00% p=0.30
+  => at epoch 30 the no-pose arm has degraded far more than the pose arm. Late-epoch checkpoints
+  must not be used to compare architecturally different arms; they are fine for comparing two
+  structurally identical arms that differ only in pose content (pose vs shuffle).
+
+Consequence: the expanded-validation rerun is scoped to the pose-vs-shuffle test only, and reported
+as a supplementary high-agent-count check, not as a replacement for the best-epoch headline numbers.

@@ -81,8 +81,20 @@ def build_dynamics(scenes: list[str]) -> dict:
 
 
 # ---------------------------------------------------------------- stage 2: metrics
+EPOCH_MODE = os.environ.get('SUBPOP_EPOCH', 'best')   # 'best' or 'last'
+
+
 def per_agent_at_best_epoch(run_dir: str) -> dict:
-    """{(scenario, object): minADE} at the epoch with the lowest overall mean minADE."""
+    """{(scenario, object): minADE}. 'best' = lowest overall mean; 'last' = highest epoch id
+    (which is what the surviving checkpoints correspond to, so the expanded-validation rerun
+    must use the same rule)."""
+    if EPOCH_MODE == 'last':
+        files = glob.glob(os.path.join(run_dir, 'eval/eval_with_train/metrics_epoch_*.pkl'))
+        if not files:
+            return {}
+        f = max(files, key=lambda x: int(x.rsplit('_', 1)[1].split('.')[0]))
+        recs = pickle.load(open(f, 'rb'))
+        return {(r['scenario_id'], str(r['object_id'])): float(r['minADE']) for r in recs}
     best, best_m = None, np.inf
     for p in glob.glob(os.path.join(run_dir, 'eval/eval_with_train/metrics_epoch_*.pkl')):
         try:
