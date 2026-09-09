@@ -650,3 +650,27 @@ is read from this run. Data: experiments/subpopulation_pose_analysis_valfull.jso
 
 With this, the "the aggregate hides a real effect in the population where the cue exists" hypothesis
 is closed at ~7x the original resolution.
+
+## 2026-09-09 — 25k rung at n=5: the decisive test is now the tightest measurement in the project
+
+Seed extension complete (seeds 404/505 added at the tuned LR 2.5e-5), so the 25k triad is n=5:
+
+  scale25k_nopose      0.3716 +- 0.0027
+  scale25k_xattn_pe    0.3778 +- 0.0024
+  scale25k_shufflepose 0.3777 +- 0.0053
+
+  correct vs shuffled (DECISIVE):  -0.04%, hier CI [-0.0047,+0.0040], p=0.97
+  no-pose vs correct:              +1.66%, hier p=0.0001
+  no-pose vs shuffled:             +1.62%, hier p=0.0082
+
+The content effect is now -0.04% with a hierarchical CI of about +/-1.2% relative — the tightest
+bound the project has produced, and it straddles zero almost exactly. Compare the same test at
+n=3: -0.09%, CI ~+/-1.8%. More seeds moved the estimate essentially not at all and shrank the
+interval as expected for a true null.
+
+The branch capacity tax is now unambiguous at n=5: BOTH pose arms cost ~1.6% versus no-pose
+(p=0.0001 / p=0.0082) and are statistically indistinguishable from each other (p=0.97). Capacity,
+not content — stated with the strongest evidence in the study.
+
+Combined with the expanded-validation subpopulation test (121,964 agents; standing-then-moves
+n=1,809, +0.38%, p=0.80), the two power upgrades Erik requested both landed on the same answer.
