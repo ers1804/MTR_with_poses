@@ -674,3 +674,32 @@ not content — stated with the strongest evidence in the study.
 
 Combined with the expanded-validation subpopulation test (121,964 agents; standing-then-moves
 n=1,809, +0.38%, p=0.80), the two power upgrades Erik requested both landed on the same answer.
+
+## 2026-09-10 — AVO round-2 candidate beats the incumbent on 5/5 seeds; decisive control running
+
+The round-2 candidate "stationary-gated facing + position-based foot contacts" (eval 68bc3e7293,
+recovered from the cluster after the harness discarded it) was re-scored against the incumbent x0
+at three FRESH seeds, and both arms were run at all five so the comparison is paired:
+
+  seed   candidate   x0        delta
+   202   0.3502      0.3522    -0.57%
+   303   0.3480      0.3513    -0.94%
+   404   0.3531      0.3559    -0.79%
+   505   0.3461      0.3505    -1.26%
+   606   0.3540      0.3579    -1.09%
+
+  paired delta -0.93%, sd 0.094pp, t(4) = -7.83, bootstrap CI [-1.13%, -0.72%], 5/5 seeds improved.
+
+This clears the 0.8% acceptance floor and is the first candidate in either AVO round to improve
+every seed. It requires the position block added on 2026-09-08 (foot contacts are not derivable
+from rotations alone).
+
+CRITICAL CAVEAT, and the reason no conclusion is drawn yet: beating x0 shows the FEATURES help,
+not that POSE CONTENT helps. x0 and the candidate differ in feature engineering, so the gain could
+be a better-conditioned input rather than information about the pedestrian's own body. The whole
+project rests on the correct-vs-shuffled control, so the same candidate is now running at the same
+five seeds with SHUFFLE_POSES_ACROSS_AGENTS=True (jobs 828266-828270, run from $WS/scripts so the
+loop's frozen-repo pin is untouched).
+
+  If shuffled also improves ~0.93% -> feature engineering, not content; the null stands.
+  If shuffled does NOT improve      -> first genuine pose-content signal in the project.
