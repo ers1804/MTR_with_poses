@@ -744,3 +744,24 @@ hierarchical p < 0.05 on eval-FINAL at the full recipe.
 Recovery note: the control jobs trained correctly but my extraction step read the output directory
 of the ORIGINAL config while the shuffle config wrote to its own; the numbers above were recovered
 from the existing metrics without retraining.
+
+### Epoch-selection robustness of the content signal (same day, before confirmation)
+
+The 4/5 vs 5/5 asymmetry above prompted the check that killed the +13.4% artifact: the correct arm's
+best epoch varies (10,12,12,12,11) while the shuffled arm always lands on 12, so best-epoch selection
+could manufacture the gap. Re-ran the content test at every FIXED epoch, no selection:
+
+  epoch    1     2     3     4     5     6     7     8     9    10    11    12
+  rel%  +1.24 -2.76 -3.92 +0.07 -3.66 -1.33 -0.94 -2.33 -0.85 -1.54 -0.95 -0.70
+  t     +0.50 -2.06 -1.87 +0.07 -3.08 -1.13 -1.23 -2.19 -4.25 -3.76 -1.48 -1.46
+
+Negative at 11 of 12 epochs, and at every epoch of the converged region (9-12). So the signal is NOT
+a selection artifact — but selection does inflate it. Honest bracketing of the effect size:
+
+  best-epoch (as scored by the loop):  -1.07%, t(4) = -3.01
+  fixed final epoch (12):              -0.70%, t(4) = -1.46   <- NOT significant at n=5
+
+Both are reported; the fixed-epoch number is the conservative one and is what any claim must rest on.
+Note also the trend within the converged region (-1.54% at ep10 -> -0.70% at ep12): the proxy recipe
+truncates at 12 of 30 epochs, and the gap is shrinking as training proceeds. This is the single
+biggest threat to the result and is precisely what the 30-epoch confirmation tests.
