@@ -798,3 +798,36 @@ rather than "correct poses converge better", 30 epochs will erase it. That is th
 launching: 3 arms (no-pose / correct / shuffled) x 5 seeds x 30 epochs, scored on both splits.
 Decision rule, pre-registered: the effect is real only if correct-vs-shuffled stays negative with
 p < 0.05 on FINAL at 30 epochs.
+
+### Power analysis and seed extension to n=8 (2026-09-10, BEFORE any 30-epoch result existed)
+
+Dry-running the confirmation analysis on synthetic data exposed two problems, both fixed before
+the first CONF30 job produced a number.
+
+1. The paired percentile bootstrap is anti-conservative at n=5. When all five per-seed deltas share
+   a sign, a resampled mean essentially never crosses zero, so it returns p ~ 1/N_BOOT regardless of
+   effect size. On synthetic data an effect with a true paired-t p of .053 was reported as p=.0001.
+   This is the same failure mode that manufactured several already-retracted results in this project.
+   FIX: the paired t-test p-value is now the gate; the bootstrap interval is kept only as a
+   descriptive spread and its p is stored under the name p_boot_anticonservative.
+
+2. n=5 is underpowered for the effect actually under test. Using the observed seed-to-seed
+   variability of the paired correct-vs-shuffled delta on the FINAL split at fixed epoch 12
+   (per-seed deltas -2.07, -2.03, -1.48, -0.28, -0.01 %; sd = 0.97 pp):
+
+     power at alpha=.05      n=5     n=8     n=10
+       effect 0.7%          23.7%   41.9%   52.7%
+       effect 1.0%          41.9%   70.3%   82.3%
+       effect 1.2%          55.1%   84.7%   93.3%
+     minimum detectable effect at 80% power:  n=5 -> 1.64%   n=8 -> 1.13%   n=10 -> 0.97%
+
+   The effect under test is ~1.2%, so n=5 would have coin-flip power and a null result would have
+   been uninterpretable. FIX: seeds 707/808/909 added (jobs 829089-829097), taking the confirmation
+   to n=8 per arm, 24 runs total.
+
+   This is a power correction, NOT optional stopping: the decision was made from the 12-epoch
+   variance while every 30-epoch job was still in its first epoch, so no confirmation outcome could
+   have influenced it. The pre-registered primary endpoint and decision rule are unchanged
+   (FINAL split, fixed last epoch, correct vs shuffled, paired t, p < 0.05).
+
+Readout is pre-committed in tools/scripts/avo_confirmation_analysis.py, written before the data.
