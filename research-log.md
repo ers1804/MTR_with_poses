@@ -765,3 +765,36 @@ Both are reported; the fixed-epoch number is the conservative one and is what an
 Note also the trend within the converged region (-1.54% at ep10 -> -0.70% at ep12): the proxy recipe
 truncates at 12 of 30 epochs, and the gap is shrinking as training proceeds. This is the single
 biggest threat to the result and is precisely what the 30-epoch confirmation tests.
+
+### HELD-OUT SPLIT: the content signal survives (same day, zero extra GPU)
+
+The completed 12-epoch runs already contain per-agent metrics for BOTH halves of the validation
+scenes, so the eval-FINAL split (2,554 scenes / 8,041 agents) — which the AVO loop has NEVER scored
+and against which the candidate was therefore NOT selected — could be read straight off disk.
+
+Protocol: epoch chosen on DEV, minADE reported on FINAL. No double-dipping.
+
+  seed   correct        shuffled       rel
+   202   0.3518 (ep10)  0.3560 (ep12)  -1.16%
+   303   0.3483 (ep12)  0.3555 (ep12)  -2.03%
+   404   0.3508 (ep12)  0.3561 (ep12)  -1.48%
+   505   0.3497 (ep12)  0.3507 (ep12)  -0.28%
+   606   0.3548 (ep11)  0.3587 (ep12)  -1.09%
+
+  FINAL content test: -1.21%, t(4) = -4.24, 5/5 seeds improved, bootstrap CI [-1.69%, -0.68%]
+
+Cross-checks:
+  fixed epoch 12, no selection anywhere:  dev -0.70% (t=-1.46, 4/5) | FINAL -1.18% (t=-2.70, 5/5)
+  negative at 11 of 12 epochs on FINAL.
+
+The FINAL result is STRONGER and more consistent than the dev result (-1.18% vs -0.70% at the fixed
+epoch; 5/5 vs 4/5). Selection bias produces the opposite ordering — dev flattering, held-out
+deflating — so the gap cannot be explained by the candidate having been chosen on dev. This is the
+first pose-content effect in this project that survives a held-out split.
+
+REMAINING THREAT: all of it is the 12-epoch proxy, i.e. training truncated at 12 of 30 epochs, and
+the dev-split gap narrows as training proceeds. If the effect is "correct poses converge faster"
+rather than "correct poses converge better", 30 epochs will erase it. That is the confirmation now
+launching: 3 arms (no-pose / correct / shuffled) x 5 seeds x 30 epochs, scored on both splits.
+Decision rule, pre-registered: the effect is real only if correct-vs-shuffled stays negative with
+p < 0.05 on FINAL at 30 epochs.
