@@ -703,3 +703,44 @@ loop's frozen-repo pin is untouched).
 
   If shuffled also improves ~0.93% -> feature engineering, not content; the null stands.
   If shuffled does NOT improve      -> first genuine pose-content signal in the project.
+
+## 2026-09-10 — DECISIVE CONTROL: the AVO round-2 candidate shows a POSE-CONTENT signal
+
+The candidate (stationary-gated facing + position-derived foot contacts, eval 68bc3e7293) was run
+at five seeds with SHUFFLE_POSES_ACROSS_AGENTS=True — identical code, identical pipeline, each
+pedestrian receiving a DIFFERENT pedestrian's pose sequence. Proxy recipe, dev split, n_dev=8,445.
+
+  seed   correct   shuffled    delta
+   202   0.3502    0.3561     -1.66%
+   303   0.3480    0.3551     -2.00%
+   404   0.3531    0.3531      0.00%
+   505   0.3461    0.3495     -0.97%
+   606   0.3540    0.3565     -0.70%
+
+  CONTENT TEST: -1.07%, sd 0.28pp, paired t(4) = -3.01, bootstrap CI [-1.68%, -0.47%], 4/5 seeds
+  improved and none regressed.
+
+  Reference: shuffled vs incumbent x0 = +0.14% (3/5) — the shuffled arm does NOT beat the
+  incumbent, so the candidate's -0.93% gain over x0 is not explained by feature engineering,
+  capacity, or regularisation. It tracks the pose CONTENT.
+
+This is the first correct-vs-shuffled separation in the project. Every prior test, across six
+representations, three data scales, two training regimes and 13 round-1 AVO candidates, returned
+p >= 0.37 with the point estimate on zero.
+
+STATUS: PROMISING, NOT ESTABLISHED. Caveats, stated before any claim is made:
+  1. Proxy recipe only (12 epochs, batch 8, 25k scenes) — not the 30-epoch paper recipe.
+  2. Dev split only; the eval-FINAL half has never been touched by this candidate.
+  3. n=5 seeds; t=-3.01 is solid but the project has killed effects with better-looking numbers
+     (the +13.4% top-1 artifact had p=0.0002 before the best-epoch correction).
+  4. The candidate was SELECTED for being the best of ~9 round-2 candidates, so its estimate is
+     upward-biased by selection; the confirmation must be treated as the first unbiased test.
+
+NEXT (pre-registered here, before running): full confirmation protocol — 30-epoch recipe, n=5
+seeds, correct vs shuffled vs no-pose, evaluated on the eval-FINAL split, hierarchical bootstrap.
+Decision rule: the candidate is a real result only if correct-vs-shuffled is negative with
+hierarchical p < 0.05 on eval-FINAL at the full recipe.
+
+Recovery note: the control jobs trained correctly but my extraction step read the output directory
+of the ORIGINAL config while the shuffle config wrote to its own; the numbers above were recovered
+from the existing metrics without retraining.
