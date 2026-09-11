@@ -1,7 +1,7 @@
 #!/bin/bash -l
 #SBATCH --job-name=mtrpose_conf
 #SBATCH --output=/hnvme/workspace/v103fe12-mtr_smpl/logs/conf_%j.txt
-#SBATCH --time=20:00:00
+#SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --partition=h100
 #SBATCH --gres=gpu:h100:1
@@ -12,8 +12,11 @@
 unset SLURM_EXPORT_ENV
 set -eu
 WS=${WS:-/hnvme/workspace/v103fe12-mtr_smpl}
-TAG=$1; SEED=$2; OVERLAY=$3; CFG=$4
-RES="$WS/avo_confirm/${TAG}_s${SEED}.json"
+ARM=$1; SEED=$2; OVERLAY=$3; CFG=$4
+# TAG must include the seed: --extra_tag sets the output dir, and without the seed all
+# seeds of an arm write into ONE directory and overwrite each other (2026-09-10 loss).
+TAG="${ARM}_s${SEED}"
+RES="$WS/avo_confirm/${TAG}.json"
 mkdir -p "$WS/avo_confirm"
 fail() { echo "{\"status\": \"failed\", \"reason\": \"$1\"}" > "$RES"; exit 1; }
 
@@ -60,6 +63,7 @@ cd tools
 python train.py \
   --cfg_file "cfgs/waymo/${CFG}.yaml" \
   --extra_tag "$TAG" --random_seed "$SEED" --workers 8 --max_ckpt_save_num 1 \
+  --ckpt_save_interval 100 \
   --set DATA_CONFIG.DATA_ROOT "$TMPDIR/poses" \
         DATA_CONFIG.PROCESSED_SCENARIOS_PATH "$TMPDIR/scenarios" \
         MODEL.MOTION_DECODER.SMPL_MODEL_DIR "$WS/MTR_avo/models" \
@@ -101,4 +105,4 @@ else:
 print('wrote', res)
 PY
 rm -f "$OUT/ckpt/best_model.pth" "$OUT/eval/eval_with_train/result.pkl" 2>/dev/null || true
-echo "$TAG s$SEED done $(date -Is)" >> "$WS/logs/status.txt"
+echo "$TAG done $(date -Is)" >> "$WS/logs/status.txt"

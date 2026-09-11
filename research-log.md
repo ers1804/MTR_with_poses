@@ -831,3 +831,30 @@ the first CONF30 job produced a number.
    (FINAL split, fixed last epoch, correct vs shuffled, paired t, p < 0.05).
 
 Readout is pre-committed in tools/scripts/avo_confirmation_analysis.py, written before the data.
+
+## 2026-09-11 — confirmation run 1 LOST to a tag-collision bug (mine), relaunched
+
+The 24-job 30-epoch confirmation launched 2026-09-10 produced NO usable data. Two faults, the
+first fatal:
+
+1. FATAL (my bug in slurm/52_avo_confirm.sh): the job passed `--extra_tag "$TAG"` where TAG was the
+   ARM name only ("CONF30_nopose"), with no seed. --extra_tag determines the training OUTPUT
+   directory, so all 8 seeds of an arm wrote into ONE directory and overwrote each other's
+   metrics_epoch_*.pkl. Only 3 output dirs existed where 24 were expected. The result JSON filenames
+   DID carry the seed, which is why 4 of them looked "ok" — they were reading an interleaved
+   mixture of 8 seeds and are meaningless. Verified by two different seeds (jobs 829040=s202,
+   829043=s303) both logging `extra_tag CONF30_nopose`.
+   FIX: TAG="${ARM}_s${SEED}".
+
+2. 20 of 24 jobs hit the 20 h wall clock (one reached epoch 29/30 at 20:00:20). My ~7.5 h estimate
+   counted training only. Training is ~15 min/epoch = 7.5 h, but eval-with-train fires on 21 of the
+   30 epochs at ~38 min each, which is the real cost.
+   FIX: --time=24:00:00, and --ckpt_save_interval 100 so the eval condition in
+   train_utils.py:173 reduces to epochs {1,2,4} u {21..30} = 13 evals instead of 21. Estimated
+   ~15.7 h. Epoch selection is now restricted to the converged region, which is if anything the
+   more defensible protocol.
+
+The 4 contaminated JSONs are kept at $WS/avo_confirm/archive_collided_20260910/ as evidence; the
+collided output dirs (17 GB) were deleted. Relaunched as jobs 836067-836090, same 3 arms x 8 seeds,
+same pre-registered primary endpoint and decision rule — nothing about the analysis changed, and no
+confirmation result has been seen by anyone at any point.
