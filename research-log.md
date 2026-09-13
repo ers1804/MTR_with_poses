@@ -1065,3 +1065,40 @@ So the dataset is NOT the limiting factor — ~245k stationary pedestrians and ~
 a 3 s horizon. The limiting factor is that both sub-tasks are already solved by free features
 (see above). Kept because it is the right testbed for the remaining open question: whether pose
 beats the box heading in the regimes where the tracker degrades (occlusion, range, sparse returns).
+
+### Stratified test: there is NO regime where SMPL facing beats the box heading (branch closed)
+
+The last live hypothesis was that the box heading wins only where perception is healthy, and that
+pose would take over in hard conditions. Tested by stratifying the same paired comparison
+(H=3 s, n=1,705 positive onset events, validation) on three tracker-quality covariates.
+Gap = pose-minus-box median angular error; NEGATIVE would mean pose wins.
+
+  by RANGE TO EGO (m)          n     pose    box      gap        p     pose-wins
+    Q1 [ 2.1, 16.9)          426     32.9   20.6    +12.3    7e-09       37%
+    Q2 [16.9, 27.5)          426     40.6   24.3    +16.3    1.5e-09     37%
+    Q3 [27.5, 40.6)          426     52.7   32.5    +20.2    2.8e-11     35%
+    Q4 [40.6, 74.5)          427     60.2   27.3    +32.9    8.3e-19     31%
+
+  by HISTORY VALID FRACTION (occlusion proxy)
+    Q1 [0.09, 1.00)          309     60.2   26.5    +33.7    2.4e-11     32%
+    Q4 [1.00]               1396     41.8   24.9    +16.9    2.1e-33     36%
+
+  by BOX-HEADING JITTER (deg, circular std over history)
+    Q1 [ 0.03,  2.99)        422     27.9   16.3    +11.6    1.2e-13     36%
+    Q2 [ 2.99,  6.38)        422     38.8   19.2    +19.6    1.5e-15     33%
+    Q3 [ 6.38, 13.62)        422     52.7   28.8    +23.9    1.6e-13     33%
+    Q4 [13.62,124.70)        422     63.8   50.5    +13.3    3.2e-06     38%
+
+The gap is POSITIVE in every stratum, all p < 1e-5. Worse for the hypothesis, it WIDENS with
+range (+12 -> +33 deg) and with occlusion (+17 -> +34 deg): SMPL degrades FASTER than the box
+heading exactly where pose was supposed to take over.
+
+MECHANISM: both estimates are derived from the same LiDAR returns. When the returns are sparse,
+distant or occluded, the mesh fit degrades at least as badly as the box orientation, so they fail
+together rather than complementarily. Even in the jitteriest-heading quartile, where the box
+heading is genuinely bad (50.5 deg median error), SMPL is worse still (63.8 deg).
+
+CONCLUSION: the onset direction task offers no operating regime for pose. Combined with the
+detection result (pose adds nothing over kinematics, shuffled control matches), the onset branch
+is CLOSED. Body pose from LiDAR is dominated by a free channel everywhere it was hypothesised
+to help, which is a complete and quantified explanation of this project's null.
