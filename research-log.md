@@ -1003,3 +1003,49 @@ timed out), so the true optimum may lie before epoch 21 and this gain may be UND
 PRACTICAL: stopping around epoch 22-26 beats training to 30 by ~0.5% on the baseline and ~1.9% on
 the wider-input variants — a larger effect than anything pose has produced in this project, and an
 argument against fixed-epoch reporting generally. Worth a sentence in the methodology section.
+
+## 2026-09-13 — ONSET TASK SCOPED: the null is EXPLAINED (pose facing is already in the dataset)
+
+Scoped the motion-onset task as a possible positive-result direction. The task is well populated,
+but the decisive test kills the pose hypothesis AND explains every null in this project.
+
+DATA (validation split alone, deduplicated):
+  19,939 unique stationary pedestrians (speed<0.3 m/s at t=0), 100% with SMPL pose.
+  onset within 1/2/3/5 s: 0.3% / 3.8% / 8.6% / 16.8%  (67 / 753 / 1,706 / 3,340 events)
+  NOTE: Waymo writes several sample_<scene>_<k>.pkl per scene carrying IDENTICAL tracks;
+  raw extraction gave 107,847 rows for 19,939 real agents (5.41x). Deduplicate by
+  (scene, object_id) or every count is inflated. Fixed in extract_onset_events.py.
+
+(A) DETECTION — will a stationary pedestrian move >1 m within H s?  [test AUC, scene-split]
+      H       kin   kin+head   kin+pose   kin+head+pose   kin+head+SHUFFLED pose
+      2     0.741      0.735      0.745           0.739                    0.742
+      3     0.703      0.694      0.697           0.704                    0.697
+      5     0.638      0.636      0.651           0.646                    0.634
+  Kinematics alone (residual micro-motion) carries the signal. Pose adds nothing, and the
+  shuffled-pose control matches real pose everywhere. Null again.
+
+(B) DIRECTION — which way do they step? (H=3 s, n=1,705 positive events)
+      predictor            median |err|   <45 deg   <90 deg
+      chance                      90.0      25.0%     50.0%
+      SMPL body facing            44.2      50.6%     72.0%
+      WAYMO box heading           25.2      63.9%     80.8%
+  paired SMPL-minus-box = +7.3 deg median, Wilcoxon p=2.6e-43, SMPL better on only 35% of events.
+  (the SMPL forward-axis convention was calibrated AGAINST the box heading first, which is
+   deliberately generous to the pose side.)
+
+INTERPRETATION — this is the mechanism behind the whole project's null:
+  SMPL body facing IS informative (2x chance) — the earlier "2.6x chance" finding was real.
+  But the Waymo tracker already estimates body orientation, ships it as the standard box-heading
+  channel, and does so MORE ACCURATELY than LiDAR-HMR + SMPL fitting recovers it (25.2 vs 44.2 deg
+  median error against actual onset direction). And MTR already consumes it:
+  waymo_pose_dataset.py:1104-1105 feeds sin(heading)/cos(heading) into the agent input.
+
+  So the one pose cue with predictive value was ALREADY AN INPUT to every model in this project,
+  in a better form than pose could supply. Six representations, two AVO rounds and ~22 candidates
+  were all competing against a channel the model already had. The null was overdetermined.
+
+CONSEQUENCE: the onset task is NOT a viable positive-result direction as framed — both sub-tasks
+are already solved by free features. Where pose could still win is precisely where the tracker's
+heading is unavailable or unreliable (heavy occlusion, few LiDAR returns, long range, or datasets
+without heading annotation). That is the next thing to test, by stratifying this same comparison
+on range / point count / occlusion.
