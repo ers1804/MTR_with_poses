@@ -966,3 +966,40 @@ correct-vs-shuffled control at every stage.
 The 12-epoch result was not fraud and not a bug; it was real at 12 epochs. It is a clean example of
 why a truncated proxy recipe cannot settle a sub-1% effect, and belongs in the methodology section
 alongside the other ten self-caught artifacts.
+
+### Side finding from the confirmation data: early stopping helps, but it is an architecture effect
+
+Asked of the 30-epoch confirmation: does stopping early help? Measured WITHIN the 30-epoch runs by
+selecting the epoch on DEV and scoring on the held-out FINAL split (honest: dev-noise selection does
+not transfer to a held-out split, so the measured gain is real rather than selection bias).
+
+NOTE this is NOT the 12-vs-30-epoch comparison. Those are different LR schedules, each annealing to
+zero at its own horizon, so they say nothing about early stopping.
+
+  arm        early-stopped   epoch 30    gain
+  no-pose      0.3487         0.3506    -0.55%  (p=.11, 6/8)
+  pose         0.3471         0.3537    -1.87%  (p=.002, 8/8)
+  shuffled     0.3477         0.3538    -1.71%  (p=.006, 7/8)
+
+  median best epoch:  no-pose 26 | pose 22 | shuffled 23   (wider input peaks earlier)
+
+Is the extra benefit a POSE-CONTENT effect? No.
+  pose     vs no-pose  : extra benefit -1.32 pp (p=.055)
+  shuffled vs no-pose  : extra benefit -1.17 pp (p=.072)
+  pose     vs shuffled : extra benefit -0.15 pp (p=.790)   <-- null
+
+The wider-input models overfit sooner and so gain more from stopping earlier, whether the poses they
+receive are the pedestrian's own or a stranger's. Architecture, not information.
+
+This explains an apparent inconsistency in the confirmation table: pose-vs-nopose is -0.46% when the
+epoch is chosen on dev but +0.88% at the fixed final epoch. That sign flip is purely overfitting
+timing; neither figure is significant (p=.36, p=.18) and the content control is null under both
+protocols (-0.19%, -0.04%).
+
+CAVEATS: evaluation covered only epochs {1,2,4} u {21..30} (a wall-clock compromise after run 1
+timed out), so the true optimum may lie before epoch 21 and this gain may be UNDERSTATED. And
+"best epoch on dev" is a realistic deployment protocol, not an oracle.
+
+PRACTICAL: stopping around epoch 22-26 beats training to 30 by ~0.5% on the baseline and ~1.9% on
+the wider-input variants — a larger effect than anything pose has produced in this project, and an
+argument against fixed-epoch reporting generally. Worth a sentence in the methodology section.
