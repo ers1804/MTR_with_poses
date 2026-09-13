@@ -1049,3 +1049,19 @@ are already solved by free features. Where pose could still win is precisely whe
 heading is unavailable or unreliable (heavy occlusion, few LiDAR returns, long range, or datasets
 without heading annotation). That is the next thing to test, by stratifying this same comparison
 on range / point count / occlusion.
+
+### Onset dataset, final scale (both splits extracted 2026-09-13)
+
+  split        unique stationary peds   scenes    pose      onset<=2s   <=3s     <=5s
+  training               224,946        101,338   99.4%       8,053    19,221   37,624
+  validation              19,939          9,079  100.0%         753     1,706    3,340
+  TOTAL                  244,885        110,417               8,806    20,927   40,964
+
+Onset rates agree closely across the two splits (3.6/8.5/16.7% vs 3.8/8.6/16.8%), which is a
+useful consistency check on the extraction. Raw row counts before deduplication were 1,232,196
+and 107,847 (5.48x / 5.41x inflation from repeated sample_<scene>_<k>.pkl files).
+
+So the dataset is NOT the limiting factor — ~245k stationary pedestrians and ~21k onset events at
+a 3 s horizon. The limiting factor is that both sub-tasks are already solved by free features
+(see above). Kept because it is the right testbed for the remaining open question: whether pose
+beats the box heading in the regimes where the tracker degrades (occlusion, range, sparse returns).
