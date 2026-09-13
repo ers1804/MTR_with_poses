@@ -858,3 +858,111 @@ The 4 contaminated JSONs are kept at $WS/avo_confirm/archive_collided_20260910/ 
 collided output dirs (17 GB) were deleted. Relaunched as jobs 836067-836090, same 3 arms x 8 seeds,
 same pre-registered primary endpoint and decision rule — nothing about the analysis changed, and no
 confirmation result has been seen by anyone at any point.
+
+## 2026-09-13 — CONFIRMATION: NOT CONFIRMED. The pose-content signal was a convergence artifact.
+
+24/24 jobs COMPLETED (836067-836090), 3 arms x 8 seeds x 30 epochs, no collisions, no failures.
+Verbatim output of tools/scripts/avo_confirmation_analysis.py (written before the data existed):
+
+```
+==============================================================================
+30-EPOCH AVO CONFIRMATION -- pre-registered readout
+==============================================================================
+result dir : /tmp/avo_confirm
+seeds      : [202, 303, 404, 505, 606, 707, 808, 909]
+  nopose    last_epoch[30]  n_dev=[8445]  n_final=[8041]
+  pose      last_epoch[30]  n_dev=[8445]  n_final=[8041]
+  shuffled  last_epoch[30]  n_dev=[8445]  n_final=[8041]
+
+per-seed minADE (FINAL split, fixed last epoch)
+  seed         nopose        pose    shuffled
+  202        0.3458      0.3506      0.3528
+  303        0.3561      0.3510      0.3477
+  404        0.3551      0.3514      0.3561
+  505        0.3524      0.3536      0.3534
+  606        0.3489      0.3510      0.3537
+  707        0.3467      0.3565      0.3493
+  808        0.3515      0.3555      0.3557
+  909        0.3484      0.3600      0.3621
+
+------------------------------------------------------------------------------
+FINAL / fixed last epoch   <-- PRIMARY ENDPOINT
+------------------------------------------------------------------------------
+  pose     vs shuffled  -0.04%  CI [-0.67%, +0.69%]  t=-0.11  p=0.9159  5/8  n.s.
+      (DECISIVE: pose content (capacity cancels))
+  pose     vs nopose    +0.88%  CI [-0.20%, +1.96%]  t=+1.49  p=0.1790  2/8  n.s.
+      (user-facing goal (confounded by architecture))
+  shuffled vs nopose    +0.92%  CI [-0.26%, +2.06%]  t=+1.47  p=0.1862  1/8  n.s.
+      (branch-capacity tax alone)
+
+------------------------------------------------------------------------------
+FINAL / epoch chosen on DEV
+------------------------------------------------------------------------------
+  pose     vs shuffled  -0.19%  CI [-0.86%, +0.51%]  t=-0.51  p=0.6289  5/8  n.s.
+      (DECISIVE: pose content (capacity cancels))
+  pose     vs nopose    -0.46%  CI [-1.32%, +0.37%]  t=-0.99  p=0.3556  5/8  n.s.
+      (user-facing goal (confounded by architecture))
+  shuffled vs nopose    -0.27%  CI [-0.73%, +0.24%]  t=-1.01  p=0.3479  5/8  n.s.
+      (branch-capacity tax alone)
+
+------------------------------------------------------------------------------
+dev   / fixed last epoch
+------------------------------------------------------------------------------
+  pose     vs shuffled  +0.29%  CI [-0.18%, +0.68%]  t=+1.24  p=0.2537  2/8  n.s.
+      (DECISIVE: pose content (capacity cancels))
+  pose     vs nopose    +0.97%  CI [+0.14%, +1.88%]  t=+2.03  p=0.0819  3/8  n.s.
+      (user-facing goal (confounded by architecture))
+  shuffled vs nopose    +0.68%  CI [-0.40%, +1.91%]  t=+1.06  p=0.3251  3/8  n.s.
+      (branch-capacity tax alone)
+
+------------------------------------------------------------------------------
+dev   / best epoch on DEV
+------------------------------------------------------------------------------
+  pose     vs shuffled  -0.29%  CI [-0.81%, +0.24%]  t=-1.02  p=0.3412  5/8  n.s.
+      (DECISIVE: pose content (capacity cancels))
+  pose     vs nopose    -0.44%  CI [-0.71%, -0.12%]  t=-2.71  p=0.0303  6/8  SIGNIFICANT
+      (user-facing goal (confounded by architecture))
+  shuffled vs nopose    -0.15%  CI [-0.74%, +0.49%]  t=-0.44  p=0.6732  4/8  n.s.
+      (branch-capacity tax alone)
+
+==============================================================================
+PRE-REGISTERED VERDICT (FINAL split, fixed last epoch, correct vs shuffled)
+==============================================================================
+  effect -0.04%   p=0.9159 (paired t)   5/8 seeds improved
+  --> NOT CONFIRMED. The 12-epoch proxy effect does not survive full training
+      on held-out data; it was a convergence-rate artifact, not pose content.
+      The null stands and the existing write-up remains correct.
+
+  secondary (user-facing goal) pose vs no-pose: +0.88%, p=0.1790, 2/8
+```
+
+INTERPRETATION.
+
+The pre-registered primary endpoint — FINAL split, fixed last epoch, correct vs shuffled — gives
+-0.04% with p=0.92 and 5/8 seeds. The -1.18% observed at 12 epochs is GONE at 30. The hypothesis
+flagged as the biggest threat when the run was launched turned out to be the right one: correct
+poses converged slightly faster, not better. Once training completes, knowing whether a pedestrian
+has its OWN body motion or a stranger's is worth nothing.
+
+Every other honest cell agrees: the content test is -0.19% (p=.63) selecting the epoch on dev,
+and +0.29% (p=.25) on dev at the fixed epoch. Pose-vs-nopose is +0.88% (p=.18) at the primary
+endpoint, i.e. pose is if anything slightly WORSE, and the shuffled arm carries the same +0.92%
+penalty — the familiar branch-capacity tax, paid regardless of pose content.
+
+ONE CELL LOOKS LIKE A WIN AND MUST NOT BE REPORTED AS ONE: dev split / best-epoch-on-dev,
+pose vs nopose, -0.44%, p=0.0303. That is the single most-selected cell in the table (epoch chosen
+on dev, then scored on dev — double-dipping) AND it is the cross-architecture comparison the project
+already knows is confounded by capacity. Its own control kills it: the content test in that same
+cell is -0.29%, n.s. Quoting it would be exactly the cherry-pick the pre-registration exists to
+prevent. It is recorded here only so nobody rediscovers it later and mistakes it for a result.
+
+STATUS OF THE PROJECT'S HEADLINE CLAIM: the null stands, and is now better defended than before.
+The paper and one-pager remain correct as written and need no revision. What changed is the
+strength of the evidence: the null has now survived a directed agentic search (two rounds, ~22
+scored candidates), a 216-d representation carrying explicit joint positions, its single most
+promising candidate, n=8 seeds, the full 30-epoch recipe, and a held-out split — with the decisive
+correct-vs-shuffled control at every stage.
+
+The 12-epoch result was not fraud and not a bug; it was real at 12 epochs. It is a clean example of
+why a truncated proxy recipe cannot settle a sub-1% effect, and belongs in the methodology section
+alongside the other ten self-caught artifacts.
