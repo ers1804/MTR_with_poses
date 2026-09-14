@@ -1102,3 +1102,30 @@ CONCLUSION: the onset direction task offers no operating regime for pose. Combin
 detection result (pose adds nothing over kinematics, shuffled control matches), the onset branch
 is CLOSED. Body pose from LiDAR is dominated by a free channel everywhere it was hypothesised
 to help, which is a complete and quantified explanation of this project's null.
+
+### 2026-09-14 — closing gap: does pose ADD to the box heading for onset direction? No.
+
+The 2026-09-13 direction test compared SMPL yaw ALONE vs box heading ALONE. That is the wrong
+framing: the question is whether pose adds anything on top of the heading the model already has.
+Closed here with a learned model, trained on the training split and tested on validation, using a
+fuller pose descriptor (all three body-axis directions + articulation rates + last-frame joints)
+rather than raw yaw.
+
+  train positives 18,950 (training split) | test positives 1,688 (validation), H=3 s
+  predictor                              median |err|   <45 deg
+  raw box heading, no model                   25.1        63.8%
+  model: box heading only                     24.8        64.1%
+  model: box heading + POSE                   26.5        63.8%
+  model: box heading + SHUFFLED pose          25.8        63.6%
+
+  pose vs box-only     : +1.69 deg, Wilcoxon p=0.085
+  SHUFFLED vs box-only : +1.01 deg, Wilcoxon p=0.214
+
+Adding pose makes the prediction slightly WORSE, and adding SHUFFLED pose makes it worse by
+almost the same amount — i.e. the degradation is the cost of extra feature dimensions, not a
+property of pose content. Real-minus-shuffled is +0.68 deg, noise. A learned model over the full
+pose descriptor does not recover anything that the raw-yaw comparison missed.
+
+Both onset sub-tasks are now closed under the correct additive framing and with shuffled controls:
+DETECTION (pose adds nothing over kinematics+heading) and DIRECTION (pose adds nothing over
+heading). The stationary-pedestrian approach is fully tested and negative.
