@@ -1129,3 +1129,46 @@ pose descriptor does not recover anything that the raw-yaw comparison missed.
 Both onset sub-tasks are now closed under the correct additive framing and with shuffled controls:
 DETECTION (pose adds nothing over kinematics+heading) and DIRECTION (pose adds nothing over
 heading). The stationary-pedestrian approach is fully tested and negative.
+
+### 2026-09-14 — head orientation / gaze: NOT RECOVERABLE from this data (not merely unhelpful)
+
+Tested whether head orientation (a gaze/attention proxy) can improve onset direction. Gaze
+precedes locomotion in human motor control, so this is a genuinely different hypothesis from body
+facing. It fails at the measurement level, before any modelling question arises.
+
+DIAGNOSTIC — does the head move at all in the fitted meshes? (n=6,000 agents, last observed frame)
+  joint            |axis-angle| mean    std
+  neck                   0.0951       0.0588
+  head                   0.1276       0.0546
+  L_knee  (reference)      --         0.3216
+  L_shoulder (reference)   --         0.1901
+  head-vs-torso yaw: mean +0.8 deg, STD 3.8 deg, 5-95 pct [-4.4, +5.8]
+
+The knee varies 6x more than the head. Real gaze spans roughly +-60 deg (people turn to look
+before crossing); here the head is locked to the torso within about +-5 deg. LiDAR-HMR is emitting
+its POSE PRIOR for the head, not a measurement.
+
+PHYSICAL REASON: a pedestrian at 20-40 m in Waymo LiDAR is a few dozen returns. The head is a
+handful of roughly spherical points with no geometry that constrains yaw — nothing in the point
+cloud can distinguish face-forward from face-backward. The SMPL fit therefore falls back on the
+prior, which centres the head on the torso. Gait is recoverable (the knees genuinely move); gaze
+is not.
+
+CONFIRMATORY TEST (n=1,705 positive onset events, H=3 s)
+  residual to explain (onset dir vs body facing): std 66.9 deg
+  head-vs-torso yaw dynamic range              : std  3.2 deg   (20x too small)
+  correlation of head yaw with that residual: Pearson r=-0.033 (p=0.17), Spearman -0.021 (p=0.38)
+     -> explains 0.11% of the variance, and the sign is wrong
+  box heading alone                                  : median 25.2 deg
+  box heading + head-yaw correction FIT IN-SAMPLE    : median 25.5 deg  (0.36 deg WORSE)
+  Even fitting the correction on the test data itself — maximally generous, guaranteed to
+  overfit in its favour — head yaw does not help.
+
+CONCLUSION: head orientation cannot improve these results because it is not measured. This is a
+sensor/method limit, not a behavioural claim: gaze may well matter, but LiDAR-based HMR at AV
+ranges cannot recover it. Obtaining it would require camera-based gaze estimation, and WOMD ships
+no raw images (tokens only), so that is only possible on the much smaller Perception split.
+
+USEFUL COROLLARY for the MPJPE/dataset chapter: aggregate MPJPE hides which body parts are
+actually recovered. Here the lower limbs carry real signal while the head is pure prior. Reporting
+per-joint recoverability would be a more honest characterisation of LiDAR HMR than a single number.
