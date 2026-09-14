@@ -1172,3 +1172,48 @@ no raw images (tokens only), so that is only possible on the much smaller Percep
 USEFUL COROLLARY for the MPJPE/dataset chapter: aggregate MPJPE hides which body parts are
 actually recovered. Here the lower limbs carry real signal while the head is pure prior. Reporting
 per-joint recoverability would be a more honest characterisation of LiDAR HMR than a single number.
+
+## 2026-09-14 — Waymo PERCEPTION assessment: confirms the prior-collapse, cannot host the task
+
+Asked whether the onset/pose experiments could be redone on Waymo Perception, which has camera,
+LiDAR and GROUND-TRUTH 3D keypoints. Inventory of the local copy (/home/erik/raid/datasets/
+waymo_perception), full dataset present:
+
+  component            segments   labeled instances   distinct objects   frames/object (med/max)
+  lidar_hkp  (3D GT)   798+202            9,998             2,917             2 / 41
+  camera_hkp (2D GT)   798+202          173,526            16,188             6 / 85
+
+  objects with >=10 labeled frames:  lidar_hkp 189   |   camera_hkp 5,721
+
+(1) RESULT — GT CONFIRMS THE HEAD IS A PRIOR IN THE FITTED MESHES.
+Using GT 3D keypoints (NOSE=1, HEAD_CENTER=20, L/R_SHOULDER=5/13; enum inferred from mean
+keypoint height and validated by the forward-convention check: 95.6% of heads fall within 45 deg
+of body-forward, 99.3% within 90 deg), head yaw relative to the shoulder line, n=8,234:
+
+                            circular std   |yaw|>15   |yaw|>30   |yaw|>45   5-95 pct
+  GROUND TRUTH                 19.2 deg      25.0%      10.0%       4.4%   [-30.8,+28.9]
+  LiDAR-HMR fitted (WOMD)       3.8 deg      ~0%        ~0%         ~0%    [ -4.4, +5.8]
+
+The real quantity varies 5x more than the fit reports. This confirms against ground truth that
+LiDAR-HMR's head is regressed to its pose prior rather than measured. NOTE also that GT head yaw
+is more modest than assumed: 75% of pedestrians hold their head within 15 deg of body-forward, and
+only 1.9% exceed 60 deg. The earlier "gaze spans +-60 deg" expectation was too generous.
+
+(2) CONSEQUENCE FOR THE ONSET TASK — Perception CANNOT host it.
+The keypoint labels are frame-level annotations for pose-estimation benchmarking, not tracks:
+median 2 labeled frames per object (LiDAR GT). Objects with the >=10 frames an 11-frame history
+needs: 189 (LiDAR GT) and 5,721 (camera GT). At the measured 8.6% onset rate that is ~16 and ~490
+onset events respectively — the latter the same order as the n=133 subgroup that was already
+demonstrated hopeless (MDE 7.15% at n=8 seeds). So the trajectory/onset experiments cannot be
+replicated there at usable power.
+
+(3) HEADROOM EVEN WITH A PERFECT ORACLE.
+The onset-direction residual that head yaw would have to explain has std 66.9 deg. GT head yaw has
+std 19.2 deg. Even a PERFECT head-orientation oracle, perfectly correlated, covers under a third
+of that spread (<10% of the variance). The ceiling on this cue is low regardless of sensor.
+
+WHAT PERCEPTION IS ACTUALLY GOOD FOR: a per-joint recoverability study of LiDAR-based HMR against
+GT (9,998 instances is well powered), i.e. "which body parts does LiDAR HMR actually measure?"
+The head result above is one instance of it. That is a real, citable characterisation which
+explains downstream failures for anyone building on LiDAR HMR, and it does not depend on pose
+helping any downstream task.
