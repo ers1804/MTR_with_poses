@@ -1217,3 +1217,32 @@ GT (9,998 instances is well powered), i.e. "which body parts does LiDAR HMR actu
 The head result above is one instance of it. That is a real, citable characterisation which
 explains downstream failures for anyone building on LiDAR HMR, and it does not depend on pose
 helping any downstream task.
+
+### 2026-09-14 — HORIZON SWEEP: pose does not help at short horizons either
+
+Hypothesis: gait phase determines the next step or two, so pose might help at 1-2 s even if intent
+dominates at 8 s. Tested on the strongest data in the project (30-epoch confirmation, 3 arms x
+8 seeds, held-out FINAL split, epoch 30, seed-paired), using the per-horizon metrics already
+stored per agent. n = 8,038-8,041 agents.
+
+  metric        nopose     pose     shuf    CONTENT (pose vs shuffled)      pose vs nopose
+  minADE_2s     0.0911   0.0920   0.0916    +0.48%  t=+1.08  p=0.317 4/8     +1.09%  p=0.136
+  minADE_4s     0.1728   0.1741   0.1737    +0.24%  t=+0.67  p=0.522 4/8     +0.74%  p=0.262
+  minADE_8s     0.3506   0.3537   0.3538    -0.04%  t=-0.11  p=0.916 5/8     +0.88%  p=0.179
+  minFDE        0.7551   0.7665   0.7668    -0.04%  t=-0.06  p=0.951 4/8     +1.52%  p=0.054
+
+The content test is null at EVERY horizon, and its point estimate is if anything most POSITIVE
+(i.e. pose slightly worse) at the SHORTEST horizon, decaying to zero by 8 s — the exact opposite
+of the predicted pattern. pose-vs-nopose stays at the familiar branch-capacity tax throughout, and
+that tax is largest on minFDE (+1.52%, p=0.054), the endpoint metric.
+
+WHY THERE IS NO WINDOW: at 2 s minADE is 0.091 m. A pedestrian at 1.4 m/s covers ~2.8 m in that
+time, so the model is already within ~3% of the displacement — short-horizon prediction is very
+nearly saturated by linear kinematic extrapolation, leaving almost no headroom for any extra
+signal. At long horizons the error is dominated by destination/intent, which body pose does not
+reveal. Pose is squeezed out at both ends: the near field is already solved by velocity, the far
+field is decided by goals.
+
+That framing generalises beyond this project and is worth stating in the write-up: an auxiliary
+modality only pays where the baseline is neither saturated nor dominated by unobservable intent,
+and for pedestrian forecasting on Waymo that window is empty.
