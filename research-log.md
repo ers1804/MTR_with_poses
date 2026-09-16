@@ -1246,3 +1246,40 @@ field is decided by goals.
 That framing generalises beyond this project and is worth stating in the write-up: an auxiliary
 modality only pays where the baseline is neither saturated nor dominated by unobservable intent,
 and for pedestrian forecasting on Waymo that window is empty.
+
+### 2026-09-16 — HIGH-DYNAMICS STRATIFICATION: null there too (and it sharpens the principle)
+
+The horizon-sweep principle says a modality can only pay where the baseline is not saturated. The
+sharpest operational version of "not saturated" is where CONSTANT-VELOCITY extrapolation fails, so
+that is the best-motivated remaining test. Computed manoeuvre covariates for all pedestrians in
+the eval scenes (13,982 peds; tools/scripts/highdyn_covariates.py) and stratified the content test
+on the 30-epoch confirmation (8 seeds, held-out FINAL split, 6,764 agents with covariates).
+
+CONTENT TEST (pose vs shuffled), by stratum, all four cuts:
+
+  by CV RESIDUAL (m)      Q1      Q2      Q3      Q4      TOP 10%
+    rel %              +1.19   -0.69   -0.28   +0.20     -0.13
+    p                   0.104   0.469   0.680   0.777     0.797
+  by HEADING VARIATION  -0.07   -0.07   -0.13   +0.01     +0.06   (all p >= 0.76)
+  by SPEED RANGE        -0.80   +0.14   -0.10   -0.15     +0.56   (all p >= 0.45)
+  by PEAK ACCEL         -0.02   -0.98   -0.00   +0.55     +0.79   (all p >= 0.14)
+
+Twenty content tests; ZERO significant at p<0.05 (chance alone would give about one). There is no
+stratum, on any manoeuvre axis, where correct pose separates from scrambled pose. In particular
+the hardest CV-residual decile -- where the baseline has the most headroom by construction, mean
+minADE 1.04 m -- gives -0.13%, p=0.80.
+
+ONE CELL NEEDS FLAGGING SO IT IS NOT MISREAD LATER: in that hardest decile, pose-vs-nopose is
+-1.28% (p=0.22), the only place pose looks better than no-pose. Its own content test is -0.13%
+(n.s.), so this is the pose BRANCH's extra capacity helping slightly where the task is hard, not
+pose information. Conversely in the easiest quartile pose-vs-nopose is +2.83% (p=0.032), the
+branch tax showing up most where errors are smallest. Both are capacity effects with the same
+null content test.
+
+WHY THIS STRENGTHENS RATHER THAN WEAKENS THE PRINCIPLE: the principle has two clauses, and the
+manoeuvre strata only relax the first (saturation). The second still binds -- when a pedestrian
+deviates from constant velocity, the cause is typically EXTERNAL (another agent, an obstacle, a
+kerb, a signal, a destination), not something written in their own body configuration. So
+unsaturated headroom is necessary but not sufficient: the information governing the deviation
+must also be observable in the modality. Pose fails the second clause even where it passes the
+first. That is the sharper statement, and it is what the paper paragraph now says.
