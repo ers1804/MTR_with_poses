@@ -713,6 +713,32 @@ bad basins, not late divergence) strike GRU and attention cells alike and vanish
 with map context or pretraining---reinforcing that on small benchmarks per-seed
 values or failure rates must be reported, not seed means alone.
 
+\paragraph{Why there is no horizon at which pose can pay.}
+A natural defence of the null is that \minADE\ at $8$\,s averages over a regime pose
+was never going to reach, and that gait should determine the next step or two. The
+horizon sweep says otherwise, and says it in the opposite direction: on the held-out
+split at $n{=}8$ seeds, correct pose versus its shuffled control is $+0.48\%$
+($p{=}.32$) at $2$\,s, $+0.24\%$ ($p{=}.52$) at $4$\,s and $-0.04\%$ ($p{=}.92$) at
+$8$\,s---null throughout, with the point estimate least favourable at the
+\emph{shortest} horizon rather than the longest. The reason is visible in the
+absolute numbers. At $2$\,s \minADE\ is $0.091$\,m while a pedestrian at
+$1.4$\,m\,s$^{-1}$ travels $\approx2.8$\,m, so short-horizon forecasting is already
+within $\approx3\%$ of the displacement and is very nearly \emph{saturated} by linear
+kinematic extrapolation; there is almost no error left for a second modality to
+remove. At long horizons the residual error is instead dominated by destination and
+intent, which body configuration does not disclose. Pose is squeezed out at both
+ends.
+
+We state the resulting principle in general form, because it is the most portable
+thing we can offer and it is falsifiable: \emph{an auxiliary modality can only pay
+where the baseline is neither saturated nor dominated by unobservable intent.} For
+pedestrian forecasting on Waymo that window is empty, and the prediction extends
+beyond SMPL pose to any appearance-derived signal evaluated under the same
+conditions. It also indicates where the window is \emph{not} empty and where such
+modalities should be tested instead: regimes in which constant-velocity
+extrapolation demonstrably fails, and in which the information governing the
+deviation is externally observable rather than internal to the agent's goal.
+
 % ===========================================================================
 \section{Limitations}
 \label{sec:limitations}
