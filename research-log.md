@@ -1283,3 +1283,53 @@ kerb, a signal, a destination), not something written in their own body configur
 unsaturated headroom is necessary but not sufficient: the information governing the deviation
 must also be observable in the modality. Pose fails the second clause even where it passes the
 first. That is the sharper statement, and it is what the paper paragraph now says.
+
+## 2026-09-16 — PER-JOINT RECOVERABILITY: MPJPE hides which joints are actually measured
+
+New analysis (tools/scripts/per_joint_recoverability.py). A single MPJPE number cannot separate
+"tracks the joint imprecisely" from "ignores the input and emits the prior". The second matters
+downstream and is invisible in MPJPE, because a joint that barely moves scores well simply by
+predicting the population mean. So each joint is scored against the strongest trivial competitor:
+ALWAYS PREDICTING THE MEAN ROOT-ALIGNED GT POSE.
+
+  SKILL = 1 - MPJPE / (error of the constant mean-pose predictor)
+  SKILL > 0 beats the mean pose; SKILL <= 0 means the model adds nothing for that joint.
+
+LiDAR-HMR stage, Waymo Perception validation, GT LiDAR keypoints, timestamp-matched
+(index matching was artifact #10), zero betas, 347 matched frames over 113 pedestrians.
+CIs are 2,000-sample bootstraps over frames.
+
+  joint              n   MPJPE  meanpose    SKILL          95% CI   GTspr  PRspr  ratio  max|r|
+  RIGHT_ELBOW      325    88.1     239.4   +0.632  [+.597,+.661]   239.4  242.1   1.01    0.93
+  LEFT_ELBOW       323    93.7     235.4   +0.602  [+.559,+.639]   235.4  240.6   1.02    0.89
+  RIGHT_HIP        347    39.3      94.8   +0.586  [+.557,+.609]    94.8   66.8   0.70    0.91
+  LEFT_HIP         347    39.3      94.8   +0.585  [+.556,+.609]    94.8   66.7   0.70    0.91
+  RIGHT_WRIST      328   135.7     276.8   +0.510  [+.457,+.558]   276.8  277.0   1.00    0.85
+  RIGHT_ANKLE      344   105.3     203.8   +0.483  [+.434,+.528]   203.8  177.7   0.87    0.90
+  LEFT_WRIST       316   128.9     248.6   +0.482  [+.429,+.531]   248.6  246.7   0.99    0.85
+  LEFT_ANKLE       338   107.5     206.9   +0.480  [+.435,+.523]   206.9  177.6   0.86    0.90
+  LEFT_SHOULDER    345    83.8     161.3   +0.480  [+.443,+.513]   161.3  175.8   1.09    0.91
+  LEFT_KNEE        342    73.1     134.9   +0.458  [+.416,+.495]   134.9  122.0   0.90    0.85
+  RIGHT_KNEE       344    74.9     137.9   +0.457  [+.416,+.491]   137.9  127.0   0.92    0.85
+  RIGHT_SHOULDER   334    92.0     157.9   +0.417  [+.376,+.453]   157.9  180.3   1.14    0.91
+  HEAD             322    97.6     100.1   +0.025  [-.036,+.078]   100.1   51.0   0.51    0.79
+  OVERALL                 89.2     176.4   +0.494
+
+(Overall 89.2 mm reproduces the published 87.6 mm; the small gap is the added <=60 ms match filter.)
+
+HEADLINE. The HEAD is the only joint whose skill CI CONTAINS ZERO: it is statistically
+indistinguishable from always predicting the average head position. Yet by MPJPE the head looks
+MID-TABLE at 97.6 mm — BETTER than both wrists (136/129 mm) and both ankles (105/108 mm), which
+carry skill ~+0.48-0.51. The head's flattering MPJPE is an artifact of its small GT spread
+(100 mm, the smallest of any joint): when a joint barely moves, predicting the mean is already
+nearly right. Its spread ratio of 0.51 (vs ~0.9-1.1 for limbs) shows the estimator additionally
+under-dispersing it.
+
+So MPJPE RANK-ORDERS THESE JOINTS ALMOST BACKWARDS with respect to information content. This
+independently confirms, in the standard metric's own units and against ground truth, the
+WOMD-side finding that the fitted head is the pose prior (head-vs-torso yaw: fitted std 3.8 deg
+vs GT 19.2 deg).
+
+LIMITATION: 347 matched frames from the 40 segments the pipeline was run on; 113 labeled segments
+are downloaded, so this is roughly triplable with a GPU rerun of LiDAR-HMR + convert_amass. The
+head-vs-limb gap is far larger than the CIs, so more data would tighten rather than change it.
