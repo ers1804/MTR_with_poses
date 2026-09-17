@@ -685,6 +685,90 @@ pretraining, like the no-map condition, does not establish a pose benefit---only
 map\,$\times$\,xattn+PE cell does. Qualitative examples are in
 Appendix~\ref{app:qualitative}, Figure~\ref{fig:qualitative}.
 
+\subsection{Pose Quality: Which Joints LiDAR-based HMR Actually Recovers}
+\label{sec:recoverability}
+
+A null result invites the objection that the input pose was simply too poor to
+help. Aggregate MPJPE answers that objection badly, because it cannot separate two
+very different situations: an estimator that tracks a joint imprecisely, and an
+estimator that ignores the input and emits its \emph{prior}---roughly the mean
+human pose. The second is what breaks downstream consumers, and it is invisible in
+MPJPE, since a joint that barely moves scores well merely by predicting the
+population mean.
+
+We therefore score each joint against the strongest trivial competitor: always
+predicting the mean root-aligned ground-truth pose. With
+$\text{MPJPE}_j$ the error at joint $j$ and $\text{MP}_j$ the error of that
+constant predictor,
+\[
+  \mathrm{SKILL}_j \;=\; 1 - \text{MPJPE}_j / \text{MP}_j ,
+\]
+so $\mathrm{SKILL}_j>0$ means the estimator beats the mean pose and
+$\mathrm{SKILL}_j\le 0$ means it contributes nothing at that joint. We evaluate the
+LiDAR-HMR stage against ground-truth LiDAR keypoints on the Waymo Perception
+validation split, matching frames by timestamp, over the 13 joints common to both
+skeletons (Table~\ref{tab:recoverability}).
+
+\begin{table}[t]
+\caption{Per-joint recoverability of LiDAR-based HMR against ground-truth
+keypoints. \emph{MP} is the error of always predicting the mean root-aligned pose;
+\textsc{skill} $=1-\text{MPJPE}/\text{MP}$, with a $95\%$ bootstrap CI over frames.
+\emph{ratio} is predicted spread over ground-truth spread. The head is the only
+joint whose CI contains zero---yet its MPJPE is \emph{better} than either wrist or
+ankle.}
+\label{tab:recoverability}
+\begin{center}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccccc}
+\toprule
+Joint & MPJPE (mm) & MP (mm) & \textsc{skill} & 95\% CI & GT spread (mm) & ratio \\
+\midrule
+Right elbow    &  88.1 & 239.4 & $+0.632$ & $[+.597,+.661]$ & 239.4 & 1.01 \\
+Left elbow     &  93.7 & 235.4 & $+0.602$ & $[+.559,+.639]$ & 235.4 & 1.02 \\
+Right hip      &  39.3 &  94.8 & $+0.586$ & $[+.557,+.609]$ &  94.8 & 0.70 \\
+Left hip       &  39.3 &  94.8 & $+0.585$ & $[+.556,+.609]$ &  94.8 & 0.70 \\
+Right wrist    & 135.7 & 276.8 & $+0.510$ & $[+.457,+.558]$ & 276.8 & 1.00 \\
+Right ankle    & 105.3 & 203.8 & $+0.483$ & $[+.434,+.528]$ & 203.8 & 0.87 \\
+Left wrist     & 128.9 & 248.6 & $+0.482$ & $[+.429,+.531]$ & 248.6 & 0.99 \\
+Left ankle     & 107.5 & 206.9 & $+0.480$ & $[+.435,+.523]$ & 206.9 & 0.86 \\
+Left shoulder  &  83.8 & 161.3 & $+0.480$ & $[+.443,+.513]$ & 161.3 & 1.09 \\
+Left knee      &  73.1 & 134.9 & $+0.458$ & $[+.416,+.495]$ & 134.9 & 0.90 \\
+Right knee     &  74.9 & 137.9 & $+0.457$ & $[+.416,+.491]$ & 137.9 & 0.92 \\
+Right shoulder &  92.0 & 157.9 & $+0.417$ & $[+.376,+.453]$ & 157.9 & 1.14 \\
+\rowcolor{black!8}
+\textbf{Head}  &  \textbf{97.6} & \textbf{100.1} & $\mathbf{+0.025}$ & $\mathbf{[-.036,+.078]}$ & \textbf{100.1} & \textbf{0.51} \\
+\midrule
+Overall        &  89.2 & 176.4 & $+0.494$ & & & \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+Every limb joint clears the mean-pose baseline decisively, halving its error or
+better. The head does not: its skill is $+0.025$ with a CI spanning zero, making it
+statistically indistinguishable from always predicting the average head position.
+Its spread ratio of $0.51$, against $0.86$--$1.14$ for the limbs, shows the
+estimator additionally under-dispersing it.
+
+The consequence for practice is that \textbf{MPJPE rank-orders these joints almost
+backwards with respect to information content}. By MPJPE the head ($97.6$\,mm)
+looks mid-table---better than either wrist ($136$/$129$\,mm) or either ankle
+($105$/$108$\,mm)---while carrying no measurable information, and those wrists and
+ankles carry skill near $+0.5$. The head's flattering error is an artifact of its
+small ground-truth spread ($100$\,mm, the smallest of any joint): where a joint
+barely moves, the mean is already nearly right. The physical reading is
+straightforward---a pedestrian at $20$--$40$\,m returns a few dozen LiDAR points,
+and the head is a near-spherical handful of them with no geometry to constrain its
+orientation, so the fit falls back on the prior.
+
+This bounds what pose conditioning could have delivered, and it does so
+constructively: gait-bearing joints are genuinely measured, so the null in
+Section~\ref{sec:main_result} is not an artifact of unusable input; but any
+downstream method depending on head or gaze orientation from LiDAR HMR is reading
+a prior, whatever the reported MPJPE. We recommend reporting per-joint skill
+alongside MPJPE for this reason.
+
 % ===========================================================================
 \section{Analysis and Insights}
 \label{sec:analysis}

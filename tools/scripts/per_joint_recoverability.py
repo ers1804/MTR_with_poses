@@ -45,9 +45,11 @@ sys.path.insert(0, "/home/erik/ssd2/Waymo-3DSkelMo")
 from evaluation.metrics import (COMMON_JOINTS, SMPL_IDS, WAYMO_IDS,  # noqa: E402
                                 load_waymo_tracks, run_smpl_sequence)
 
-WORK = "/home/erik/big1/mpjpe_eval"
+WORK = os.environ.get("MPJPE_WORK", "/home/erik/big1/mpjpe_eval")
 PRED = f"{WORK}/amass/raw/validation"
-OUT = "/home/erik/ssd2/gitprojects/MTR_with_poses/experiments/per_joint_recoverability.json"
+_TAG = "" if WORK.rstrip("/").endswith("mpjpe_eval") else "_" + os.path.basename(WORK.rstrip("/"))
+OUT = ("/home/erik/ssd2/gitprojects/MTR_with_poses/experiments/"
+       f"per_joint_recoverability{_TAG}.json")
 
 
 def main() -> int:
