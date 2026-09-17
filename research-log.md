@@ -1333,3 +1333,50 @@ vs GT 19.2 deg).
 LIMITATION: 347 matched frames from the 40 segments the pipeline was run on; 113 labeled segments
 are downloaded, so this is roughly triplable with a GPU rerun of LiDAR-HMR + convert_amass. The
 head-vs-limb gap is far larger than the CIs, so more data would tighten rather than change it.
+
+### 2026-09-17 — 113-segment rerun: the head claim needed CORRECTING (and the finding survives)
+
+Extended the recoverability evaluation from 40 to all 113 labeled+downloaded Perception segments:
+347 -> 1,789 matched frames (5.16x), 113 -> 534 pedestrians. Overall 89.2 -> 91.1 mm,
+skill +0.494 -> +0.516.
+
+  joint              n   MPJPE  meanpose    SKILL          95% CI   GTspr  PRspr  ratio  max|r|
+  LEFT_ELBOW      1646    91.2     252.9   +0.639  [+.623,+.655]   252.9  248.7   0.98    0.91
+  RIGHT_ELBOW     1646    91.5     248.9   +0.632  [+.616,+.647]   248.9  247.4   0.99    0.91
+  LEFT_HIP        1789    39.8      97.9   +0.594  [+.582,+.604]    97.9   68.5   0.70    0.91
+  RIGHT_HIP       1789    39.8      97.9   +0.593  [+.582,+.604]    97.9   68.4   0.70    0.91
+  LEFT_WRIST      1639   118.3     271.1   +0.564  [+.545,+.581]   271.1  259.7   0.96    0.88
+  RIGHT_WRIST     1626   125.4     276.4   +0.546  [+.527,+.565]   276.4  274.6   0.99    0.87
+  LEFT_SHOULDER   1753    87.3     171.5   +0.491  [+.474,+.507]   171.5  183.0   1.07    0.90
+  RIGHT_ANKLE     1756   114.0     221.6   +0.485  [+.464,+.505]   221.6  190.7   0.86    0.85
+  RIGHT_KNEE      1763    78.4     150.8   +0.480  [+.463,+.496]   150.8  137.8   0.91    0.85
+  LEFT_ANKLE      1730   116.6     223.8   +0.479  [+.458,+.498]   223.8  188.1   0.84    0.85
+  LEFT_KNEE       1748    81.5     151.2   +0.461  [+.444,+.478]   151.2  131.4   0.87    0.84
+  RIGHT_SHOULDER  1750    89.0     164.0   +0.457  [+.441,+.473]   164.0  180.9   1.10    0.89
+  HEAD            1688   111.6     116.9   +0.045  [+.022,+.067]   116.9   57.6   0.49    0.79
+  OVERALL                 91.1     188.1   +0.516
+
+CORRECTION TO THE 40-SEGMENT CLAIM. At n=347 the head's skill CI was [-0.036,+0.078], containing
+zero, and I described the head as "statistically indistinguishable from always predicting the
+average head position". At n=1,789 the CI is [+0.022,+0.067] and EXCLUDES zero. That claim was an
+artifact of low power and is now retracted: the head carries a small but real amount of
+information. The paper subsection and table have been updated; the "not measured" framing is
+replaced by a quantitative one.
+
+WHAT SURVIVES, AND IT IS THE ACTUAL POINT:
+  - head skill +0.045 vs +0.457 to +0.639 for every limb joint: an ORDER OF MAGNITUDE less. The
+    model cuts head error by 4.5% over the mean pose, against 46-64% for limbs.
+  - spread ratio 0.49 vs 0.84-1.10 for limbs: the head is still heavily under-dispersed.
+  - THE MPJPE INVERSION IS INTACT AND CLEANER: head MPJPE 111.6 mm is BETTER than both ankles
+    (114.0 / 116.6) and both wrists (118.3 / 125.4), all of which carry ~10x its skill. MPJPE
+    still rank-orders these joints backwards with respect to information content.
+
+STABILITY OF THE REST. Five joints tripped a strict shift test (point estimate outside the other
+run's CI), but every delta is between +0.002 and +0.082, all in the direction of HIGHER skill, and
+no joint changed qualitative status. The flag fires because CIs tightened 2-3x (widths 0.05-0.11
+-> 0.02-0.05), which makes the small-n estimates look slightly pessimistic rather than unstable.
+The joint ordering and the head-vs-limb gap are unchanged.
+
+LESSON, consistent with the rest of this project: an n=347 CI that straddles zero is not evidence
+of absence. The 5x rerun cost ~12 h and converted a null claim into a quantitative one before it
+reached a reviewer.
