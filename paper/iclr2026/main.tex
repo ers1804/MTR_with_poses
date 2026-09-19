@@ -846,58 +846,87 @@ deviation is externally observable rather than internal to the agent's goal.
 \label{sec:limitations}
 % ===========================================================================
 
-\textbf{Dataset scale, and why we cannot go bigger.} Our ablations use a 579-scene
-subset, and SMPL pose pseudo-ground-truth exists \emph{only} for this subset---the
-full-Waymo backbone we pretrain is necessarily trajectory-only, so pose-conditioning
-at full scale is infeasible with current annotations, and whether denser or cleaner
-pose labels at scale would change the picture is untestable here.
+\textbf{Scale.} The largest rung we train is 25{,}000 scenes (142{,}807
+pedestrians). The corrected export covers 299{,}220 training scenes, so the full
+rung is a compute limitation rather than an annotation one; we state this because
+an earlier draft of this paper wrongly claimed pose-conditioning at scale was
+infeasible with current annotations. At $n{=}8$ seeds our minimum detectable
+effect on the content test is ${\approx}1.1\%$, so effects below that remain
+outside our resolution.
 
-\textbf{Pose provenance and decoder.} The LiDAR-derived SMPL pseudo-GT
-(Waymo-3DSkelMo) couples the root-orientation channel to past trajectory
-(Section~\ref{sec:setup}). The surviving map-condition benefit is robust to zeroing
-that channel (Section~\ref{sec:map_ablation}), but the body-joint estimates
-themselves are pipeline outputs, not ground truth; deployed online pose estimation
-would carry different noise, and we do not evaluate predicted-pose quality (our
-metric is trajectory only).
+\textbf{Pose provenance.} The SMPL pseudo-ground-truth is a pipeline output, not
+ground truth. We characterise it rather than assume it: root-aligned MPJPE is
+$87.6$\,mm at the mesh-recovery stage and $92.7$\,mm after the motion-prior
+stages that the predictor actually consumes, with the degradation concentrated in
+the gait joints (knees $+19$\,mm, ankles $+17$/$+25$\,mm); an RGB alternative is
+worse ($106.2$\,mm). Section~\ref{sec:recoverability} scores recoverability per
+joint. Deployed online pose estimation would carry different noise.
 
-\textbf{Statistical power and two bootstrap levels.} Our primary paired bootstrap
-resamples pedestrians on \emph{seed-averaged} errors; we also report a
-\emph{hierarchical} bootstrap resampling seeds then pedestrians---the conservative
-test we rely on. Under it the map ($-26\%$) and pretraining ($-22\%$) trajectory
-effects survive strongly ($p{<}10^{-4}$), and exactly one pose effect
-does---map\,$\times$\,xattn+PE, $-1.6\%$, $p{<}10^{-4}$---while every other pose
-margin does not (no-map xattn+PE $p{=}0.83$, GRU+map $p{=}0.30$, pretrained pose
-$p{\geq}0.35$); requiring seed resampling is what caught three of our own headline
-effects. We test ${\sim}30$ pairs uncorrected: the relied-upon effects
-($p{\leq}10^{-4}$) survive Bonferroni at this family size; the $0.01$--$0.05$ range
-is exploratory. The best-checkpoint protocol selects on validation noise; all CIs
-cover one validation split only.
+\textbf{Single dataset and modality.} All results are Waymo, and the poses are
+LiDAR-derived; WOMD ships no raw imagery, so a camera-based pose or gaze estimate
+cannot be tested at this scale. We also do not model pose--pose interaction: each
+agent's pose is summarised independently, so social cues that live between
+pedestrians rather than within one are outside what we tested.
+
+\textbf{Statistics.} Our primary test is a hierarchical bootstrap resampling seeds
+then pedestrians; a pedestrian-only paired bootstrap on seed-averaged errors is
+anti-conservative and we do not use it as a gate. For the pre-registered
+confirmation the gate is a paired $t$-test over seeds, because a percentile
+bootstrap over $n{=}8$ same-signed deltas returns $p\approx1/N_{\text{boot}}$
+irrespective of effect size---a failure mode that had previously manufactured
+results in this project. We test a large family of pairs without correction; the
+trajectory-only effects (map, pretraining) survive any reasonable correction,
+and no pose effect is close. Best-checkpoint selection systematically favours
+wider-input arms (Section~\ref{sec:confirmation}), which is why cross-architecture
+comparisons are reported at a fixed epoch and the content test---structurally
+identical arms---is the one we rely on.
 
 % ===========================================================================
 \section{Conclusion}
 \label{sec:conclusion}
 % ===========================================================================
 
-We have presented \mtrpose, a pose-conditioned extension of the Motion Transformer
-over past SMPL body poses (6D rotations), together with a seed-replicated
-measurement of what pose conditioning is worth and an audit that retracts our own
-earlier headline claims.
-Our conclusions: (1) the previously credited geodesic SO(3) supervision was
-inert---zero gradient against absent future-pose targets---so its $7.6\%$ was
-seed noise between two identical configurations. (2) In the no-map condition
-\emph{no} configuration reliably beats the no-pose baseline: cross-attention+PE
-looked like a stable $-3.5\%$ at three seeds but both further seeds fail
-($0.6648 \pm 0.0381$, $+0.7\%$, n.s.)---a second small-sample artifact, in a
-paper about small-sample artifacts---and the apparent positional-encoding ordering
-effect dissolves with it. (3) Pose helps in exactly one configuration: the
-cross-attention+PE encoder \emph{with} HD map, by $-1.6\%$ (stable across five
-seeds, $p{<}10^{-4}$). The GRU does not separate with map, and no pretrained pose
-benefit survives five seeds; control ablations (root-orientation zeroing,
-agent-centric frame) show the surviving benefit is genuine body-configuration
-signal, not heading re-entry. (4) The mechanism is past-pose \emph{encoding}, not
-future-pose prediction. The audit and seed-replication methodology---which caught
-three of our own headline effects---not the pose numbers, is our intended lasting
-contribution.
+We have presented \mtrpose, a pose-conditioned extension of the Motion
+Transformer over past SMPL body poses, and used it to ask what body pose is worth
+for pedestrian trajectory forecasting. The answer is nothing measurable, and the
+value of the paper is in how tightly that answer is bounded and why it holds.
+
+Our conclusions. (1) \textbf{The null is robust and controlled.} On a corrected
+pose export, correct pose is statistically indistinguishable from the same
+architecture fed another pedestrian's pose---from scratch ($-0.66\%$, $p{=}0.46$),
+after full-Waymo pretraining ($-0.88\%$, $p{=}0.11$), and at $40\times$ the data
+($-0.04\%$, $p{=}0.97$)---across six representations, branch and early-fusion
+integrations, a directed agentic search over the integration code, and a
+pre-registered $n{=}8$ confirmation on a held-out split ($-0.04\%$, $p{=}0.92$).
+The pose \emph{branch} costs ${\sim}1.6\%$ whether or not its input is the right
+pedestrian's; early fusion removes that cost but adds no benefit, so pose can be
+carried for free and still does not pay.
+
+(2) \textbf{The null has a mechanism.} The one predictive cue in body
+pose---facing, for pedestrians about to step off---is already supplied to the
+model by the tracker's heading channel, more accurately than mesh fitting recovers
+it ($25.2^\circ$ vs.\ $44.2^\circ$), in every range, occlusion and jitter stratum,
+and with nothing added on top. Head orientation, the one cue that could have been
+complementary, is not recovered from LiDAR at all: fitted head-versus-torso yaw
+varies $3.8^\circ$ against $19.2^\circ$ in ground truth.
+
+(3) \textbf{Aggregate pose-quality metrics hide this.} Scored per joint against a
+mean-pose baseline, the head carries a tenth of the skill of any limb joint while
+its MPJPE looks better than either wrist; MPJPE rank-orders joints roughly
+backwards with respect to information content. We recommend reporting per-joint
+skill alongside it.
+
+(4) \textbf{An auxiliary modality can only pay where the baseline is neither
+saturated nor dominated by unobservable intent.} For pedestrian forecasting on
+Waymo that window is empty, at both ends and in every manoeuvre stratum we tested.
+The prediction extends to any appearance-derived signal evaluated under the same
+conditions.
+
+The methodology, not the pose numbers, is our intended lasting contribution: ten
+self-caught artifacts, three of them our own successive headline claims, caught by
+seed replication, wrong-input controls, pre-registration, held-out splits,
+fixed-epoch endpoints and data forensics. At sub-1\% effect sizes, everything is a
+treatment.
 
 \subsubsection*{Reproducibility Statement}
 All experiments use the publicly available Waymo Open Motion Dataset and the
