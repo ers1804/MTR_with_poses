@@ -760,9 +760,12 @@ The consequence for practice is that \textbf{MPJPE rank-orders these joints almo
 backwards with respect to information content}. By MPJPE the head ($111.6$\,mm)
 looks better than either ankle ($114.0$/$116.6$\,mm) and better than either wrist
 ($118.3$/$125.4$\,mm), while carrying roughly a tenth of their skill. The head's
-flattering error is an artifact of its small ground-truth spread ($116.9$\,mm, the
-smallest of any joint): where a joint barely moves, the mean is already nearly
-right. The physical reading is
+flattering error reflects how little the estimator improves on the mean there: its
+MPJPE ($111.6$\,mm) sits just below its mean-pose baseline ($116.9$\,mm), whereas
+the hips---which have an even smaller ground-truth spread ($97.9$\,mm)---are
+predicted at $39.8$\,mm against a $97.9$\,mm baseline. Small spread alone is
+therefore not the explanation; what distinguishes the head is that the estimator
+does not beat the mean despite it. The physical reading is
 straightforward---a pedestrian at $20$--$40$\,m returns a few dozen LiDAR points,
 and the head is a near-spherical handful of them with little geometry to constrain
 its orientation, so the fit falls back largely on the prior.
