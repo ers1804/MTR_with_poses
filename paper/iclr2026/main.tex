@@ -788,58 +788,160 @@ something close to a prior, whatever the reported MPJPE. We recommend reporting 
 alongside MPJPE for this reason.
 
 % ===========================================================================
-\section{Analysis and Insights}
-\label{sec:analysis}
+\section{Why pose does not pay}
+\label{sec:why}
 % ===========================================================================
 
+The null is not a failure of the estimator or of the architecture search. It
+follows from what pose measures and what forecasting needs.
+
+\paragraph{Pose carries exactly one predictive cue.}
+If body configuration predicts anything a trajectory does not, it is which way a
+standing pedestrian will step off. We isolated this as a task. From the corrected
+export we took every pedestrian stationary at the prediction time
+($\text{speed}<0.3$\,m/s): $224{,}946$ in training and $19{,}939$ in validation,
+$99.4\%$ with a fitted pose.\footnote{Deduplicated by (scene, object): Waymo writes
+several sample files per scene carrying identical tracks, so the raw extraction is
+inflated $5.4\times$.} Onset---a displacement above $1$\,m---follows within $3$\,s
+for $8.5\%$ of them. On the $1{,}705$ positive events at the $3$\,s horizon, SMPL
+body facing predicts onset direction at roughly twice chance: median angular error
+$44.2^\circ$ and $50.6\%$ within $45^\circ$, against $90^\circ$ and $25\%$ for a
+uniform guess.
+
+\paragraph{The tracker already supplies that cue, more accurately.}
+Waymo's per-object box heading estimates the same quantity with median error
+$25.2^\circ$ and $63.9\%$ within $45^\circ$. Paired on the same events, SMPL is
+$7.3^\circ$ worse in median (Wilcoxon $p{=}2.6\times10^{-43}$) and is the better
+estimate on only $35\%$ of events---even though the SMPL forward axis was
+calibrated \emph{against} the box heading before scoring, a choice that favours
+pose. That heading enters the agent encoder as the sine and cosine of the heading
+channel. Every pose experiment in this paper therefore competed against a channel
+the model already had, in a more accurate form than mesh fitting recovers it.
+
+\paragraph{Pose does not take over where the tracker degrades.}
+Stratifying the same paired comparison by range to ego, by history validity (an
+occlusion proxy) and by box-heading jitter, the pose-minus-box gap is positive in
+all twelve strata (every $p<10^{-5}$) and \emph{widens} as perception degrades:
+$+12.3^\circ$ at $2$--$17$\,m rising to $+32.9^\circ$ at $41$--$75$\,m, and
+$+16.9^\circ$ on complete tracks rising to $+33.7^\circ$ on gappy ones. In the
+jitteriest heading quartile, where the box heading is genuinely poor
+($50.5^\circ$), SMPL is worse still ($63.8^\circ$). Both estimates derive from the
+same LiDAR returns; they fail together, not complementarily.
+
+\paragraph{And nothing on top of it.}
+A model predicting onset direction from box heading alone reaches a median of
+$24.8^\circ$ ($18{,}950$ positive training events, $1{,}688$ test). Appending a
+full pose descriptor gives $26.5^\circ$ (Wilcoxon $p{=}0.085$ vs.\ box-only);
+appending a \emph{shuffled} descriptor gives $25.8^\circ$ ($p{=}0.214$). The small
+degradation is the cost of extra feature dimensions, not a property of pose
+content. The companion question---whether the pedestrian moves at all---is carried
+by kinematics: residual micro-motion alone gives test AUC $0.741$ / $0.703$ /
+$0.638$ at $2$ / $3$ / $5$\,s, and pose adds nothing the shuffled control does not
+add equally.
+
+\paragraph{The one cue that could have been complementary is not measured.}
+Gaze precedes locomotion in human motor control, so head yaw relative to the torso
+is a plausible cue independent of the box heading. It is not available from this
+sensor. In the fitted meshes, head-versus-torso yaw has a standard deviation of
+$3.8^\circ$ (5th--95th percentile $[-4.4^\circ, +5.8^\circ]$), and the head
+axis-angle varies about six times less than the knee: the estimator is emitting
+its pose prior. The real quantity is far wider---against ground-truth 3D keypoints
+on Waymo Perception ($n{=}8{,}234$) its circular standard deviation is
+$19.2^\circ$, with $25\%$ of pedestrians beyond $15^\circ$. This is a measurement
+failure, not evidence that gaze is behaviourally irrelevant: a pedestrian at
+$20$--$40$\,m returns a few dozen LiDAR points, and the head is a near-spherical
+handful of them with little geometry to constrain yaw. The ceiling is low even for
+an oracle---the residual head yaw would have to explain has a spread of
+$66.9^\circ$, so a perfect measurement at $19.2^\circ$ covers under a third of it,
+and the fitted value explains $0.11\%$ of it ($r{=}-0.033$, $p{=}0.17$, wrong
+sign).
+
+None of this is visible in an aggregate pose error, which is why
+Section~\ref{sec:recoverability} scores recoverability per joint: a single MPJPE
+cannot distinguish an estimator that tracks a joint imprecisely from one that
+ignores it and emits its prior, since both produce a moderate mean distance.
+
+\paragraph{The general condition.}
+Two results locate where pose could have helped. Across horizons the content test
+is null everywhere and least favourable at the \emph{shortest}: $+0.48\%$ at
+$2$\,s against $-0.04\%$ at $8$\,s. At $2$\,s \minADE\ is $0.091$\,m while a
+pedestrian at $1.4$\,m\,s$^{-1}$ travels ${\approx}2.8$\,m, so short-horizon
+forecasting is very nearly \emph{saturated} by constant-velocity extrapolation and
+has almost no error left for a second modality to remove; at long horizons the
+residual is dominated by destination and intent, which body configuration does not
+disclose. Pose is squeezed out at both ends. Stratifying instead by how badly
+constant-velocity extrapolation fails---the sharpest operational definition of
+``not saturated''---gives $20$ content tests and zero significant results,
+including the hardest residual decile ($-0.13\%$, $p{=}0.80$).
+
+That second result is the decisive one: it removes the saturation objection and the
+null survives. We therefore state the principle in the general, falsifiable form
+that is the most portable thing this paper can offer. \emph{An auxiliary modality
+improves a forecast only where the baseline is neither saturated nor dominated by
+intent the modality cannot observe: there must be error left to remove, and its
+cause must be legible in the new input.} The two clauses are independent, and the
+manoeuvre strata relax only the first---when a pedestrian departs from constant
+velocity the cause is typically external (another agent, an obstacle, a kerb, a
+signal, a destination) rather than written in their own body. The same argument
+predicts failure for any appearance-derived signal under these conditions, and
+says where to look instead: regimes where prediction is hard \emph{for reasons
+visible in the agent itself}.
+
+% ===========================================================================
+\section{Methodology: ten self-caught artifacts}
+\label{sec:methodology}
+% ===========================================================================
+
+Every quantitative claim this project made about pose, over eighteen months, was
+eventually retracted by one of its own checks. We list the mechanisms rather than
+the incidents, because the mechanisms transfer.
+
 \paragraph{How an inert loss became a headline result.}
-The failure chain is worth spelling out because none of its links is exotic: a data
-condition silently degenerated (all-zero future-pose targets), the loss evaluated to
-a smooth constant with \emph{zero} gradient rather than crashing, two functionally
-identical configurations were each run once, and the resulting $0.024$ seed gap was
-read as a $3.8\%$ design effect and given a mechanistic story. The audit that caught
-it generalizes to two cheap checks: verify the \emph{target coverage} of every
-auxiliary loss against the data, and check the \emph{gradient} of every loss term in
-isolation on a real batch.
+The failure chain is worth spelling out because none of its links is exotic: a
+data condition silently degenerated (all-zero future-pose targets), the loss
+evaluated to a smooth constant with \emph{zero} gradient rather than crashing, two
+functionally identical configurations were each run once, and the resulting
+$0.024$ seed gap was read as a $3.8\%$ design effect and given a mechanistic
+story. The audit that caught it generalises to two cheap checks: verify the
+\emph{target coverage} of every auxiliary loss against the data, and check the
+\emph{gradient} of every loss term in isolation on a real batch.
 
-\paragraph{What little the pose branch does, and how.}
-Where pose helps at all (the map$\times$attention cell), the signal comes from
-\emph{encoding} past body configuration, not from supervision or heading: it
-survives zeroing the heading-coupled root channel and an agent-centric frame
-change (Section~\ref{sec:map_ablation}); real dense future-pose targets---the only
-condition in which the rotation-space losses carry gradient---do not move accuracy
-(Appendix~\ref{sec:future_ablation}); and no auxiliary-loss composition separates
-from the no-auxiliary control. In the no-map regime, by contrast, nothing is
-resolvable: heavy-tailed failures (9 of 35 runs, $26\%$, reach \minADE $\geq 0.70$;
-bad basins, not late divergence) strike GRU and attention cells alike and vanish
-with map context or pretraining---reinforcing that on small benchmarks per-seed
-values or failure rates must be reported, not seed means alone.
+\paragraph{What caught the rest.}
+\emph{Seed replication} dissolved four apparent effects that were tight at
+$n{\leq}3$: a $-7.6\%$ geodesic gain between two identical configurations, a
+$-3.5\%$ ``stable encoder'' win whose next two seeds both failed, a
+positional-encoding ordering effect, and---after the data fix---both a
+``pose harms'' and a ``shuffled is best'' reading of the same triad.
+\emph{Wrong-input controls} were decisive twice: a shuffled-pose arm reproduced
+the one surviving pose benefit, and a wrong-pose control turned a significant
+intent-classification gain into a null. \emph{Data forensics} produced the largest
+correction of all---the export keyed pose clips by a scene-local object id, so
+every pose-conditioned experiment we had run to that point used another
+pedestrian's body motion. \emph{Protocol discipline} caught three more: a
+last-epoch checkpoint convention that manufactured a $+13.4\%$ effect
+($p{=}0.0002$) which became $+4.1\%$ ($p{=}0.37$) at best epoch; an inherited
+learning rate that made pose look catastrophic at a new scale ($+37\%$, falling
+to $-0.9\%$ n.s.\ once each arm was tuned); and a frame-indexing bug in our own
+evaluation harness that inflated MPJPE from $87.6$ to $160.6$\,mm.
+\emph{Pre-registration with a held-out split} caught the last: a candidate that
+reached $-1.21\%$ on data the search never saw, under a truncated proxy recipe,
+measured $-0.04\%$ ($p{=}0.92$) at the full recipe---a convergence-rate artifact.
 
-\paragraph{Why there is no horizon at which pose can pay.}
-A natural defence of the null is that \minADE\ at $8$\,s averages over a regime pose
-was never going to reach, and that gait should determine the next step or two. The
-horizon sweep says otherwise, and says it in the opposite direction: on the held-out
-split at $n{=}8$ seeds, correct pose versus its shuffled control is $+0.48\%$
-($p{=}.32$) at $2$\,s, $+0.24\%$ ($p{=}.52$) at $4$\,s and $-0.04\%$ ($p{=}.92$) at
-$8$\,s---null throughout, with the point estimate least favourable at the
-\emph{shortest} horizon rather than the longest. The reason is visible in the
-absolute numbers. At $2$\,s \minADE\ is $0.091$\,m while a pedestrian at
-$1.4$\,m\,s$^{-1}$ travels $\approx2.8$\,m, so short-horizon forecasting is already
-within $\approx3\%$ of the displacement and is very nearly \emph{saturated} by linear
-kinematic extrapolation; there is almost no error left for a second modality to
-remove. At long horizons the residual error is instead dominated by destination and
-intent, which body configuration does not disclose. Pose is squeezed out at both
-ends.
+\paragraph{Two statistical lessons.}
+First, a percentile bootstrap over per-seed deltas is badly anti-conservative when
+the deltas share a sign: at $n{=}5$ it returns $p\approx1/N_{\text{boot}}$
+regardless of effect size, and it had manufactured several of the retractions
+above. We gate on a paired $t$-test and keep the bootstrap interval as a
+descriptive spread. Second, best-checkpoint selection is not neutral between
+architectures: it is worth $-1.87\%$ to a wide-input arm and $-0.55\%$ to the
+baseline, enough to flip the sign of a cross-architecture comparison. Only the
+content test---structurally identical arms differing in whether the input is the
+right pedestrian's---is robust to it, which is the deeper reason it is the
+comparison we rely on.
 
-We state the resulting principle in general form, because it is the most portable
-thing we can offer and it is falsifiable: \emph{an auxiliary modality can only pay
-where the baseline is neither saturated nor dominated by unobservable intent.} For
-pedestrian forecasting on Waymo that window is empty, and the prediction extends
-beyond SMPL pose to any appearance-derived signal evaluated under the same
-conditions. It also indicates where the window is \emph{not} empty and where such
-modalities should be tested instead: regimes in which constant-velocity
-extrapolation demonstrably fails, and in which the information governing the
-deviation is externally observable rather than internal to the agent's goal.
+At sub-$1\%$ effect sizes, everything is a treatment: the learning rate moves
+\minADE\ by up to $16.7\%$, the checkpoint rule by ${\sim}1.9\%$, and the seed by
+more than either, against a content signal of $0.04\%$.
 
 % ===========================================================================
 \section{Limitations}
