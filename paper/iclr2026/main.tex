@@ -530,7 +530,7 @@ regime is noisy with or without it.
 \paragraph{Reproducibility note.} All seed-matrix results were produced with the
 \emph{pre-fix} code (tagged in the release); the released code masks the future-pose
 losses, so re-running any aux-active cell yields the masked training distribution.
-The baseline is verified unchanged ($p{=}0.95$) and the four audit cells are re-run
+The baseline is verified unchanged (paired $p{=}0.90$, hierarchical $p{=}0.99$) and the four audit cells are re-run
 masked above; other aux-active cells were not, and may differ under the fix.
 
 \subsection{Ablation: Temporal Encoding --- GRU vs.\ Cross-Attention}
@@ -712,35 +712,36 @@ skeletons (Table~\ref{tab:recoverability}).
 \begin{table}[t]
 \caption{Per-joint recoverability of LiDAR-based HMR against ground-truth
 keypoints ($1{,}789$ frames over $534$ pedestrians, $113$ Perception validation
-segments). \emph{MP} is the error of always predicting the mean root-aligned pose;
-\textsc{skill} $=1-\text{MPJPE}/\text{MP}$, with a $95\%$ bootstrap CI over frames.
-\emph{ratio} is predicted spread over ground-truth spread. The head carries an
+segments). \emph{MP} is the error of always predicting the mean root-aligned pose, which
+equals the joint's ground-truth spread by construction; \textsc{skill}
+$=1-\text{MPJPE}/\text{MP}$, with a $95\%$ bootstrap CI over frames. \emph{ratio}
+is predicted spread over ground-truth spread. The head carries an
 order of magnitude less skill than any limb joint---yet its MPJPE is \emph{better}
 than either wrist or ankle.}
 \label{tab:recoverability}
 \begin{center}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{lcccccc}
+\begin{tabular}{lccccc}
 \toprule
-Joint & MPJPE (mm) & MP (mm) & \textsc{skill} & 95\% CI & GT spread (mm) & ratio \\
+Joint & MPJPE (mm) & MP (mm) & \textsc{skill} & 95\% CI & ratio \\
 \midrule
-Left elbow     &  91.2 & 252.9 & $+0.639$ & $[+.623,+.655]$ & 252.9 & 0.98 \\
-Right elbow    &  91.5 & 248.9 & $+0.632$ & $[+.616,+.647]$ & 248.9 & 0.99 \\
-Left hip       &  39.8 &  97.9 & $+0.594$ & $[+.582,+.604]$ &  97.9 & 0.70 \\
-Right hip      &  39.8 &  97.9 & $+0.593$ & $[+.582,+.604]$ &  97.9 & 0.70 \\
-Left wrist     & 118.3 & 271.1 & $+0.564$ & $[+.545,+.581]$ & 271.1 & 0.96 \\
-Right wrist    & 125.4 & 276.4 & $+0.546$ & $[+.527,+.565]$ & 276.4 & 0.99 \\
-Left shoulder  &  87.3 & 171.5 & $+0.491$ & $[+.474,+.507]$ & 171.5 & 1.07 \\
-Right ankle    & 114.0 & 221.6 & $+0.485$ & $[+.464,+.505]$ & 221.6 & 0.86 \\
-Right knee     &  78.4 & 150.8 & $+0.480$ & $[+.463,+.496]$ & 150.8 & 0.91 \\
-Left ankle     & 116.6 & 223.8 & $+0.479$ & $[+.458,+.498]$ & 223.8 & 0.84 \\
-Left knee      &  81.5 & 151.2 & $+0.461$ & $[+.444,+.478]$ & 151.2 & 0.87 \\
-Right shoulder &  89.0 & 164.0 & $+0.457$ & $[+.441,+.473]$ & 164.0 & 1.10 \\
+Left elbow     &  91.2 & 252.9 & $+0.639$ & $[+.623,+.655]$ & 0.98 \\
+Right elbow    &  91.5 & 248.9 & $+0.632$ & $[+.616,+.647]$ & 0.99 \\
+Left hip       &  39.8 &  97.9 & $+0.594$ & $[+.582,+.604]$ & 0.70 \\
+Right hip      &  39.8 &  97.9 & $+0.593$ & $[+.582,+.604]$ & 0.70 \\
+Left wrist     & 118.3 & 271.1 & $+0.564$ & $[+.545,+.581]$ & 0.96 \\
+Right wrist    & 125.4 & 276.4 & $+0.546$ & $[+.527,+.565]$ & 0.99 \\
+Left shoulder  &  87.3 & 171.5 & $+0.491$ & $[+.474,+.507]$ & 1.07 \\
+Right ankle    & 114.0 & 221.6 & $+0.485$ & $[+.464,+.505]$ & 0.86 \\
+Right knee     &  78.4 & 150.8 & $+0.480$ & $[+.463,+.496]$ & 0.91 \\
+Left ankle     & 116.6 & 223.8 & $+0.479$ & $[+.458,+.498]$ & 0.84 \\
+Left knee      &  81.5 & 151.2 & $+0.461$ & $[+.444,+.478]$ & 0.87 \\
+Right shoulder &  89.0 & 164.0 & $+0.457$ & $[+.441,+.473]$ & 1.10 \\
 \rowcolor{black!8}
-\textbf{Head}  &  \textbf{111.6} & \textbf{116.9} & $\mathbf{+0.045}$ & $\mathbf{[+.022,+.067]}$ & \textbf{116.9} & \textbf{0.49} \\
+\textbf{Head}  &  \textbf{111.6} & \textbf{116.9} & $\mathbf{+0.045}$ & $\mathbf{[+.022,+.067]}$ & \textbf{0.49} \\
 \midrule
-Overall        &  91.1 & 188.1 & $+0.516$ & & & \\
+Overall        &  91.1 & 188.1 & $+0.516$ & & \\
 \bottomrule
 \end{tabular}
 \end{center}
