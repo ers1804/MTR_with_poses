@@ -374,7 +374,7 @@ evaluation is sound. \emph{Second}, the pipeline snaps the SMPL root rotation to
 past-trajectory motion direction whenever the pedestrian is moving and the raw LiDAR
 estimate deviates by more than $90^{\circ}$, so the root-orientation channel is
 partially derived from position history the model already receives---an overlap we
-quantify in Section~\ref{sec:temporal_ablation}. Body configuration and gait within
+quantify in Section~\ref{sec:why}. Body configuration and gait within
 $\pm 90^{\circ}$ are genuinely perception-derived.
 
 \paragraph{Evaluation.}
@@ -405,60 +405,254 @@ resampled jointly for both models in a pair; 10{,}000 resamples).
 \paragraph{Scale caveat.}
 The 579-scene training subset is a small fraction of the full Waymo training set
 (${\approx}487$k scenarios), so absolute \minADE values in
-Sections~\ref{sec:main_result}--\ref{sec:map_ablation} are far from
+Sections~\ref{sec:res_core}--\ref{sec:res_hide} are far from
 full-data state of the art; relative, seed-replicated comparisons between models
 trained on identical data are the object of study.
-Section~\ref{sec:pretrain_ablation} quantifies the scale effect directly.
+Section~\ref{sec:res_ladder} quantifies the scale effect directly.
 
-\subsection{Main Result: Pose Conditioning vs.\ Baseline}
-\label{sec:main_result}
+\subsection{Reading the Tables: the Comparison That Matters}
+\label{sec:contenttest}
 
-Table~\ref{tab:main} compares, over five seeds each, the trajectory-only
-\mtr baseline against three pose-conditioned variants: the GRU encoder with the
-WTA-L1 auxiliary pose loss ($w{=}0.1$; the configuration an earlier draft
-mislabeled ``geodesic-only'', see Section~\ref{sec:loss_ablation}), the GRU
-encoder with \emph{no} active auxiliary pose loss, and the cross-attention
-encoder with sinusoidal positional encoding (same WTA-L1 auxiliary loss).
+Every number below is computed on the corrected per-scene re-export
+(Section~\ref{sec:setup}); nothing from the id-collided export is reused. The
+validation set is fixed throughout: $5{,}171$ scenes and $16{,}486$ evaluated
+pedestrians. There are three arms. \emph{No-pose} receives trajectories and map
+only. \emph{Pose} adds the pedestrian's own SMPL sequence. \emph{Shuffled} is the
+identical architecture fed \emph{another pedestrian's} SMPL sequence.
+
+Pose versus no-pose confounds the information in the body signal with the capacity
+of an extra input branch; pose versus shuffled holds parameters, optimiser, input
+dimensionality and recipe fixed, and isolates content. We call the latter the
+\emph{content test} and treat it as decisive. Relative differences are $(A-B)/B$
+for ``$A$ vs.\ $B$''; negative means $A$ is better. The primary test is a
+hierarchical bootstrap resampling seeds and then pedestrians (hier~$p$); a
+pedestrian-only paired bootstrap ignores between-seed variance, is
+anti-conservative, and is never used as a gate.
+
+\subsection{Clean Core}
+\label{sec:res_core}
+
+Table~\ref{tab:core} is the corrected version of the configuration behind our own
+retracted claim: $579$ training scenes ($6{,}348$ training pedestrians), five
+seeds per arm, $30$ epochs, map context on, cross-attention+PE encoder, in two
+regimes. \emph{Fine-tuned} initialises every arm from one trajectory-only backbone
+pretrained on full Waymo ($231{,}507$ examples from $486{,}995$ scenarios) and
+attaches the pose branch through a residual, zero-initialised fuser, so both pose
+arms begin as the no-pose model.
 
 \begin{table}[t]
-\caption{Main result (no map; best-checkpoint protocol; 5 seeds each). Per-seed
-values expose a heavy-tailed failure mode in \emph{both} GRU- and attention-based
-pose conditioning (bold = degraded seeds) that mean$\pm$std alone understates. No
-row is significantly below the baseline under a seed-resampling bootstrap.}
-\label{tab:main}
+\caption{Clean core. \minADE (m) on the fixed validation set; $n{=}5$ seeds in a
+fixed order. Relative differences with hier~$p$ in parentheses; negative $=$
+better for the first-named arm. ---: reference arm or not tested.}
+\label{tab:core}
 \begin{center}
-\small
-\begin{tabular}{llcc}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llccc}
 \toprule
-Model & Aux.\ loss & \minADE $\downarrow$ (mean$\pm$std) & per-seed values \\
+Arm & Per-seed \minADE & Mean $\pm$ sd & vs.\ no-pose & Content test \\
 \midrule
-\mtr (no pose)          & ---         & $0.6604 \pm 0.0143$ & .655 .683 .664 .654 .646 \\
-\mtrpose GRU, no aux    & none active & $0.6545 \pm 0.0271$ & .696 .665 .639 .626 .647 \\
-\mtrpose GRU, WTA-L1    & $w{=}0.1$   & $0.6853 \pm 0.0651$ & .639 \textbf{.785} .629 \textbf{.717} .657 \\
-\mtrpose XAttn+PE, WTA-L1 & $w{=}0.1$ & $0.6648 \pm 0.0381$ & .640 .634 .637 \textbf{.710} \textbf{.703} \\
+\multicolumn{5}{l}{\emph{From scratch}} \\
+No-pose  & $.4584\ .4428\ .4530\ .4954\ .4500$ & $0.4599 \pm 0.0206$ & --- & --- \\
+Shuffled & $.4544\ .4668\ .4514\ .4547\ .4672$ & $0.4589 \pm 0.0075$ & $-0.21\%$ ($0.96$) & --- \\
+Pose     & $.4705\ .4557\ .4530\ .4570\ .4736$ & $0.4620 \pm 0.0094$ & $+0.45\%$ ($0.76$) & $+0.66\%$ ($0.46$) \\
+\midrule
+\multicolumn{5}{l}{\emph{Fine-tuned from a full-Waymo trajectory-only backbone}} \\
+No-pose  & $.3721\ .3658\ .3670\ .3727\ .3684$ & $0.3692 \pm 0.0031$ & --- & --- \\
+Shuffled & $.3637\ .3627\ .3644\ .3744\ .3726$ & $0.3676 \pm 0.0055$ & $-0.44\%$ ($0.46$) & --- \\
+Pose     & $.3639\ .3723\ .3708\ .3739\ .3732$ & $0.3708 \pm 0.0040$ & $+0.44\%$ ($0.49$) & $+0.88\%$ ($0.11$) \\
 \bottomrule
 \end{tabular}
 \end{center}
 \end{table}
 
-The seed-replicated picture inverts the earlier draft's headline, and cuts deeper
-than our first correction did. The GRU encoder with the WTA-L1 auxiliary
-loss---credited with $-7.6\%$ from one lucky run---is \emph{worse than baseline on
-average}: two of five seeds converge to degraded optima (bold), and the pedestrian
-bootstrap puts it at $+3.8\%$ \minADE. The cross-attention encoder with positional
-encoding \emph{appeared} to deliver what the draft attributed to the GRU: a
-remarkably stable $-3.5\%$ at three seeds ($\sigma\,0.0026$). Two additional
-seeds, run under identical code, both fail (best-epoch $0.710$/$0.703$): the
-five-seed cell is $0.6648 \pm 0.0381$---a fifteen-fold spread increase, on the
-\emph{wrong} side of the baseline ($+0.7\%$, $p{=}0.83$). The attention encoder
-is heavy-tailed too; its three-seed stability was itself the failure mode this
-paper documents, reproduced in our own corrected result. The apparent
-positional-encoding effect dissolves with it (no-PE vs.\ PE: $p{=}0.76$ at five
-seeds). Under seed resampling, \emph{no} no-map configuration reliably beats the
-no-pose baseline; pose's benefit, if any, must be sought where the backbone is
-already strong (Sections~\ref{sec:map_ablation}--\ref{sec:pretrain_ablation}).
+Neither regime shows an effect, and in both the shuffled arm has the lowest mean
+of the three: another pedestrian's body is nominally the best input. Fine-tuning
+lowers every arm and tightens the seed spread (sd $0.0031$--$0.0055$ against
+$0.0075$--$0.0206$), and the content test stays null with its sign against pose.
 
-\subsection{The Auxiliary-Loss Audit: an Inert Term Credited with the Headline Gain}
+Seed count decides what this table appears to say. With the first three seeds only,
+the same design read as \emph{pose harms} from scratch ($+1.85\%$,
+hier~$p{=}0.037$) and \emph{shuffled is best} after fine-tuning ($-1.27\%$ vs.\
+no-pose, hier~$p{=}0.016$). Both dissolved at $n{=}5$. Seed $404$'s from-scratch
+no-pose run ($0.4954$)---the worst single run in the table---lies outside the
+three-seed set, and its absence flattered the baseline.
+
+\subsection{Scale Ladder}
+\label{sec:res_ladder}
+
+If pose content is real but $579$ scenes are too few to exploit it, more data
+should open a gap between the pose and shuffled arms. Table~\ref{tab:ladder}
+trains all three arms from scratch at three rungs, with validation held identical
+and the learning rate selected \emph{per arm} at each rung.
+
+\begin{table}[t]
+\caption{Scale ladder. Validation is identical at every rung
+($5{,}171$ scenes / $16{,}486$ pedestrians). \minADE mean $\pm$ sd over seeds;
+relative differences with hier~$p$; negative $=$ better for the first-named arm.}
+\label{tab:ladder}
+\begin{center}
+\footnotesize
+\begin{tabular}{lccc}
+\toprule
+Training scenes / pedestrians & $579$ / $6{,}348$ & $5$k / $31{,}302$ & $25$k / $142{,}807$ \\
+Learning rate & $10^{-4}$ & $5{\times}10^{-5}$ & $2.5{\times}10^{-5}$ \\
+Seeds & $5$ & $3$ & $5$ \\
+\midrule
+No-pose  & $0.4599 \pm 0.0206$ & $0.4176 \pm 0.0060$ & $0.3716 \pm 0.0027$ \\
+Pose     & $0.4620 \pm 0.0094$ & $0.4138 \pm 0.0053$ & $0.3778 \pm 0.0024$ \\
+Shuffled & $0.4589 \pm 0.0075$ & $0.4181 \pm 0.0068$ & $0.3777 \pm 0.0053$ \\
+\midrule
+Pose vs.\ no-pose      & $+0.45\%$ ($0.76$) & $-0.90\%$ ($0.52$) & $+1.66\%$ ($0.0001$) \\
+Shuffled vs.\ no-pose  & $-0.21\%$ ($0.96$) & $+0.12\%$ ($0.85$) & $+1.62\%$ ($0.0082$) \\
+\textbf{Content test}  & $+0.66\%$ ($0.46$) & $-1.02\%$ ($0.44$) & $+0.04\%$ ($0.97$) \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+Data alone moves the no-pose baseline from $0.4599$ to $0.4176$ to $0.3716$
+($-19.2\%$). The content test is null at every rung. At $25$k the bootstrap
+interval on the absolute content difference is $[-0.0040, +0.0047]$\,m, about
+$\pm1.2\%$ relative: at the largest rung we train, the data exclude a content
+effect beyond roughly $1.2\%$ in either direction.
+
+\paragraph{The branch-capacity tax.}
+At $25$k both pose arms are significantly worse than no-pose---pose $+1.66\%$
+($p{=}0.0001$), shuffled $+1.62\%$ ($p{=}0.0082$)---and indistinguishable from
+each other ($+0.04\%$, $p{=}0.97$). The branch costs about $1.6\%$, and it costs
+the same whether it carries the right body or the wrong one. A pose-versus-no-pose
+comparison at this rung would report a significant \emph{harm} from pose; the
+content test shows the harm is architecture, not content.
+
+\paragraph{The tuning phantom.}
+The $5$k rung first read as catastrophic. With the learning rate inherited from
+the $579$ recipe ($10^{-4}$, one seed) pose was $+37.1\%$ versus no-pose; at
+$5{\times}10^{-5}$ for eight epochs, $+7.4\%$; with per-arm selection and full
+training, $-0.90\%$, n.s. The $25$k per-arm sweep (four rates $\times$ three seeds
+$\times$ three arms) gives every arm an interior optimum at $2.5{\times}10^{-5}$
+and moves \minADE by up to $16.7\%$ across the grid, against a content signal of
+$0.04$--$0.09\%$: the learning rate is roughly $190\times$ the treatment. A
+pose-versus-baseline claim that does not tune each arm separately is a claim about
+the learning rate. (The eight-epoch and grid values come from training logs rather
+than our archived evaluation outputs.)
+
+\subsection{Representation and Integration}
+\label{sec:res_repr}
+
+The null could be a property of how pose enters the model rather than of what it
+contains. We tested the three ways that could be so.
+
+\paragraph{Coordinate frame.}
+Trajectories are agent-centric, but the SMPL root orientation had remained in the
+world frame, so body facing \emph{relative to travel} was not expressible from the
+input. The defect touches $6$ of $144$ dimensions of the 6D representation and all
+$72$ dimensions of joint positions. After rotating the root into the agent frame,
+the median $|\text{body facing} - \text{travel heading}|$ is $12.0^\circ$ for
+correct pose against $93.4^\circ$ for shuffled---the first configuration in this
+study in which the control is separable from the treatment \emph{at the input}. It
+is not separable at the output: the frame-fixed branch ($n{=}3$) scores
+$0.3794 \pm 0.0024$ against its own shuffled control $0.3768 \pm 0.0071$, a
+content test of $+0.68\%$ (hier~$p{=}0.37$), with $+2.23\%$ versus seed-matched
+no-pose ($p{=}0.0006$)---the branch tax again.
+
+\paragraph{Early fusion, no branch.}
+To remove the branch tax rather than pay it, we replaced the $144$-d branch with
+eight frame-invariant descriptors (facing-vs-motion, torso yaw rate, stride phase,
+cadence, arm swing, spine tilt) appended to the agent input channels
+($29 \to 37$), so pose enters through the existing encoder. Result:
+$0.3711 \pm 0.0051$; $-0.01\%$ versus seed-matched no-pose (hier~$p{=}0.9988$);
+$-1.66\%$ versus the $144$-d branch design ($p{=}0.0056$); content test $-0.48\%$
+($p{=}0.65$). Pose can be carried for free. It still does not pay.
+
+\paragraph{A directed search over integrations.}
+Hand-designed integrations sample a small space. We therefore ran a directed
+search in which a coding agent rewrites the pose-integration code as the variation
+operator of an evolutionary loop against a frozen, commit-pinned training
+repository, scoring on a dev split and never seeing a held-out final split. A
+candidate is accepted only if it improves aggregate \minADE by at least $0.8\%$.
+Round~1 scored $13$ candidates and accepted none, its best improving \minADE by
+$0.49\%$. Round~2 widened the input to $216$ dimensions by adding canonical-frame
+joint positions, scored seven and accepted none, its best improving by $0.76\%$,
+below the floor. Two module-mode candidates reproduced the branch tax, worsening
+\minADE by $1.44\%$ and $4.66\%$.
+
+\subsection{The Pre-registered Confirmation}
+\label{sec:confirmation}
+
+Round~2's best candidate is the strongest pose-content signal this study produced,
+so we pre-registered its confirmation. Re-scored at five seeds against its own
+shuffled control under the $12$-epoch scoring proxy, it read $-1.07\%$ on dev
+($t(4){=}-3.01$) and $-1.21\%$ on the held-out final split ($t(4){=}-4.24$, pose
+better in $5/5$ seeds). Before running anything further we fixed the protocol:
+three arms $\times$ eight seeds $\times$ $30$ epochs; primary endpoint the final
+split at the fixed last epoch; content test; paired $t$ over seeds; $\alpha{=}0.05$.
+
+\begin{table}[t]
+\caption{Pre-registered confirmation: three arms $\times$ eight seeds $\times$
+$30$ epochs; paired $t$ over seeds; negative $=$ better for the first-named arm.
+The primary endpoint is the first row. $\dagger$: the most-selected cell \emph{and}
+a capacity-confounded cross-architecture comparison whose own content control is
+n.s.; not a win.}
+\label{tab:confirm}
+\begin{center}
+\footnotesize
+\begin{tabular}{llcc}
+\toprule
+Split & Epoch & Content test & Pose vs.\ no-pose \\
+\midrule
+Final (held out) & last (primary) & $-0.04\%$, $t(7){=}-0.11$, $p{=}0.916$, $5/8$ & $+0.88\%$, $p{=}0.179$ \\
+Final (held out) & chosen on dev  & $-0.19\%$, $p{=}0.63$ & $-0.46\%$, $p{=}0.36$ \\
+Dev              & last           & $+0.29\%$, $p{=}0.25$ & $+0.97\%$, $p{=}0.08$ \\
+Dev              & best on dev    & $-0.29\%$, $p{=}0.34$ & $-0.44\%$, $p{=}0.030^{\dagger}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+The primary endpoint returns $-0.04\%$, $p{=}0.916$, pose better in $5$ of $8$
+seeds: \textbf{not confirmed}. The $12$-epoch signal was a convergence-rate
+artifact---the arms differ in how fast they train, not in where they end.
+
+One cell is nominally significant: dev split, best epoch chosen on dev, pose
+versus no-pose, $-0.44\%$, $p{=}0.030$. It is the most-selected cell in the table
+(the epoch is chosen on the split it is scored on), it is the capacity-confounded
+cross-architecture comparison, and its own content control in the same cell is
+$-0.29\%$, $p{=}0.34$. We report it so that it cannot be quoted as a win.
+
+\subsection{Where a Benefit Could Still Hide}
+\label{sec:res_hide}
+
+An aggregate null can hide a benefit local in time, in behaviour, or in a
+subpopulation. We looked in the three places a body-pose prior should show first,
+on the eight confirmation seeds and the held-out split.
+
+\paragraph{Horizon.}
+The content test is $+0.48\%$ at $2$\,s ($p{=}0.32$), $+0.24\%$ at $4$\,s
+($p{=}0.52$), $-0.04\%$ at $8$\,s ($p{=}0.92$) and $-0.04\%$ on \minFDE
+($p{=}0.95$): null at every horizon and \emph{least} favourable at the shortest.
+At $2$\,s \minADE is $0.091$\,m over roughly $2.8$\,m of travel.
+
+\paragraph{Manoeuvre.}
+For the $6{,}764$ validation agents with motion covariates we ran the content test
+within each quartile and the top decile of four covariates: residual from
+constant-velocity extrapolation, heading variation, speed range, and peak
+acceleration. Of $20$ tests, zero are significant. The hardest decile by
+constant-velocity residual (mean \minADE $1.04$\,m) gives $-0.13\%$, $p{=}0.80$.
+
+\paragraph{Subpopulation.}
+Standing-then-moving pedestrians---stationary in the observed history, moving in
+the future---are the canonical case for a body-pose prior: the trajectory carries
+no velocity and the body is supposed to carry the intent. On the full validation
+set they number $1{,}809$. Content test: $+0.38\%$, $p{=}0.80$.
+
+Across Sections~\ref{sec:res_core}--\ref{sec:res_hide} the content test is null in
+every configuration, at every training scale, at every horizon, in every manoeuvre
+stratum, and in the subpopulation built to favour it. The only effects that
+survive the seed count are the branch-capacity tax, in three forms, and one
+selection artifact.
+
+\subsection{The Auxiliary-Loss Audit: an Inert Term Credited with a Headline Gain}
 \label{sec:loss_ablation}
 
 An earlier draft ablated the pose supervision with one run per configuration and
@@ -480,11 +674,16 @@ term inert it ran the same training distribution as ``WTA-L1 only''---their
 $0.0236$ gap ($0.6231$ vs.\ $0.6467$) is pure run-to-run noise, larger than most
 effects the draft reported.
 
-\paragraph{Fact 3: seed replication measures the noise directly.}
-Re-run with multiple seeds (Table~\ref{tab:loss_ablation}), the pooled
-\textbf{ten} replicates of this single configuration span \minADE
-$0.629$--$0.897$ ($0.6957 \pm 0.0841$); both draft values sit comfortably inside
-this one-configuration spread, confirming the ``geodesic effect'' was a draw from it.
+\paragraph{Fact 3: on the corrected data the losses are inert \emph{by construction}.}
+The re-export stores past-only sequences (at most $11$ frames), so the future-pose
+validity mask is empty and all four auxiliary pose losses evaluate to exactly
+$0.0$; we confirmed this by instrumenting each term during training. The
+consequence is stronger than ``ineffective'': on this data an auxiliary-loss cell
+differs from the no-pose baseline only by possessing a pose \emph{encoder}. Any
+auxiliary-loss comparison we or others report on WOMD-derived pose of this form is
+a comparison of encoders, not of supervision. Table~\ref{tab:loss_ablation}
+records the wrong-pose-era measurements that first exposed the noise floor; we
+retain it as documentation of the artifact, not as evidence about pose.
 
 \begin{table}[t]
 \caption{Pose supervision ablation, seed-replicated (no map, GRU encoder,
@@ -541,158 +740,6 @@ regime is noisy with or without it.
 losses, so re-running any aux-active cell yields the masked training distribution.
 The baseline is verified unchanged (paired $p{=}0.90$, hierarchical $p{=}0.99$) and the four audit cells are re-run
 masked above; other aux-active cells were not, and may differ under the fix.
-
-\subsection{Ablation: Temporal Encoding --- GRU vs.\ Cross-Attention}
-\label{sec:temporal_ablation}
-
-Table~\ref{tab:temporal} compares three temporal encoding strategies (three to
-five seeds each), all with the WTA-L1 auxiliary loss at $w{=}0.1$.
-
-\begin{table}[t]
-\caption{Temporal encoding ablation, seed-replicated (no map; WTA-L1 auxiliary
-loss at $w{=}0.1$ in all pose-conditioned variants).}
-\label{tab:temporal}
-\begin{center}
-\small
-\begin{tabular}{lccc}
-\toprule
-Pose Encoder & Temporal info & \minADE (mean$\pm$std) & per-seed values \\
-\midrule
-None (no pose)               & ---               & $0.6604 \pm 0.0143$ & .655 .683 .664 .654 .646 \\
-Cross-attention, no PE       & none (bag)        & $0.6705 \pm 0.0336$ & .714 .641 .646 .653 .700 \\
-Cross-attention + sinus.\ PE & ordering only     & $0.6648 \pm 0.0381$ & .640 .634 .637 .710 .703 \\
-GRU (sequential)             & ordering + causal & $0.6853 \pm 0.0651$ & .639 .785 .629 .717 .657 \\
-\bottomrule
-\end{tabular}
-\end{center}
-\end{table}
-
-At three seeds this ablation seemed to expose a clean mechanism---bag-of-frames
-useless, $+$PE best-in-class, GRU worst---suggesting temporal \emph{ordering}
-carries the pose signal. At five seeds the mechanism dissolves with the main
-effect: no-PE and $+$PE are indistinguishable ($p{=}0.76$), every variant overlaps
-the baseline, and each has heavy-tailed seeds. In the no-map regime no encoder
-property is resolvable; the draft's ``GRU beats attention'' and our first
-correction's ``attention$+$PE beats everything'' were both draws from wide,
-overlapping seed distributions.
-
-\paragraph{Root-orientation control.} A control ablation asks \emph{what} in the pose
-an encoder could use: zeroing the root-orientation channel of the xattn+PE input
-(joint 0; body joints untouched) gives $0.6628 \pm 0.0056$---indistinguishable from
-both the no-pose baseline ($p{=}0.72$) and the five-seed xattn+PE cell ($p{=}0.88$).
-With no established no-map gain, this ablation is uninformative here; it becomes
-decisive in the map condition (Section~\ref{sec:map_ablation}), where a real pose
-benefit exists to decompose. The channel matters because the Waymo-3DSkelMo pipeline
-partially derives it from past-trajectory heading (Section~\ref{sec:setup}), so a
-benefit that survives its removal cannot be heading re-entry.
-
-\subsection{Ablation: HD Map Context}
-\label{sec:map_ablation}
-
-The experiments above use zero-padded map features (the SMPL-paired pedestrian
-subset was originally processed without HD map polylines). To quantify how map
-context interacts with pose conditioning, we enable HD map loading and train the
-2$\times$2 factorial design: $\pm$map $\times$ $\pm$pose (GRU encoder, WTA-L1
-auxiliary loss at $w{=}0.1$), three seeds per cell.
-
-\begin{table}[t]
-\caption{Map $\times$ pose ablation plus mechanism controls, seed-replicated (5
-seeds per cell; the two control cells 3). WTA-L1 auxiliary loss at $w{=}0.1$ in pose
-cells. With map context the seed variance collapses by an order of magnitude
-relative to the no-map cells.}
-\label{tab:map_ablation}
-\begin{center}
-\small
-\begin{tabular}{llcc}
-\toprule
-Pose Enc. & Map & \minADE (mean$\pm$std) & per-seed values \\
-\midrule
-None      & No map   & $0.6604 \pm 0.0143$ & .655 .683 .664 .654 .646 \\
-None      & With map & $0.4854 \pm 0.0047$ & .490 .484 .489 .478 .486 \\
-GRU       & No map   & $0.6853 \pm 0.0651$ & .639 .785 .629 .717 .657 \\
-GRU       & With map & $0.4823 \pm 0.0058$ & .480 .491 .485 .477 .479 \\
-\rowcolor{bestrow}
-XAttn+PE  & With map & $\mathbf{0.4778 \pm 0.0041}$ & .477 .481 .480 .471 .480 \\
-\; + root-orient zeroed & With map & $0.4800 \pm 0.0046$ & .477 .485 .478 \\
-\; + agent-centric pose frame & With map & $0.4801 \pm 0.0056$ & .475 .486 .479 \\
-\bottomrule
-\end{tabular}
-\end{center}
-\end{table}
-
-Table~\ref{tab:map_ablation} reveals three findings.
-\emph{First}, HD map is the dominant signal: it alone reduces \minADE by $26.5\%$
-(CI $[-29.0, -24.1]$), far more than any pose effect, since routing is encoded
-directly in the map.
-\emph{Second}, this is where pose's one seed-significant benefit lives---and it
-requires the attention encoder. The GRU cell does not separate from no-pose+map at
-five seeds ($-0.6\%$, $p{=}0.30$), but the xattn+PE encoder gives $-1.57\%$
-(hierarchical CI $[-2.4, -0.8]\%$, $p{<}10^{-4}$, five seeds both arms). Unlike the
-no-map xattn+PE cell, this one is \emph{stable} ($\sigma\,0.004$): the map both
-supplies context and tames the encoder's heavy tail.
-\emph{Third}, the map-condition benefit is \textbf{not} heading re-entry: zeroing
-the heading-coupled root channel leaves it intact ($0.4800 \pm 0.0046$, $+0.2\%$
-of full pose, $p{=}0.58$; still $-1.55\%$ vs.\ no-pose+map, paired $p{<}10^{-4}$,
-hierarchical $p{=}0.07$ at three seeds), and an agent-centric pose frame changes
-nothing ($0.4801 \pm 0.0056$, $p{=}0.65$), ruling out a frame confound. With the
-map supplying routing and heading, the residual pose signal is \emph{body
-configuration}. Map context also stabilizes training: per-seed spread collapses
-($\sigma \leq 0.006$ vs.\ up to $0.135$; Table~\ref{tab:multiseed}), and the
-failure mode of Section~\ref{sec:main_result} never occurs in a map-enabled seed.
-
-\subsection{Ablation: Backbone Pretraining on Full Waymo}
-\label{sec:pretrain_ablation}
-
-The 579-scene subset used above is ${\approx}0.12\%$ of the full Waymo training set
-(${\approx}487$k scenarios; $486{,}995$ exactly). To test whether dataset scale is the binding constraint
-on absolute accuracy, and to isolate pose's contribution when the backbone already
-encodes a strong trajectory prior, we run a final 2$\times$2 ablation: $\pm$pretrain
-$\times$ $\pm$pose, with HD map enabled in all four cells.
-
-We pretrain the trajectory-only backbone (no pose encoder) on the full Waymo pedestrian
-set---231{,}507 per-agent training examples drawn from 486{,}995 scenarios---for 30 epochs
-with the same hyperparameters as before. To avoid corrupting this backbone at fine-tune
-iter 0, we use a \emph{residual zero-init} pose fuser: its output is \emph{added} to the
-backbone feature and its final linear layer is zero-initialized, so the pose pathway
-contributes exactly zero initially (the backbone passes through unchanged) and warms up
-additively.
-
-\begin{table}[t]
-\caption{Pretrain $\times$ pose ablation, seed-replicated (five seeds per cell).
-All runs include HD map and use 30-epoch fine-tuning on the 579-scene subset
-(the no-pretrain rows repeat Table~\ref{tab:map_ablation}'s map cells).
-Pretrained variants load the same full-Waymo backbone checkpoint via residual
-zero-init pose fusion; fine-tuning seeds vary.}
-\label{tab:pretrain_ablation}
-\begin{center}
-\small
-\begin{tabular}{llccc}
-\toprule
-Pretrain & Pose Enc. & \minADE (mean$\pm$std) & \minFDE (mean$\pm$std) & per-seed \minADE \\
-\midrule
-None  & ---  & $0.4854 \pm 0.0047$ & $1.0493 \pm 0.0150$ & .490 .484 .489 .478 .486 \\
-None  & GRU  & $0.4823 \pm 0.0058$ & $1.0349 \pm 0.0058$ & .480 .491 .485 .477 .479 \\
-Full Waymo & ---  & $0.3745 \pm 0.0071$ & $0.7915 \pm 0.0159$ & .382 .375 .380 .371 .364 \\
-Full Waymo & GRU  & $0.3715 \pm 0.0042$ & $0.7863 \pm 0.0137$ & .374 .376 .365 .371 .371 \\
-Full Waymo & XAttn+PE & $0.3718 \pm 0.0034$ & $0.7890 \pm 0.0111$ & .371 .371 .378 .369 .370 \\
-\bottomrule
-\end{tabular}
-\end{center}
-\end{table}
-
-Pretraining is the second dominant lever and is robust: it reduces \minADE by
-$22.9\%$ without pose and $23.0\%$ with pose ($p{<}10^{-4}$)---by far the largest
-effect after map, and, like map, trajectory-only. The pose contribution \emph{on
-top}, however, does not survive five seeds. At three seeds it looked like $-1.9\%$;
-at five seeds in both arms the gap shrinks to $-0.7$--$-0.8\%$ for both
-encoders---hierarchical bootstrap $p{=}0.35$ (xattn+PE) and $p{=}0.45$ (GRU),
-neither significant. The two encoders are themselves indistinguishable once
-pretrained ($+0.1\%$, $p{=}0.97$), so the from-scratch encoder distinction
-vanishes against a strong prior. The residual
-zero-init fuser keeps every pretrained cell stable (no failure seeds), but
-pretraining, like the no-map condition, does not establish a pose benefit---only the
-map\,$\times$\,xattn+PE cell does. Qualitative examples are in
-Appendix~\ref{app:qualitative}, Figure~\ref{fig:qualitative}.
 
 \subsection{Pose Quality: Which Joints LiDAR-based HMR Actually Recovers}
 \label{sec:recoverability}
@@ -782,7 +829,7 @@ its orientation, so the fit falls back largely on the prior.
 
 This bounds what pose conditioning could have delivered, and it does so
 constructively: gait-bearing joints are genuinely measured, so the null in
-Section~\ref{sec:main_result} is not an artifact of unusable input; but any
+Section~\ref{sec:res_core} is not an artifact of unusable input; but any
 downstream method depending on head or gaze orientation from LiDAR HMR is reading
 something close to a prior, whatever the reported MPJPE. We recommend reporting per-joint skill
 alongside MPJPE for this reason.
@@ -1179,7 +1226,7 @@ not a late-training collapse: both the GRU's failed seeds (plateaus near
 $0.72$--$0.83$) and the cross-attention+PE failure seed (505) sit high from early
 in training. At five seeds the xattn+PE band is no longer the narrowest---its
 three-seed tightness was the sampling artifact discussed in
-Section~\ref{sec:main_result}.
+Section~\ref{sec:res_core}.
 
 
 \subsection{Qualitative Examples}
