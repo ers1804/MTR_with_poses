@@ -45,32 +45,36 @@ forecasting in autonomous driving. We extend the Motion Transformer (MTR) with a
 GRU encoder over past SMPL body poses (6D rotation representation) and measure
 what pose conditioning is actually worth on a pedestrian subset of the Waymo Open
 Motion Dataset, using LiDAR-derived pose pseudo-ground-truth.
-Our study has two parts. First, an \emph{auxiliary-loss audit}: an earlier draft
-of this work credited geodesic SO(3) supervision with a 7.6\% \minADE improvement.
-We show analytically and empirically that in our data condition the geodesic loss
-receives \emph{identically zero gradient}---future pose targets are absent---so
-the credited configurations differed only by random seed; the auxiliary signal that
-actually trains the encoder is a winner-takes-all L1 pose-regression loss.
-Second, a \emph{seed-replicated measurement} of the surviving questions, with
-paired bootstrap confidence intervals over 6{,}688 validation pedestrians.
-In the no-map condition, at five seeds per configuration, \emph{no} pose
-configuration reliably beats the no-pose baseline: pose-conditioned training is
-heavy-tailed ($26\%$ of runs converge to clearly degraded optima; 10 replicates
-of one configuration span \minADE 0.629--0.897), and three successive apparent
-effects---the geodesic $-7.6\%$, a $-3.5\%$ ``stable encoder'' win that looked
-tight at three seeds ($\sigma\,0.003$) before two further seeds failed
-($0.6648 \pm 0.0381$), and a positional-encoding ordering effect---all dissolve
-under seed replication. A single configuration survives: with HD map context
-(itself worth $-26\%$), the cross-attention+PE encoder gives $-1.6\%$, stable
-across five seeds ($p{<}10^{-4}$)---the only seed-significant pose benefit we
-find. Control ablations show this benefit is genuine body-configuration signal:
-it persists when the heading-coupled root-orientation channel is zeroed and under
-an agent-centric pose frame. It does not generalize: the GRU encoder gains
-nothing from map context, and after full-Waymo backbone pretraining (a further
-$-22\%$) no pose benefit survives five seeds. Our results give a calibrated
-estimate of pose's value---small, real in exactly one configuration---and a
-cautionary, reproducible example (three times over, on our own claims) of how
-few-seed ablations attribute gains to noise or inert components.
+Our study has three parts. First, a \emph{data-forensics audit}. An earlier draft
+of this work reported that pose helps in one configuration. We then found that the
+SMPL export keyed pose clips by a scene-\emph{local} object id across all
+${\sim}326$k scenes, so nearly every training sequence carried \emph{another
+pedestrian's} body motion and $4.7\times$ of the pedestrians were silently
+dropped; the correct-pose condition had never been run. A per-scene re-export
+(299{,}220 scenes, 1.81M sequences) cut root-heading error from $41.5^\circ$ to
+$11.4^\circ$ and raised gait--speed correlation from $r{=}0.26$ to $0.58$.
+
+Second, a \emph{seed-replicated measurement on the corrected data}, in which the
+decisive comparison is never pose against no-pose---which confounds information
+with branch capacity---but correct pose against the \emph{same architecture fed
+another pedestrian's pose}. On that test we find nothing, anywhere: from scratch
+$-0.66\%$ ($p{=}0.46$), fine-tuned $-0.88\%$ ($p{=}0.11$), and at $40\times$ more
+data $-0.04\%$ ($p{=}0.97$), while the baseline itself improves $19\%$ from data
+alone. A directed agentic architecture search over the pose-integration code (two
+rounds, 20 scored candidates) accepted none, and its most promising candidate,
+which looked significant on a truncated proxy, measured $-0.04\%$ ($p{=}0.92$) at
+$n{=}8$ seeds under the full recipe on a held-out split.
+
+Third, a \emph{mechanism}. Body facing is genuinely informative for pedestrians
+who are standing still and then step off---but the tracker's box heading already
+estimates it, more accurately than mesh fitting recovers it
+($25.2^\circ$ vs.\ $44.2^\circ$ median error), and that channel is already an
+input to the model; pose adds nothing on top of it in any range, occlusion or
+jitter stratum. Per-joint scoring against ground-truth keypoints shows why the
+head in particular is unusable: it carries a tenth of the skill of any limb joint
+while its MPJPE looks better than either wrist. We report ten self-caught
+artifacts, including three of our own headline claims, and conclude with the
+condition under which an auxiliary modality can pay at all.
 \end{abstract}
 
 % ===========================================================================
@@ -105,44 +109,49 @@ Dataset \citep{ettinger2021waymo} paired with LiDAR-derived SMPL pose
 pseudo-ground-truth from Waymo-3DSkelMo \citep{zhu2025waymo3dskelmo},
 using minADE and minFDE over 6 predicted modes.
 
-This paper deliberately reports both a \emph{result} and a \emph{correction of our
-own earlier result}, because the correction is instructive. An earlier single-run
-draft credited geodesic SO(3) supervision with $-$7.6\% \minADE; an audit shows
-that was impossible---in our data condition the future pose targets are zero, so
-the geodesic loss is a constant with identically zero gradient and the two runs
-compared were the same experiment under different seeds
-(Section~\ref{sec:loss_ablation}). We rebuilt the empirical claims with three to
-five seeds per configuration and paired bootstrap CIs over 6{,}688 validation
-pedestrians. Our corrected findings:
+This paper deliberately reports both a \emph{result} and a sequence of
+\emph{corrections of our own earlier results}, because the corrections are the
+instructive part. An earlier single-run draft credited geodesic SO(3) supervision
+with $-7.6\%$ \minADE; an audit showed that was impossible---the future pose
+targets are absent, so the loss is a constant with identically zero gradient and
+the two runs compared were the same experiment under different seeds
+(Section~\ref{sec:loss_ablation}). A later draft, rebuilt with five seeds, reported
+that pose helps in one configuration. That claim did not survive either: its own
+shuffled-pose control reproduced the effect, and we then discovered that the pose
+export had been keyed by a scene-local object id, so every pose-conditioned run we
+had ever performed trained on another pedestrian's body motion. Everything below
+is measured on a corrected per-scene re-export.
 
 \begin{itemize}
-  \item \textbf{Without a strong backbone, no pose configuration reliably beats the
-        baseline.} At five seeds per configuration, every no-map pose cell is
-        statistically indistinguishable from (or worse than) the no-pose baseline,
-        and training is heavy-tailed: $26\%$ of no-map pose runs converge to clearly
-        degraded optima (10 replicates of one configuration span $0.629$--$0.897$).
-        Cross-attention+PE looked like a stable $-3.5\%$ at three seeds
-        ($\sigma\,0.0026$); two more seeds both fail ($0.6648 \pm 0.0381$)---our own
-        corrected headline was itself a small-sample artifact, and the apparent
-        positional-encoding ordering effect dissolves with it. Auxiliary-loss
-        composition is not a driver either, and real future poses (99\% coverage)
-        do not help.
-  \item \textbf{Pose helps in exactly one configuration, by ${\sim}1.6\%$---and it is
-        genuine body-configuration signal.} HD map alone is worth $-26\%$ and
-        full-Waymo pretraining a further $-22\%$ (both trajectory-only). On top of the
-        map, the cross-attention+PE encoder gives $-1.6\%$ (stable across five seeds,
-        $p{<}10^{-4}$)---the only seed-significant pose benefit we find; the GRU gives
-        nothing with map, and the apparent pretrained pose benefit does not survive
-        five seeds. Control ablations show the map-condition benefit persists with the
-        heading-coupled root-orientation channel zeroed and under an agent-centric
-        pose frame: with the map supplying routing, the residual pose signal is body
-        configuration, not re-entered heading.
-  \item \textbf{Few-seed ablations need seed replication.} The spread among replicates
-        of one configuration ($0.27$ \minADE across 10 seeds' extremes) exceeds every
-        architectural effect except map and pretraining; three of our own successive
-        headline effects ($-7.6\%$ geodesic, $-3.5\%$ encoder, PE ordering) were seed
-        artifacts, caught only by replication. We describe the audit procedure so it
-        transfers.
+  \item \textbf{No pose benefit, at any scale or regime, against the control that
+        matters.} The decisive comparison is not pose versus no-pose---which
+        confounds information with the capacity of an extra input branch---but
+        correct pose versus the \emph{same architecture fed a different
+        pedestrian's pose}. That test is null from scratch ($-0.66\%$, $p{=}0.46$),
+        after full-Waymo pretraining ($-0.88\%$, $p{=}0.11$), and at $40\times$ more
+        data ($-0.04\%$, $p{=}0.97$), across six pose representations and both
+        branch and early-fusion integrations. Meanwhile the no-pose baseline
+        improves $19\%$ from data alone, and the pose \emph{branch} costs a
+        consistent ${\sim}1.6\%$ whether or not the poses it receives are the right
+        ones.
+  \item \textbf{A directed search does not find one either.} We let a coding agent
+        rewrite the pose-integration code as the variation operator of an
+        evolutionary search over a frozen training repository, with a held-out
+        evaluation split the loop never sees. Two rounds and 20 scored candidates
+        accepted none. The most promising candidate reached $-1.21\%$ on the
+        held-out split under a truncated 12-epoch proxy; at the full 30-epoch recipe
+        with $n{=}8$ seeds it measured $-0.04\%$ ($p{=}0.92$)---a convergence-rate
+        artifact, and the tenth self-caught artifact in this project.
+  \item \textbf{The null has a mechanism, and it generalizes.} Body facing predicts
+        which way a standing pedestrian steps off at roughly twice chance---but the
+        tracker's box heading estimates the same quantity better
+        ($25.2^\circ$ vs.\ $44.2^\circ$ median error), is already an input channel to
+        the model, and is not beaten by pose in any range, occlusion or heading-jitter
+        stratum. Scoring the pose estimator per joint against ground-truth keypoints
+        shows the head carries a tenth of the skill of any limb joint while its MPJPE
+        looks \emph{better} than either wrist---so MPJPE rank-orders joints roughly
+        backwards with respect to information. We close with the condition an
+        auxiliary modality must satisfy to pay at all.
 \end{itemize}
 
 % ===========================================================================
