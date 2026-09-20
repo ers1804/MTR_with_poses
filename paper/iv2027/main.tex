@@ -4,6 +4,8 @@
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,calc}
 \usepackage{xspace}
 \usepackage{url}
 \usepackage[hidelinks]{hyperref}
@@ -13,7 +15,8 @@
 
 \begin{document}
 
-\title{Body Pose Does Not Improve Pedestrian Trajectory Forecasting,\\
+\title{Body Pose Does Not Improve\\
+Pedestrian Trajectory Forecasting,\\
 and the Tracker Already Explains Why}
 
 \author{\IEEEauthorblockN{Erik Sch\"utz}
@@ -111,6 +114,23 @@ crossing decisions rather than metric trajectories. Our contribution is not a ne
 architecture but a controlled measurement of whether the modality pays at all in
 an AV setting, together with the reason it does not.
 
+
+\begin{figure*}[t]
+\centering
+\input{fig_architecture}
+\caption{The two arms differ only in \emph{whose} body enters the model. The
+content-test switch (left) feeds the predictor either the pedestrian's own SMPL
+sequence or another pedestrian's, holding parameters, optimiser and input
+dimensionality fixed; everything downstream is shared. The agent-history channel
+strip shows why the branch is redundant: the tracker's box heading is
+\emph{already} an input, and estimates body facing more accurately than the pose
+branch recovers it. Solid accent: the pose branch (late fusion), which costs
+${\approx}1.6\%$ \minADE whether it carries the right body or the wrong one.
+Dashed accent: early fusion of eight frame-invariant descriptors, which removes
+that cost and still yields no benefit.}
+\label{fig:arch}
+\end{figure*}
+
 \section{Setup}
 \label{sec:setup}
 
@@ -132,7 +152,7 @@ normal---and because identity-keyed joins are common in pose pipelines. Every
 number in this paper is from the corrected export.
 
 \subsection{Arms and the content test}
-Three arms share one architecture. \emph{No-pose} receives trajectories and map.
+Three arms share one architecture (Fig.~\ref{fig:arch}). \emph{No-pose} receives trajectories and map.
 \emph{Pose} adds the pedestrian's own SMPL sequence. \emph{Shuffled} receives
 another pedestrian's sequence, with identical parameter count, optimiser and
 input dimensionality.
