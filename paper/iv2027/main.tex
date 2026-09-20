@@ -1,0 +1,400 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xspace}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+
+\newcommand{\minADE}{minADE\xspace}
+\newcommand{\minFDE}{minFDE\xspace}
+
+\begin{document}
+
+\title{Body Pose Does Not Improve Pedestrian Trajectory Forecasting,\\
+and the Tracker Already Explains Why}
+
+\author{\IEEEauthorblockN{Erik Sch\"utz}
+\IEEEauthorblockA{\textit{(affiliation)}\\
+\textit{(institution)}\\
+(city, country) \\
+erik.schuetz@gmx.de}}
+
+\maketitle
+
+\begin{abstract}
+Body pose is an intuitively attractive input for pedestrian trajectory
+forecasting: gait, stance and facing appear to encode intent that a position
+history does not. We test this on the Waymo Open Motion Dataset with SMPL poses
+recovered from LiDAR, and find no measurable benefit. The decisive comparison is
+not pose against no pose---which confounds body information with the capacity of
+an extra input branch---but correct pose against the same architecture fed
+\emph{another pedestrian's} pose. On that control the effect is
+$+0.66\%$ ($p{=}0.46$) from scratch, $+0.88\%$ ($p{=}0.11$) after full-dataset
+pretraining, and $+0.04\%$ ($p{=}0.97$) at $40\times$ more training data, while
+the baseline improves $19\%$ from data alone. A directed search over the
+integration code accepted none of 20 candidates, and a pre-registered eight-seed
+confirmation on a held-out split returned $-0.04\%$ ($p{=}0.92$).
+We then explain the null rather than report it. Body facing does predict which way
+a standing pedestrian steps off, at roughly twice chance---but the tracker's box
+heading estimates the same quantity more accurately ($25.2^\circ$ versus
+$44.2^\circ$ median error), is already an input to the model, and is not beaten by
+pose in any range, occlusion or heading-jitter stratum; the two degrade together
+because both derive from the same returns. Head orientation, the one potentially
+complementary cue, is not recovered from LiDAR at all. Finally, we show that
+aggregate MPJPE is the wrong acceptance metric for pose in a perception stack:
+scored per joint against a mean-pose baseline, the head carries a tenth of the
+skill of any limb joint while its MPJPE looks \emph{better} than either wrist.
+\end{abstract}
+
+\begin{IEEEkeywords}
+pedestrian trajectory prediction, human pose estimation, LiDAR, autonomous
+driving, negative results
+\end{IEEEkeywords}
+
+\section{Introduction}
+Predicting where a pedestrian will go is a safety-critical function of an
+automated vehicle, and body pose is an obvious candidate input. A person's stance,
+gait phase and facing direction plausibly reveal intent before their position
+changes, and modern perception stacks already produce human mesh or keypoint
+estimates. Several recent systems condition trajectory forecasts on pose.
+
+This paper reports that, on the Waymo Open Motion Dataset (WOMD), pose
+conditioning does not measurably improve pedestrian trajectory accuracy---and,
+more usefully for practitioners, identifies the specific reason, which is a
+property of the perception stack rather than of the model.
+
+We make three contributions.
+
+\textbf{A controlled null.} We measure pose conditioning against a shuffled-pose
+control: the same architecture receiving a different pedestrian's body motion.
+This isolates information content from the capacity cost of an extra branch, and
+it is the comparison a practitioner should demand before adopting any auxiliary
+modality. The control is null in every regime, at three training scales, across
+six pose representations and two integration styles, under a directed
+architecture search, and in a pre-registered eight-seed confirmation on a held-out
+split.
+
+\textbf{A mechanism.} Body facing is genuinely predictive for the one case where
+a position history is uninformative---a stationary pedestrian about to step
+off---but the object tracker already estimates facing, more accurately than mesh
+fitting recovers it, and already supplies it to the model as a heading channel.
+Pose is therefore not adding information; it is duplicating a channel, less well.
+We show this holds at every range, occlusion level and tracker-confidence
+stratum, because both estimates derive from the same LiDAR returns.
+
+\textbf{A measurement caveat.} Aggregate MPJPE cannot distinguish a pose
+estimator that tracks a joint imprecisely from one that ignores the input and
+emits its prior. We score each joint against an always-predict-the-mean-pose
+baseline and find that MPJPE rank-orders joints roughly backwards with respect to
+information content. Anyone accepting a pose estimator into an AV stack on a
+single error number is at risk of importing a prior.
+
+We also report, as a data-integrity cautionary note, that our own first attempt at
+this study was invalidated by an export bug that silently substituted other
+pedestrians' bodies; the mechanism is one that any pose pipeline keyed by object
+identity can reproduce.
+
+\section{Related Work}
+Trajectory forecasting on WOMD is dominated by anchor- and query-based
+transformers; we build on MTR~\cite{shi2022mtr,shi2023mtrpp}, which is
+representative and strong. Pose-conditioned prediction has been explored mainly on
+pedestrian-centric datasets with clean
+poses~\cite{saadatnejad2024socialtransmotion,gao2025socialpose,salzmann2023robots},
+where pose is an input rather than an estimate. Human mesh recovery from LiDAR is
+maturing~\cite{fan2023lidarhmr}, with motion priors used to complete sparse
+observations~\cite{rempe2021humor,he2022nemf,mahmood2019amass}. Intent-focused
+work on pedestrian datasets~\cite{rasouli2019pie,fang2018pedestrian} targets
+crossing decisions rather than metric trajectories. Our contribution is not a new
+architecture but a controlled measurement of whether the modality pays at all in
+an AV setting, together with the reason it does not.
+
+\section{Setup}
+\label{sec:setup}
+
+\subsection{Data and a data-integrity failure}
+We use WOMD~\cite{ettinger2021waymo} with SMPL~\cite{loper2015smpl} poses
+recovered from LiDAR by a LiDAR-HMR~\cite{fan2023lidarhmr} pipeline with motion-prior
+completion. Poses cover the $11$ observed frames; the prediction horizon is
+$8$\,s at $10$\,Hz.
+
+Our first pass at this study was invalid. The export keyed pose clips by a
+scene-\emph{local} object identifier across ${\sim}326$k scenes, so clips
+collided across scenes: nearly every training sequence carried another
+pedestrian's body motion, and $4.7\times$ of the pedestrians were dropped.
+A per-scene re-export ($299{,}220$ scenes, $1.81$M sequences) cut the
+median error between root heading and travel direction from $41.5^\circ$ to
+$11.4^\circ$ and raised the gait--speed correlation from $r{=}0.26$ to $0.58$.
+We report this because the failure is silent---training converges, losses look
+normal---and because identity-keyed joins are common in pose pipelines. Every
+number in this paper is from the corrected export.
+
+\subsection{Arms and the content test}
+Three arms share one architecture. \emph{No-pose} receives trajectories and map.
+\emph{Pose} adds the pedestrian's own SMPL sequence. \emph{Shuffled} receives
+another pedestrian's sequence, with identical parameter count, optimiser and
+input dimensionality.
+
+Pose versus no-pose confounds information with branch capacity; pose versus
+shuffled isolates content. We call the latter the \emph{content test} and treat it
+as decisive. Relative differences are $(A-B)/B$; negative favours $A$. The primary
+test is a hierarchical bootstrap resampling seeds then pedestrians; a
+pedestrian-only bootstrap ignores between-seed variance and is anti-conservative.
+Validation is fixed at $5{,}171$ scenes and $16{,}486$ pedestrians.
+
+\section{Results}
+
+\begin{table}[t]
+\caption{Content test across training scale. \minADE (m), validation fixed;
+learning rate tuned per arm at each rung. Negative favours pose.}
+\label{tab:ladder}
+\centering
+\footnotesize
+\begin{tabular}{lccc}
+\toprule
+Training scenes & $579$ & $5$k & $25$k \\
+Pedestrians & $6{,}348$ & $31{,}302$ & $142{,}807$ \\
+Seeds & $5$ & $3$ & $5$ \\
+\midrule
+No-pose  & $0.4599$ & $0.4176$ & $0.3716$ \\
+Pose     & $0.4620$ & $0.4138$ & $0.3778$ \\
+Shuffled & $0.4589$ & $0.4181$ & $0.3777$ \\
+\midrule
+Pose vs.\ no-pose & $+0.45\%$ & $-0.90\%$ & $+1.66\%^{*}$ \\
+\textbf{Content test} & $+0.66\%$ & $-1.02\%$ & $+0.04\%$ \\
+$p$ (content) & $0.46$ & $0.44$ & $0.97$ \\
+\bottomrule
+\multicolumn{4}{l}{\footnotesize $^{*}p{=}0.0001$; the shuffled arm pays the same
+cost ($+1.62\%$, $p{=}0.008$).}
+\end{tabular}
+\end{table}
+
+
+\begin{table}[t]
+\caption{Clean core at $579$ scenes, $n{=}5$ seeds, both regimes. The shuffled arm
+has the lowest mean in both: another pedestrian's body is nominally the best input.}
+\label{tab:core}
+\centering
+\footnotesize
+\begin{tabular}{llcc}
+\toprule
+Arm & Per-seed \minADE & Mean $\pm$ sd & Content \\
+\midrule
+\multicolumn{4}{l}{\emph{From scratch}} \\
+No-pose  & $.458\ .443\ .453\ .495\ .450$ & $0.4599 \pm 0.0206$ & --- \\
+Shuffled & $.454\ .467\ .451\ .455\ .467$ & $0.4589 \pm 0.0075$ & --- \\
+Pose     & $.471\ .456\ .453\ .457\ .474$ & $0.4620 \pm 0.0094$ & $+0.66\%$ \\
+\midrule
+\multicolumn{4}{l}{\emph{Fine-tuned on a full-WOMD backbone}} \\
+No-pose  & $.372\ .366\ .367\ .373\ .368$ & $0.3692 \pm 0.0031$ & --- \\
+Shuffled & $.364\ .363\ .364\ .374\ .373$ & $0.3676 \pm 0.0055$ & --- \\
+Pose     & $.364\ .372\ .371\ .374\ .373$ & $0.3708 \pm 0.0040$ & $+0.88\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{The null, and its bound}
+Table~\ref{tab:ladder} trains all three arms at three scales. Data alone improves
+the baseline by $19.2\%$; the content test is null at every rung. At $25$k the
+bootstrap interval on the absolute content difference is
+$[-0.0040,+0.0047]$\,m---about $\pm1.2\%$---so at the largest scale we train, the
+data exclude a content effect beyond roughly $1.2\%$ in either direction.
+
+After pretraining a trajectory-only backbone on full WOMD and fine-tuning
+($n{=}5$), the content test is $+0.88\%$ ($p{=}0.11$), again with its sign against
+pose (Table~\ref{tab:core}).
+
+Seed count decides what Table~\ref{tab:core} appears to say. Using only the first
+three seeds, the same runs read as \emph{pose harms} from scratch ($+1.85\%$,
+$p{=}0.037$) and \emph{shuffled is best} after fine-tuning ($-1.27\%$,
+$p{=}0.016$); both dissolve at $n{=}5$. The worst single run in the table---seed
+$404$'s no-pose run at $0.495$---lies outside the three-seed set, and its absence
+flattered the baseline. Three seeds do not resolve a $1\%$ effect at this scale,
+which is worth stating because three is a common budget.
+
+\subsection{Two effects that are real, and are not pose}
+\textbf{A branch-capacity tax.} At $25$k both pose arms are significantly worse
+than no-pose ($+1.66\%$ and $+1.62\%$) and indistinguishable from each other. An
+extra input branch costs ${\sim}1.6\%$ whether it carries the right body or the
+wrong one. Replacing the $144$-d branch with eight frame-invariant descriptors
+fused into the existing agent channels removes the cost entirely ($-0.01\%$
+versus no-pose, $p{=}0.999$; $-1.66\%$ versus the branch, $p{=}0.006$) without
+creating a benefit: pose can be carried for free, and still does not pay.
+
+\textbf{Tuning dominates the treatment.} At $5$k, the learning rate inherited
+from the smaller rung made pose look catastrophic ($+37\%$); at an intermediate
+rate, $+7.4\%$; with per-arm tuning and full training, $-0.90\%$, n.s. Across the
+$25$k grid the learning rate moves \minADE by up to $16.7\%$ against a content
+signal of ${\sim}0.05\%$. A pose-versus-baseline comparison that does not tune
+each arm separately is a claim about the learning rate.
+
+\subsection{Search and confirmation}
+Hand-designed integrations sample a small space, so we ran a directed search in
+which a coding agent rewrote the pose-integration code against a frozen training
+repository, scoring on a development split and never seeing a held-out split.
+Two rounds and $20$ scored candidates accepted none.
+
+The best candidate reached $-1.21\%$ on the held-out split under a truncated
+$12$-epoch proxy. We pre-registered a confirmation---three arms, eight seeds,
+$30$ epochs, primary endpoint the held-out split at the fixed last epoch---and it
+returned $-0.04\%$, $t(7){=}-0.11$, $p{=}0.92$. The proxy signal was a
+convergence-rate artifact: the arms differ in how fast they train, not where they
+end.
+
+\subsection{Where a benefit could still hide}
+On the confirmation runs, the content test is null at every horizon and least
+favourable at the shortest ($+0.48\%$ at $2$\,s, $-0.04\%$ at $8$\,s); null in
+all $20$ tests across quartiles and top deciles of constant-velocity residual,
+heading variation, speed range and peak acceleration; and null for
+standing-then-moving pedestrians on the full validation set ($n{=}1{,}809$,
+$+0.38\%$, $p{=}0.80$)---the subpopulation constructed to favour it.
+
+\section{Why Pose Does Not Pay}
+\label{sec:why}
+
+\subsection{The informative cue is already an input}
+If body configuration predicts anything a trajectory does not, it is which way a
+stationary pedestrian will step off---the one case where velocity carries no
+directional information. We isolated this as a task: every pedestrian stationary
+at prediction time ($<0.3$\,m/s), $224{,}946$ in training and $19{,}939$ in
+validation, of whom $8.5\%$ move more than $1$\,m within $3$\,s.
+
+SMPL body facing predicts onset direction at roughly twice chance: median error
+$44.2^\circ$, $50.6\%$ within $45^\circ$ (chance: $90^\circ$, $25\%$).
+
+The tracker does it better. Waymo's per-object box heading gives $25.2^\circ$ and
+$63.9\%$. Paired on the same events, SMPL is $7.3^\circ$ worse in median (Wilcoxon
+$p{=}2.6{\times}10^{-43}$) and better on only $35\%$ of events---even though we
+calibrated the SMPL forward axis \emph{against} the box heading first, which
+favours pose. That heading is already an input channel to the predictor.
+
+\begin{table}[t]
+\caption{Onset-direction error by tracker condition (median, degrees). The gap
+favours the box heading everywhere and widens as perception degrades.}
+\label{tab:strata}
+\centering
+\footnotesize
+\begin{tabular}{lccc}
+\toprule
+Stratum & SMPL & Box heading & Gap \\
+\midrule
+Range $2$--$17$\,m       & $32.9$ & $20.6$ & $+12.3$ \\
+Range $41$--$75$\,m      & $60.2$ & $27.3$ & $+32.9$ \\
+Complete tracks          & $41.8$ & $24.9$ & $+16.9$ \\
+Gappy tracks (occluded)  & $60.2$ & $26.5$ & $+33.7$ \\
+Jitteriest heading quartile & $63.8$ & $50.5$ & $+13.3$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Crucially, pose does not take over where the tracker degrades
+(Table~\ref{tab:strata}). The gap is positive in all twelve strata we tested
+(every $p<10^{-5}$) and \emph{widens} with range and occlusion. Both estimates
+derive from the same LiDAR returns, so they fail together rather than
+complementarily. Nor does pose add anything on top: a model predicting onset
+direction from box heading alone reaches $24.8^\circ$; adding a full pose
+descriptor gives $26.5^\circ$, and adding a \emph{shuffled} descriptor gives
+$25.8^\circ$---the degradation is the cost of extra dimensions, not a property of
+pose.
+
+\subsection{The complementary cue is not measured}
+Gaze precedes locomotion, so head yaw relative to the torso is a plausible
+independent cue. It is not recoverable here. In the fitted meshes head-versus-torso
+yaw has a standard deviation of $3.8^\circ$; against ground-truth 3D keypoints on
+Waymo Perception ($n{=}8{,}234$) the real quantity varies $19.2^\circ$. The
+estimator is emitting its prior. Physically, a pedestrian at $20$--$40$\,m returns
+a few dozen points, and the head is a near-spherical handful of them with little
+geometry to constrain yaw.
+
+
+\begin{table}[t]
+\caption{Per-joint recoverability against ground-truth keypoints. MP is the error
+of always predicting the mean pose (equal to the joint's ground-truth spread);
+$\mathrm{SKILL}=1-\mathrm{MPJPE}/\mathrm{MP}$. The head's MPJPE beats both wrists
+while carrying a tenth of their skill.}
+\label{tab:skill}
+\centering
+\footnotesize
+\begin{tabular}{lccc}
+\toprule
+Joint & MPJPE (mm) & MP (mm) & \textsc{skill} \\
+\midrule
+Elbows     & $91.2$ / $91.5$ & $252.9$ / $248.9$ & $+0.64$ / $+0.63$ \\
+Hips       & $39.8$          & $97.9$            & $+0.59$ \\
+Wrists     & $118.3$ / $125.4$ & $271.1$ / $276.4$ & $+0.56$ / $+0.55$ \\
+Shoulders  & $87.3$ / $89.0$ & $171.5$ / $164.0$ & $+0.49$ / $+0.46$ \\
+Ankles     & $114.0$ / $116.6$ & $221.6$ / $223.8$ & $+0.49$ / $+0.48$ \\
+Knees      & $78.4$ / $81.5$ & $150.8$ / $151.2$ & $+0.48$ / $+0.46$ \\
+\textbf{Head} & $\mathbf{111.6}$ & $\mathbf{116.9}$ & $\mathbf{+0.045}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{MPJPE is the wrong acceptance metric}
+A single mean error cannot distinguish an estimator that tracks a joint
+imprecisely from one that emits its prior. We therefore score each joint against
+the strongest trivial competitor, always predicting the mean root-aligned pose:
+$\mathrm{SKILL}_j = 1 - \mathrm{MPJPE}_j / \mathrm{MP}_j$, where values at or
+below zero mean the estimator contributes nothing at that joint.
+
+Evaluated on Waymo Perception against ground-truth keypoints ($1{,}789$ frames,
+$534$ pedestrians), every limb joint scores $+0.457$ to $+0.639$ (Table~\ref{tab:skill}). The head
+scores $+0.045$---yet its MPJPE ($111.6$\,mm) is \emph{better} than either wrist
+($118.3$/$125.4$\,mm). Its error is flattering not because it is well estimated
+but because it barely improves on its own mean-pose baseline ($116.9$\,mm),
+whereas the hips---whose ground-truth spread is \emph{smaller} at $97.9$\,mm---are
+predicted at $39.8$\,mm. MPJPE rank-orders these joints roughly backwards
+with respect to information content. We recommend reporting per-joint skill
+alongside it whenever a pose estimator is accepted into a downstream stack.
+
+\subsection{A general condition}
+Two results locate where pose could have helped. At $2$\,s, \minADE is
+$0.091$\,m against roughly $2.8$\,m of travel: short-horizon forecasting is nearly
+\emph{saturated} by constant-velocity extrapolation, leaving almost no error to
+remove. At long horizons the residual is dominated by destination and intent,
+which body configuration does not disclose. Stratifying instead by how badly
+constant-velocity extrapolation fails---the sharpest definition of ``not
+saturated''---still yields no effect.
+
+We therefore state the condition in general form: \emph{an auxiliary modality
+improves a forecast only where the baseline is neither saturated nor dominated by
+intent the modality cannot observe.} Both clauses must hold. For pedestrian
+forecasting on WOMD the window is empty, and the same argument predicts failure
+for any appearance-derived signal evaluated under these conditions.
+
+\section{What This Means in Practice}
+For an AV stack, three consequences follow. First, if the object tracker already
+publishes a heading, a pose branch is likely to duplicate it less accurately;
+verify against a shuffled-pose control before spending capacity on it. Second, the
+capacity cost of an auxiliary branch is real and measurable (${\sim}1.6\%$ here)
+and is easily mistaken for a modality effect in either direction---early fusion
+avoids it. Third, do not accept a pose estimator on aggregate MPJPE alone: check
+per-joint skill, because the joints an aggregate flatters may be the ones carrying
+a prior.
+
+\textbf{Limitations.} The largest rung we train is $25$k scenes; the corrected
+export covers $299{,}220$, so the full rung is a compute limit rather than an
+annotation one. At eight seeds our minimum detectable content effect is
+${\approx}1.1\%$. Poses are LiDAR-derived and WOMD ships no raw imagery, so a
+camera-based pose or gaze estimate---the one configuration our mechanism suggests
+could differ---cannot be tested at this scale. We do not model pose--pose
+interaction: cues that live \emph{between} pedestrians rather than within one are
+outside what we tested.
+
+\section{Conclusion}
+Body pose, recovered from LiDAR, does not improve pedestrian trajectory
+forecasting on WOMD. The null is controlled against a shuffled-pose baseline,
+holds across scale, representation, integration, a directed search and a
+pre-registered confirmation, and has a mechanism: the only predictive cue in body
+pose is already supplied, more accurately, by the tracker's heading channel, and
+the one cue that could be complementary is not recovered from LiDAR at all. The
+practical lesson generalises past pose---an auxiliary modality pays only where the
+baseline leaves error to remove and the cause of that error is visible in the new
+input.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
