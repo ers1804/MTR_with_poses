@@ -69,6 +69,19 @@ CELLS = {
     # Positive control (2026-10-19): oracle future-displacement signal through the
     # SAME branch -- proves the pathway can transmit information at all.
     'map_oracle_fix': 'mtr+pose_data_cross_attn_pe_with_map_oracle_fixdata',
+    # Mechanism counterfactual (2026-10-19): the same three arms with the agent
+    # heading sin/cos channels zeroed. If pose is redundant BECAUSE heading is an
+    # input, the content test should finally go negative here.
+    'nohead_nopose': 'mtr+pose_data_no_pose_with_map_nohead_fixdata',
+    'nohead_pose':   'mtr+pose_data_cross_attn_pe_with_map_nohead_fixdata',
+    'nohead_shuf':   'mtr+pose_data_cross_attn_pe_with_map_shufflepose_nohead_fixdata',
+    # Detection floor (2026-10-19): direction-only oracle at increasing angular error.
+    'oracledir00': 'mtr+pose_data_cross_attn_pe_with_map_oracledir00_fixdata',
+    'oracledir15': 'mtr+pose_data_cross_attn_pe_with_map_oracledir15_fixdata',
+    'oracledir25': 'mtr+pose_data_cross_attn_pe_with_map_oracledir25_fixdata',
+    'oracledir35': 'mtr+pose_data_cross_attn_pe_with_map_oracledir35_fixdata',
+    'oracledir45': 'mtr+pose_data_cross_attn_pe_with_map_oracledir45_fixdata',
+    'oracledir60': 'mtr+pose_data_cross_attn_pe_with_map_oracledir60_fixdata',
     'map_wta01_fix': 'mtr+pose_data_geo_only_with_map_fixdata',             # clean-data aux pose loss
     'ft_nopose_fix': 'mtr+full_ped_finetune_no_pose_fixdata',             # clean-data finetune regime
     'ft_xattn_pe_fix': 'mtr+full_ped_finetune_xattn_pe_fixdata',
@@ -161,6 +174,15 @@ PAIRS = [
     ('scale25k_xattn_pe', 'scale25k_shufflepose'), # SCALE 22.5x: content vs capacity
     ('map_nopose_fix', 'map_oracle_fix'),          # POSITIVE CONTROL: is the branch live?
     ('map_xattn_pe_fix', 'map_oracle_fix'),        # oracle vs real pose through one branch
+    ('nohead_nopose', 'nohead_pose'),              # pose vs nopose, heading removed
+    ('nohead_shuf', 'nohead_pose'),                # CONTENT TEST with heading removed
+    ('map_nopose_fix', 'nohead_nopose'),           # what removing heading costs
+    ('map_nopose_fix', 'oracledir00'),            # detection floor rung
+    ('map_nopose_fix', 'oracledir15'),            # detection floor rung
+    ('map_nopose_fix', 'oracledir25'),            # detection floor rung
+    ('map_nopose_fix', 'oracledir35'),            # detection floor rung
+    ('map_nopose_fix', 'oracledir45'),            # detection floor rung
+    ('map_nopose_fix', 'oracledir60'),            # detection floor rung
     ('fa_agentrot', 'fa_agentrot_shuf'),           # FRAME FIX: content vs capacity (the decisive pair)
     ('scale25k_nopose', 'fa_agentrot'),            # FRAME FIX vs no-pose
     ('fa_derived', 'fa_derived_shuf'),             # EARLY FUSION: content vs capacity (decisive)

@@ -297,6 +297,19 @@ class WaymoPoseDataset(DatasetTemplate):
         # input dimensionality and its validity masks fixed. If minADE drops here, the
         # pathway is live and the null is a statement about pose, not about plumbing.
         self.oracle_pose = self.dataset_cfg.get('ORACLE_POSE', False)
+        # Detection-floor ladder: keep only the DIRECTION channels of the oracle (drop
+        # the displacement magnitude, which would otherwise carry most of the signal and
+        # confound a threshold stated in degrees), and corrupt that direction with a
+        # fixed angular error. The result answers: how accurately must a side channel
+        # predict future heading before this pathway converts it into a minADE gain?
+        self.oracle_dir_only = self.dataset_cfg.get('ORACLE_POSE_DIR_ONLY', False)
+        self.oracle_noise_deg = float(self.dataset_cfg.get('ORACLE_POSE_NOISE_DEG', 0.0))
+
+        # Mechanism counterfactual: zero the per-agent heading sin/cos channels of the
+        # agent encoder input. For a STATIONARY pedestrian those two channels are the
+        # only facing cue the model has (velocity is ~0), so removing them is the direct
+        # test of the paper's claim that pose is redundant *because* heading is present.
+        self.zero_heading_channels = self.dataset_cfg.get('ZERO_HEADING_CHANNELS', False)
 
         # Part 7 (pre-registered): mask-aware temporal Gaussian smoothing of the
         # encoder-input pose sequences (targets and validity masks untouched).
@@ -871,6 +884,30 @@ class WaymoPoseDataset(DatasetTemplate):
 
             feat = np.concatenate(
                 [_enc(_last_valid_disp(idx3)), _enc(_last_valid_disp(H - 1))], axis=-1)
+
+            if self.oracle_noise_deg > 0:
+                # One fixed angular error per object, deterministic in (scene, object).
+                # A real estimator's error is a property of the observation, so drawing
+                # it afresh each epoch would let training average it away and overstate
+                # what a noisy channel is worth. crc32 keeps this stable across workers
+                # and runs, which Python's salted hash() would not.
+                import zlib
+                sig = np.deg2rad(self.oracle_noise_deg)
+                tag = f'{scene_id}:{self.oracle_noise_deg:g}'
+                ang = np.array([
+                    np.random.default_rng(
+                        zlib.crc32(f'{tag}:{j}'.encode()) & 0xffffffff).normal(0.0, sig)
+                    for j in range(feat.shape[1])], dtype=np.float32)
+                ca, sa = np.cos(ang)[None, :], np.sin(ang)[None, :]
+                for k in (0, 3):                       # the two direction pairs
+                    ux, uy = feat[..., k].copy(), feat[..., k + 1].copy()
+                    feat[..., k] = ux * ca - uy * sa
+                    feat[..., k + 1] = ux * sa + uy * ca
+
+            if self.oracle_dir_only:
+                feat[..., 2] = 0.0                      # drop |displacement| at +3 s
+                feat[..., 5] = 0.0                      # and at +8 s
+
             obj_poses = np.zeros_like(obj_poses)
             obj_poses[..., :6] = feat[:, :, None, :]
             obj_poses = obj_poses * obj_poses_mask[..., None].astype(np.float32)
@@ -1139,8 +1176,11 @@ class WaymoPoseDataset(DatasetTemplate):
         object_time_embedding[:, :, torch.arange(num_timestamps), -1] = timestamps
 
         object_heading_embedding = torch.zeros((num_center_objects, num_objects, num_timestamps, 2))
-        object_heading_embedding[:, :, :, 0] = torch.sin(obj_trajs[:, :, :, 6])
-        object_heading_embedding[:, :, :, 1] = torch.cos(obj_trajs[:, :, :, 6])
+        if not self.zero_heading_channels:
+            object_heading_embedding[:, :, :, 0] = torch.sin(obj_trajs[:, :, :, 6])
+            object_heading_embedding[:, :, :, 1] = torch.cos(obj_trajs[:, :, :, 6])
+        # else: left at zero -- the input dimensionality (29) is unchanged, so the
+        # ablation removes information without changing the architecture.
 
         vel = obj_trajs[:, :, :, 7:9]
         vel_pre = torch.roll(vel, shifts=1, dims=2)
