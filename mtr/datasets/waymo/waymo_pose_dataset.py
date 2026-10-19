@@ -289,6 +289,15 @@ class WaymoPoseDataset(DatasetTemplate):
         # benefit, the gain is capacity/optimization, not pose information at all.
         self.constant_pose = self.dataset_cfg.get('CONSTANT_POSE', False)
 
+        # POSITIVE CONTROL. The shuffled arm shows the branch cannot tell own-body from
+        # stranger-body; it does NOT show the branch can transmit anything at all (the
+        # fusion residual is zero-initialised, so a dead branch and an uninformative one
+        # look alike). This flag replaces the pose features with a signal that genuinely
+        # encodes the agent's own future, holding the branch, its parameter count, its
+        # input dimensionality and its validity masks fixed. If minADE drops here, the
+        # pathway is live and the null is a statement about pose, not about plumbing.
+        self.oracle_pose = self.dataset_cfg.get('ORACLE_POSE', False)
+
         # Part 7 (pre-registered): mask-aware temporal Gaussian smoothing of the
         # encoder-input pose sequences (targets and validity masks untouched).
         self.denoise_poses = self.dataset_cfg.get('DENOISE_POSES', False)
@@ -836,6 +845,35 @@ class WaymoPoseDataset(DatasetTemplate):
             past_valid[None],
             (num_center_objects, 1, 1)
         )  # (num_center, num_obj, 11)
+
+        if self.oracle_pose:
+            # Encode each object's own future displacement (centre-object frame, the same
+            # frame as the regression target) into the leading channels of the pose
+            # tensor, broadcast over the observed frames and masked exactly as the real
+            # poses are. 6 channels used, the remaining pose_input_dim-6 left at zero.
+            fut = obj_trajs_future_state.astype(np.float32)   # (C, N, H, >=2) centre frame
+            fmask = obj_trajs_future_mask > 0                 # (C, N, H)
+            H = fmask.shape[-1]
+            idx3 = int(min(max(round(3.0 / self.dt) - 1, 0), H - 1))   # +3 s
+
+            def _last_valid_disp(upto):
+                m = fmask[:, :, :upto + 1]
+                any_valid = m.any(-1)
+                last = (m.shape[-1] - 1) - m[:, :, ::-1].argmax(-1)
+                d = np.take_along_axis(
+                    fut[:, :, :upto + 1, :2], last[..., None, None], axis=2)[:, :, 0, :]
+                return d * any_valid[..., None]
+
+            def _enc(d):
+                r = np.linalg.norm(d, axis=-1, keepdims=True)
+                u = d / np.maximum(r, 1e-6)
+                return np.concatenate([u, np.tanh(r / 5.0)], axis=-1).astype(np.float32)
+
+            feat = np.concatenate(
+                [_enc(_last_valid_disp(idx3)), _enc(_last_valid_disp(H - 1))], axis=-1)
+            obj_poses = np.zeros_like(obj_poses)
+            obj_poses[..., :6] = feat[:, :, None, :]
+            obj_poses = obj_poses * obj_poses_mask[..., None].astype(np.float32)
 
         # Center ground truth poses (future poses for the center objects)
         center_gt_poses = pose_future_filtered[track_index_to_predict_new]  # (num_center, 80, 144)

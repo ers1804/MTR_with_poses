@@ -66,6 +66,9 @@ CELLS = {
     'map_nopose_fix': 'mtr+pose_data_no_pose_with_map_fixdata',            # clean-data re-run (post export bug)
     'map_xattn_pe_fix': 'mtr+pose_data_cross_attn_pe_with_map_fixdata',      # clean-data re-run
     'map_shufflepose_fix': 'mtr+pose_data_cross_attn_pe_with_map_shufflepose_fixdata',  # clean-data wrong-pose control
+    # Positive control (2026-10-19): oracle future-displacement signal through the
+    # SAME branch -- proves the pathway can transmit information at all.
+    'map_oracle_fix': 'mtr+pose_data_cross_attn_pe_with_map_oracle_fixdata',
     'map_wta01_fix': 'mtr+pose_data_geo_only_with_map_fixdata',             # clean-data aux pose loss
     'ft_nopose_fix': 'mtr+full_ped_finetune_no_pose_fixdata',             # clean-data finetune regime
     'ft_xattn_pe_fix': 'mtr+full_ped_finetune_xattn_pe_fixdata',
@@ -156,6 +159,8 @@ PAIRS = [
     ('scale25k_nopose', 'scale25k_xattn_pe'),      # SCALE 22.5x @per-arm best: pose benefit?
     ('scale25k_nopose', 'scale25k_shufflepose'),   # SCALE 22.5x: capacity control
     ('scale25k_xattn_pe', 'scale25k_shufflepose'), # SCALE 22.5x: content vs capacity
+    ('map_nopose_fix', 'map_oracle_fix'),          # POSITIVE CONTROL: is the branch live?
+    ('map_xattn_pe_fix', 'map_oracle_fix'),        # oracle vs real pose through one branch
     ('fa_agentrot', 'fa_agentrot_shuf'),           # FRAME FIX: content vs capacity (the decisive pair)
     ('scale25k_nopose', 'fa_agentrot'),            # FRAME FIX vs no-pose
     ('fa_derived', 'fa_derived_shuf'),             # EARLY FUSION: content vs capacity (decisive)

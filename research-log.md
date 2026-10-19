@@ -1380,3 +1380,62 @@ The joint ordering and the head-vs-limb gap are unchanged.
 LESSON, consistent with the rest of this project: an n=347 CI that straddles zero is not evidence
 of absence. The 5x rerun cost ~12 h and converted a null claim into a quantitative one before it
 reached a reviewer.
+
+## 2026-10-19 — IV submission hardening: two wrong citations, a false CV claim, and a positive control
+
+An Opus review of `paper/iv2027` for IEEE IV found no data problem (every number still traces to
+the JSONs) but four blockers in scholarship and inference. All are now fixed; three of them
+changed what the paper *claims*, not just how it reads.
+
+**Citations.** `zhu2025waymo3dskelmo` sat in the .bib with zero `\cite` calls — the pose pipeline
+the whole study runs on was uncredited, and the ICLR draft had cited it correctly, so this was a
+regression introduced when cutting to 6 pages. Waymo Perception and its keypoint-label paper
+(Zheng et al., CVPRW 2022) backed two of three contributions and were uncited. Two entries were
+also simply wrong: Social-Transmotion carried arXiv **2312.11455** (an unrelated mathematics
+paper; correct id is 2312.16168) and Social-Pose carried a stale title — both under a
+"Source: verified via ..." comment, and the .bib header asserted every entry was fetched
+programmatically. Header now says a comment is evidence of a check only when it carries a date.
+
+**The constant-velocity claim was false.** §IV-D asserted short-horizon forecasting is "nearly
+saturated by constant-velocity extrapolation", citing only MTR's own minADE as evidence. Measured
+it (`tools/scripts/cv_baseline.py`, same validation loader, n=17,218 agents): single-mode CV ADE
+is **0.310 m at 2 s** and **1.459 m at 8 s**, against the model's 0.091 m at 2 s. The model is
+3.4x better than CV even at the short horizon — it is *not* CV-saturated. Reframed as a statement
+about the forecaster's own residual (3% of displacement), which is the quantity that actually
+bounds an auxiliary modality, and cited Schöller et al. (RA-L 2020) properly.
+
+**The bootstrap leaked back in.** Table I quoted `p=0.0001`, which is exactly `1/n_boot` —
+`_two_sided_p` floors there (`analyze_multiseed.py:259`). Every p-value and interval in the paper
+is now a paired t over per-seed differences. Consequences: the branch tax on the shuffled arm is
+**p=0.048**, not 0.008 (marginal, not comfortable); the headline bound widens from ±1.2% to
+**±1.7%**; the n=8 MDE is **1.25%**, not 1.1%. The three-seed illustration got sharper rather than
+weaker — those effects read significant under the pedestrian bootstrap (p=0.037/0.016) but give
+p=0.18/0.12 under a seed-level t, so budget and inference unit mislead in the same direction.
+
+**"Accepted none of 20 candidates" contradicted the next sentence.** Round 2 *did* accept a
+candidate (that is why a pre-registration existed), and the count is ~22, not 20. Rewritten to
+report the acceptance and let pre-registration be what removed it — a stronger story.
+
+**Per-joint CIs were clustered wrong.** `per_joint_recoverability.py` bootstrapped *frames*
+(n=1,789) rather than pedestrians (n=534). Added a pedestrian-clustered bootstrap. The head's
+SKILL interval moves from [+0.022,+0.067] to **[-0.003,+0.089] — it now contains zero**, while
+every limb interval still clears zero by a wide margin (lowest bound +0.43). This *restores* the
+"head is not measured" reading, with a proper bound this time. Note the 2026-09-17 entry above
+corrected the head framing in the other direction on the frame-level CI; the clustered interval
+is the one to quote.
+
+**Positive control (new arm, running).** The shuffled control shows the model cannot tell own-body
+from stranger-body; it does NOT show the branch can transmit anything, since the fusion residual
+is zero-initialised and a dead branch looks identical. Added `ORACLE_POSE` to the dataset
+(`waymo_pose_dataset.py`): replaces SMPL features with a 6-channel encoding of the agent's own
+future displacement at +3 s and +8 s, in the centre-object frame, same branch / parameter count /
+input dim / validity masks. Verified the channel equals the unit future direction exactly and that
+channels 6+ stay zero. Running n=3 seeds at the 579 rung (`tools/scripts/run_oracle_control.sh`).
+
+Also added: minFDE throughout (content null there too: +0.33%, p=0.61 at 25k), a Protocol
+subsection (hyperparameters, best-epoch selection, dev/held-out split sizes, why official mAP is
+absent), disclosure that the ~1.6% branch tax is a best-epoch operating point which reverses at a
+fixed late epoch, disclosure of the pipeline's root-orientation snapping, the image-HMR 106.2 mm
+vs 87.6 mm comparison in Limitations, per-stratum n in Table III (and "twelve strata" -> ten: two
+quartile cells are empty), and a Related Work paragraph engaging Social-Transmotion's JRDB
+estimated-pose gain (0.40 -> 0.36) head-on.

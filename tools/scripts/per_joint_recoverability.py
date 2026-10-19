@@ -63,6 +63,10 @@ def main() -> int:
 
     gt_by_joint: dict[str, list] = {n: [] for n in COMMON_JOINTS}
     pr_by_joint: dict[str, list] = {n: [] for n in COMMON_JOINTS}
+    # Frames within one pedestrian are highly correlated, so a frame-level bootstrap
+    # understates the CI. Record which pedestrian each sample came from so the CI can
+    # also be computed by resampling PEDESTRIANS (the independent unit).
+    pid_by_joint: dict[str, list] = {n: [] for n in COMMON_JOINTS}
     n_frames = n_ped = 0
 
     for si, ctx in enumerate(segs):
@@ -104,6 +108,7 @@ def main() -> int:
                         continue
                     gt_by_joint[name].append(np.asarray(kp[ktl.index(wid)], float) - w_root)
                     pr_by_joint[name].append(np.asarray(Jj[SMPL_IDS[name]], float) - s_root)
+                    pid_by_joint[name].append(n_ped)
                 n_frames += 1
                 used = True
             n_ped += int(used)
@@ -121,7 +126,10 @@ def main() -> int:
         ps = float(np.linalg.norm(P - P.mean(0), axis=1).mean()) * 1000
         base = float(np.linalg.norm(G.mean(0) - G, axis=1).mean()) * 1000
         r = [float(np.corrcoef(P[:, k], G[:, k])[0, 1]) for k in range(3)]
-        # bootstrap CI on SKILL, resampling frames (the unit that varies)
+        # Two bootstrap CIs on SKILL. The frame-level one treats every matched frame as
+        # independent, which it is not (frames within a pedestrian are correlated), so it
+        # is anti-conservative; the pedestrian-clustered one resamples whole pedestrians
+        # and is the interval to quote.
         rng = np.random.default_rng(0)
         bs = np.empty(2000)
         idx_all = np.arange(len(G))
@@ -132,18 +140,35 @@ def main() -> int:
             bb = np.linalg.norm(Gb.mean(0) - Gb, axis=1).mean()
             bs[b] = 1 - m / bb if bb else np.nan
         lo, hi = np.nanpercentile(bs, [2.5, 97.5])
+
+        pid = np.asarray(pid_by_joint[name])
+        uniq = np.unique(pid)
+        by_ped = {u: np.where(pid == u)[0] for u in uniq}
+        rng2 = np.random.default_rng(0)
+        bsc = np.empty(2000)
+        for b in range(2000):
+            pick = rng2.choice(uniq, len(uniq), replace=True)
+            i = np.concatenate([by_ped[u] for u in pick])
+            Gb, Pb = G[i], P[i]
+            m = np.linalg.norm(Pb - Gb, axis=1).mean()
+            bb = np.linalg.norm(Gb.mean(0) - Gb, axis=1).mean()
+            bsc[b] = 1 - m / bb if bb else np.nan
+        clo, chi = np.nanpercentile(bsc, [2.5, 97.5])
         rows.append(dict(joint=name, n=len(G), mpjpe_mm=mpjpe, gt_spread_mm=gs,
                          pred_spread_mm=ps, spread_ratio=ps / gs if gs else float("nan"),
                          mean_pose_mm=base, skill=1 - mpjpe / base if base else float("nan"),
                          skill_lo=float(lo), skill_hi=float(hi),
+                         n_ped=int(len(uniq)),
+                         skill_ped_lo=float(clo), skill_ped_hi=float(chi),
                          r_x=r[0], r_y=r[1], r_z=r[2]))
 
     rows.sort(key=lambda d: -d["skill"])
     print(f"{'joint':<16}{'n':>6}{'MPJPE':>8}{'meanpose':>10}{'SKILL':>8}{'95% CI':>18}"
           f"{'GTspr':>8}{'PRspr':>8}{'ratio':>7}{'max|r|':>8}")
+    print("(95% CI resamples PEDESTRIANS, not frames)")
     print("-" * 101)
     for d in rows:
-        ci = f"[{d['skill_lo']:+.3f},{d['skill_hi']:+.3f}]"
+        ci = f"[{d['skill_ped_lo']:+.3f},{d['skill_ped_hi']:+.3f}]"
         print(f"{d['joint']:<16}{d['n']:>6}{d['mpjpe_mm']:>8.1f}{d['mean_pose_mm']:>10.1f}"
               f"{d['skill']:>+8.3f}{ci:>18}{d['gt_spread_mm']:>8.1f}{d['pred_spread_mm']:>8.1f}"
               f"{d['spread_ratio']:>7.2f}{max(abs(d['r_x']),abs(d['r_y']),abs(d['r_z'])):>8.2f}")
