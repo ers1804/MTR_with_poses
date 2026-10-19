@@ -1,8 +1,22 @@
 % =============================================================================
 % references.bib
-% All entries fetched programmatically from NeurIPS proceedings, CrossRef API,
-% and DOI resolvers. No entries generated from memory.
+% Entries are fetched from NeurIPS proceedings, the CVF open-access archive,
+% CrossRef/OpenAlex and DOI resolvers, and each carries the URL it was checked
+% against with the date of that check. Two entries were found on 2026-10-19 to
+% carry a stale arXiv id and a stale title despite a "verified" comment, so a
+% comment here is evidence of a check only when it carries a date.
 % =============================================================================
+
+% ---------------------------------------------------------------------------
+% IEEEtran BST control: truncate long author lists to "A. Author et al.".
+% The Waymo Open Dataset and keypoint entries carry 23 and 12 authors; printing
+% them in full costs most of a column in a 6-page limit.
+% ---------------------------------------------------------------------------
+@IEEEtranBSTCTL{IEEEexample:BSTcontrol,
+  CTLuse_forced_etal       = "yes",
+  CTLmax_names_forced_etal = "3",
+  CTLnames_show_etal       = "1"
+}
 
 % ---------------------------------------------------------------------------
 % [1] Motion Transformer with Global Intention Localization and Local Movement
@@ -236,24 +250,26 @@
 % ---------------------------------------------------------------------------
 % [14] Social-Transmotion: Promptable Human Trajectory Prediction
 %      Saadatnejad et al., ICLR 2024
-%      Source: verified via https://arxiv.org/abs/2312.11455
+%      Source: verified 2026-10-19 via https://arxiv.org/abs/2312.16168
+%      (an earlier version of this entry carried 2312.11455, which is an
+%       unrelated mathematics paper -- corrected.)
 % ---------------------------------------------------------------------------
 @inproceedings{saadatnejad2024socialtransmotion,
   author    = {Saadatnejad, Saeed and Gao, Yang and Messaoud, Kaouther and Alahi, Alexandre},
   title     = {Social-Transmotion: Promptable Human Trajectory Prediction},
   booktitle = {International Conference on Learning Representations},
   year      = {2024},
-  url       = {https://arxiv.org/abs/2312.11455}
+  url       = {https://arxiv.org/abs/2312.16168}
 }
 
 % ---------------------------------------------------------------------------
-% [15] Social-Pose: Leveraging Body Language for Pedestrian Trajectory Prediction
+% [15] Social-Pose: Enhancing Trajectory Prediction with Human Body Pose
 %      Gao et al., IEEE Transactions on Intelligent Transportation Systems, 2025
-%      Source: verified via https://arxiv.org/abs/2507.22742
+%      Source: verified 2026-10-19 via https://arxiv.org/abs/2507.22742
 % ---------------------------------------------------------------------------
 @article{gao2025socialpose,
   author    = {Gao, Yang and Saadatnejad, Saeed and Alahi, Alexandre},
-  title     = {Social-Pose: Leveraging Body Language for Pedestrian Trajectory Prediction},
+  title     = {Social-Pose: Enhancing Trajectory Prediction with Human Body Pose},
   journal   = {IEEE Transactions on Intelligent Transportation Systems},
   year      = {2025},
   note      = {arXiv:2507.22742},
@@ -325,4 +341,60 @@
   pages     = {6261--6270},
   year      = {2019},
   doi       = {10.1109/ICCV.2019.00636}
+}
+
+% ---------------------------------------------------------------------------
+% Waymo Open Dataset -- PERCEPTION release (the ground-truth keypoint source).
+%      Sun et al., CVPR 2020, pp. 2446-2454
+%      Source: verified 2026-10-19 via
+%      https://openaccess.thecvf.com/content_CVPR_2020/html/Sun_Scalability_in_Perception_for_Autonomous_Driving_Waymo_Open_Dataset_CVPR_2020_paper.html
+% ---------------------------------------------------------------------------
+@inproceedings{sun2020waymoperception,
+  author    = {Sun, Pei and Kretzschmar, Henrik and Dotiwalla, Xerxes and
+               Chouard, Aurelien and Patnaik, Vijaysai and Tsui, Paul and
+               Guo, James and Zhou, Yin and Chai, Yuning and Caine, Benjamin and
+               Vasudevan, Vijay and Han, Wei and Ngiam, Jiquan and Zhao, Hang and
+               Timofeev, Aleksei and Ettinger, Scott and Krivokon, Maxim and
+               Gao, Amy and Joshi, Aditya and Zhang, Yu and Shlens, Jonathon and
+               Chen, Zhifeng and Anguelov, Dragomir},
+  title     = {Scalability in Perception for Autonomous Driving: {Waymo} Open Dataset},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {2446--2454},
+  year      = {2020}
+}
+
+% ---------------------------------------------------------------------------
+% The WOD human-keypoint annotations used as ground truth in Sec. IV.
+%      Zheng et al., CVPR Workshops (WAD) 2022, pp. 4478-4487
+%      Source: verified 2026-10-19 via
+%      https://openaccess.thecvf.com/content/CVPR2022W/WAD/html/Zheng_Multi-Modal_3D_Human_Pose_Estimation_With_2D_Weak_Supervision_in_CVPRW_2022_paper.html
+% ---------------------------------------------------------------------------
+@inproceedings{zheng2022keypoints,
+  author    = {Zheng, Jingxiao and Shi, Xinwei and Gorban, Alexander and
+               Mao, Junhua and Song, Yang and Qi, Charles R. and Liu, Ting and
+               Chari, Visesh and Cornman, Andre and Zhou, Yin and Li, Congcong and
+               Anguelov, Dragomir},
+  title     = {Multi-Modal {3D} Human Pose Estimation with {2D} Weak Supervision
+               in Autonomous Driving},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and
+               Pattern Recognition (CVPR) Workshops},
+  pages     = {4478--4487},
+  year      = {2022}
+}
+
+% ---------------------------------------------------------------------------
+% The constant-velocity baseline literature (Sec. IV-D).
+%      Schoeller et al., IEEE RA-L 5(2):1696-1703, 2020
+%      Source: verified 2026-10-19 via OpenAlex, doi:10.1109/LRA.2020.2969925
+% ---------------------------------------------------------------------------
+@article{scholler2020constant,
+  author    = {Sch{\"o}ller, Christoph and Aravantinos, Vincent and
+               Lay, Florian and Knoll, Alois},
+  title     = {What the Constant Velocity Model Can Teach Us About Pedestrian
+               Motion Prediction},
+  journal   = {IEEE Robotics and Automation Letters},
+  volume    = {5},
+  number    = {2},
+  pages     = {1696--1703},
+  year      = {2020}
 }

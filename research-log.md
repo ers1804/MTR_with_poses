@@ -1439,3 +1439,24 @@ fixed late epoch, disclosure of the pipeline's root-orientation snapping, the im
 vs 87.6 mm comparison in Limitations, per-stratum n in Table III (and "twelve strata" -> ten: two
 quartile cells are empty), and a Related Work paragraph engaging Social-Transmotion's JRDB
 estimated-pose gain (0.40 -> 0.36) head-on.
+
+### Positive control result (2026-10-19, 12:27)
+
+The oracle arm (579 rung, n=3 seeds, best-epoch, same branch / parameter count / input dim /
+validity masks as the pose arm, SMPL features replaced by a 6-channel encoding of the agent's own
+future displacement at +3 s and +8 s):
+
+  per-seed best minADE   0.2953 / 0.2916 / 0.2965   mean 0.2945
+  vs no-pose  (0.4514 on the same 3 seeds)   -34.8%   t(2) = -81.4   p = 1.5e-4
+  vs shuffled (0.4575)                       -35.6%   t(2) = -36.5   p = 7.5e-4
+  vs pose     (0.4597)                       -35.9%   t(2) = -46.2   p = 4.7e-4
+
+The reviewer objection "your branch is dead, that is why pose does nothing" is answered. The
+pathway converts information into accuracy at ~20x the magnitude of the +/-1.7% bound the content
+test places on pose. The null is about what SMPL pose contains, not about whether the architecture
+can use what it is given.
+
+Also measured while setting this up: pose-branch coverage is essentially complete -- 100% of
+predicted agents have at least one valid pose frame and 86.7% of the 11 observed frames carry one
+(n=7,828 centre agents). So "pose was rarely available" is not an alternative explanation either.
+Both facts are now in the paper (Sec. II-A and Sec. III-E).
