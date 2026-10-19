@@ -31,7 +31,9 @@ REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 OUT_ROOT = os.path.join(REPO, 'output', 'waymo')
 DYN = os.path.join(REPO, 'experiments', 'val_agent_dynamics_25k.pkl')
 OUT_JSON = os.path.join(REPO, 'experiments', 'nohead_subpopulation.json')
-SEEDS = (101, 202, 303)
+# Seeds are discovered from disk rather than fixed, so the extension to n=8 needs no edit.
+SEEDS = tuple(int(x) for x in os.environ.get(
+    'SEEDS', '101,202,303,404,505,606,707,808').split(','))
 
 CELLS = {   # cell -> (config dir, run-tag template)
     'nohead_nopose': ('mtr+pose_data_no_pose_with_map_nohead_fixdata', 'MS_nohead_nopose_s{}'),
@@ -81,11 +83,15 @@ def main() -> int:
         runs[cell] = {}
         for s in SEEDS:
             r = load_run(cfg, tpl.format(s))
-            if r is None:
-                print(f'  MISSING {cell} s{s}')
-            else:
+            if r is not None:
                 runs[cell][s] = r
-        print(f'{cell:<14} seeds loaded: {sorted(runs[cell])}')
+        print(f'{cell:<14} seeds found: {sorted(runs[cell])}')
+    # The difference-in-differences pairs a seed across conditions, so a seed is usable
+    # only if it exists in every cell. Dropping the rest keeps every contrast on one set.
+    usable = sorted(set.intersection(*(set(runs[c]) for c in runs)))
+    for c in runs:
+        runs[c] = {s: v for s, v in runs[c].items() if s in usable}
+    print(f'\nseeds usable in every cell: {usable} (n={len(usable)})')
 
     # agents scored by every run, so every comparison is over one fixed population
     common = None
@@ -122,6 +128,27 @@ def main() -> int:
         return dict(n=n, a=av.mean(), b=bv.mean(), rel=float(rel.mean()), t=float(t),
                     p=float(p), lo=float(rel.mean()-h), hi=float(rel.mean()+h))
 
+    def did(mask, label):
+        """content(heading removed) - content(heading present), paired over seeds.
+
+        This is the hypothesis itself: does removing the heading channel make pose more
+        useful? Testing it as one contrast is far more sensitive than comparing two CIs,
+        and avoids reading a sign out of four separate underpowered tests.
+        """
+        per = []
+        for s in usable:
+            v = lambda c: np.array([runs[c][s][a] for a in common])[mask].mean()
+            per.append((v('nohead_pose') - v('nohead_shuf')) / v('nohead_shuf') * 100
+                       - (v('head_pose') - v('head_shuf')) / v('head_shuf') * 100)
+        per = np.array(per); n = len(per)
+        t, p = stats.ttest_1samp(per, 0.0); sd = per.std(ddof=1)
+        h = stats.t.ppf(0.975, n - 1) * sd / np.sqrt(n)
+        print(f'  {label:<42} n={n} DiD={per.mean():+6.2f}pp t={t:+6.2f} p={p:.4f} '
+              f'CI=[{per.mean()-h:+.2f},{per.mean()+h:+.2f}]')
+        return dict(n=n, did_pp=float(per.mean()), t=float(t), p=float(p),
+                    lo=float(per.mean()-h), hi=float(per.mean()+h),
+                    per_seed=[float(x) for x in per], sd_pp=float(sd))
+
     res = {}
     for sub, mask in subs.items():
         print(f'\n=== {sub} (n={int(mask.sum())}) ===')
@@ -134,6 +161,7 @@ def main() -> int:
                                                'pose vs no-pose, heading removed'),
             'heading_cost': paired('nohead_nopose', 'head_nopose', mask,
                                    'cost of removing heading (baseline)'),
+            'did': did(mask, 'DiD: does removing heading help pose?'),
         }
     res['_meta'] = dict(n_common_agents=len(common), seeds=list(SEEDS),
                         subpopulation_sizes={k: int(v.sum()) for k, v in subs.items()},
