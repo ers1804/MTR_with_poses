@@ -1509,3 +1509,42 @@ for the content test (it would bite for pose-vs-nopose).
 
 Status: the paper's Sec. IV mechanism argument still rests on the onset-direction and
 stratification evidence, which is correlational. Do not claim the counterfactual supports it.
+
+### Heading ablation, re-scored on subpopulations (2026-10-19, no GPU needed)
+
+Correction to the entry above: `best_model.pth` is deleted by the queue script, but
+`metrics_epoch_N.pkl` survives for EVERY epoch and holds one record per validation agent
+(scenario_id, object_id, minADE, minFDE, horizon splits). So best-epoch re-scoring on any subset
+needs no inference at all. `tools/scripts/nohead_subpopulation.py`.
+
+16,342 agents common to all 6 runs (3 no-heading arms + 3 with-heading arms, n=3 seeds, best
+epoch). Subpopulations: stationary (speed0 < 0.3 m/s) n=3,336; standing_then_moves (also
+disp3s > 1 m) n=267.
+
+CONTENT TEST (pose vs shuffled), by condition and subpopulation:
+
+                        heading present      heading removed
+  ALL                     +0.42%               -0.53%
+  stationary              +2.73% (p=.067)      -1.43%
+  standing_then_moves     +5.19%               -5.30%
+
+The sign flips in every subpopulation once the heading channel is removed, and the magnitude
+grows as the subpopulation narrows toward the one the mechanism names. Tested directly as a
+difference-in-differences (content without heading minus content with heading, paired over seeds,
+which is the actual hypothesis and avoids reading four separate CIs):
+
+  ALL                  DiD  -0.82pp  t(2)=-0.32  p=0.78   per-seed [+1.16 +2.24 -5.86]
+  stationary           DiD  -4.10pp  t(2)=-2.95  p=0.098  per-seed [-4.41 -1.56 -6.33]
+  standing_then_moves  DiD  -9.85pp  t(2)=-1.75  p=0.22   per-seed [-14.84 +1.36 -16.05]
+
+In the stationary subpopulation all three seeds agree in sign and the effect is where the
+mechanism predicts. That is a HINT, not a result: p=0.098 at n=3 is exactly the regime where the
+xattn+PE headline (-3.5% at n=3 -> -0.8% n.s. at n=5) and the AVO candidate (-1.18% at n=5 proxy
+-> -0.04% at n=8 full) both dissolved in this project. Do not put it in the paper yet.
+
+Caveats to carry forward: (a) three subpopulations were examined, so the stationary p=0.098 is not
+a single pre-specified test; (b) the pre-specified target IS standing_then_moves, but it has only
+267 agents on this validation split and its CI is +/-34pp; (c) the with-heading reference arms
+already have n=5, so extending the no-heading triad to seeds 404/505 gives a paired n=5 DiD for
+6 runs (~5.3 h). Power: DiD sd in the stationary cell is 2.41pp, so n=5 detects 4.0pp at 80%
+power against an observed 4.1pp -- right at the edge -- and n=8 would detect 2.8pp.
