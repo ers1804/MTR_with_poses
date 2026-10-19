@@ -1460,3 +1460,52 @@ Also measured while setting this up: pose-branch coverage is essentially complet
 predicted agents have at least one valid pose frame and 86.7% of the 11 observed frames carry one
 (n=7,828 centre agents). So "pose was rarely available" is not an alternative explanation either.
 Both facts are now in the paper (Sec. II-A and Sec. III-E).
+
+## 2026-10-19 (evening) — heading ablation: INCONCLUSIVE, not confirmatory. A power failure, not a result.
+
+The mechanism counterfactual (zero the agent heading sin/cos channels, 579 rung, n=3 seeds,
+best-epoch) completed 9/9. It does NOT support the paper's mechanism claim, and it does not refute
+it either — the measurement cannot tell.
+
+  per-seed best minADE
+    nohead_nopose  0.4761 / 0.4452 / 0.4724   mean 0.4646
+    nohead_pose    0.4767 / 0.4585 / 0.4683   mean 0.4678
+    nohead_shuf    0.4551 / 0.4597 / 0.4959   mean 0.4702
+
+  (i)   CONTENT without heading   -0.51%  t(2)=-0.12  p=0.91  CI [-13.2, +12.5]
+  (ii)  pose vs nopose, no head   +0.70%  t(2)=+0.65  p=0.58
+  (iii) cost of removing heading  +2.92%  t(2)=+2.45  p=0.13
+  reference: CONTENT with heading, same 3 seeds  +0.48%  p=0.80
+
+The sign of (i) is negative, which is the direction the mechanism predicts, and (iii) is positive
+as expected — but the content interval is +/-13%, roughly eight times the effect being looked for.
+Reading anything into the sign here would be exactly the error this project has already caught
+three times.
+
+WHY it is underpowered, which is the actually useful finding: removing the heading channel roughly
+DOUBLES seed variance.
+
+  arm sd over 3 seeds   nopose  with heading 0.0079 -> without 0.0169
+                        shuffle with heading 0.0082 -> without 0.0223
+  paired content sd     with heading 2.96pp -> without 5.16pp
+
+Minimum detectable content effect at 80% power in the no-heading condition:
+  n=3 15.97% | n=5 8.57% | n=10 5.13% | n=20 3.41% | n=40 2.34%
+
+So brute-forcing seeds does not rescue this design — even n=40 (33 GPU-days at this rung) only
+reaches 2.3%, and the target is 1-3%. The heading channel is evidently doing stabilisation work
+beyond carrying facing information, which is itself worth knowing but is not what we set out to
+measure.
+
+NEXT, and it needs no new training: evaluate the existing checkpoints on the stationary-onset
+subpopulation instead of overall minADE. The mechanism localises the effect to pedestrians who are
+stationary and about to step off (8.5% of stationary agents move >1 m within 3 s); overall minADE
+averages that cue away, which is a second reason the effect/noise ratio is hopeless above. A
+targeted endpoint raises the effect without needing to lower the noise.
+Caveat: `run_mechanism_queue.sh` deletes `best_model.pth` after each run to save disk, so only the
+epoch-30 checkpoint survives. That is acceptable HERE because nohead_pose and nohead_shuf have
+identical input dimensionality, so the fixed-late-epoch rule the paper warns about does not bite
+for the content test (it would bite for pose-vs-nopose).
+
+Status: the paper's Sec. IV mechanism argument still rests on the onset-direction and
+stratification evidence, which is correlational. Do not claim the counterfactual supports it.
