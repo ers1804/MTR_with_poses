@@ -57,5 +57,8 @@ for seed in 101 202 303; do
 done
 echo "=== fine rungs done $(date) ===" >> "$LOG"
 
-nohup bash tools/scripts/run_nohead_extend.sh >> /tmp/nohead_extend_outer.log 2>&1 &
+# NOTE: this script has cd'd to tools/, so the relaunch must NOT use a repo-relative
+# path -- "tools/scripts/..." would resolve to tools/tools/scripts/... and die silently,
+# which is exactly what happened at 20:32 on 2026-10-20 and left the GPU idle.
+nohup bash "$(cd "$(dirname "$0")" && pwd)/run_nohead_extend.sh" >> /tmp/nohead_extend_outer.log 2>&1 &
 echo "=== extension relaunched $(date) ===" >> "$LOG"
