@@ -1548,3 +1548,50 @@ a single pre-specified test; (b) the pre-specified target IS standing_then_moves
 already have n=5, so extending the no-heading triad to seeds 404/505 gives a paired n=5 DiD for
 6 runs (~5.3 h). Power: DiD sd in the stationary cell is 2.41pp, so n=5 detects 4.0pp at 80%
 power against an observed 4.1pp -- right at the edge -- and n=8 would detect 2.8pp.
+
+## 2026-10-20 — detection floor: the pathway only pays for near-perfect direction (18/18 runs)
+
+Direction-only oracle through the pose branch, corrupted by a fixed per-agent angular error,
+579 rung, n=3 seeds, best epoch, paired t vs map_nopose_fix. Rungs labelled by the MEASURED
+median absolute bearing error of the delivered channel.
+
+  median |err|   rel minADE vs no-pose      p        95% CI
+      0.0 deg      -15.74%               0.021    [-25.63, -5.89]   <-- only significant rung
+     14.6 deg       +0.20%               0.876    [ -5.16, +5.60]
+     27.2 deg       -0.10%               0.954    [ -5.35, +5.19]
+     37.9 deg       +0.58%               0.624    [ -3.80, +4.97]
+     45.0 deg       +2.72%               0.252    [ -4.61, +10.04]
+     57.4 deg       +2.67%               0.237    [ -4.19, +9.50]
+
+DETECTION FLOOR lies between 0 and 14.6 deg. Stated honestly: a perfect direction channel buys
+-15.7%; by 14.6 deg median error nothing survives, and the interval there excludes gains larger
+than 5.2%. The ladder cannot localise the floor more finely than (0, 14.6] at n=3 -- the per-rung
+MDE is ~5-10pp, so a 2-3% gain at 14.6 deg would be invisible.
+
+Two secondary observations, both coherent with the rest of the paper:
+- The 0 deg rung gives -15.7% while the FULL oracle (direction + displacement magnitude) gave
+  -34.8%. Dropping magnitude costs more than half the gain, as designed -- the ladder isolates
+  bearing deliberately so the threshold can be stated in degrees.
+- At 45.0 and 57.4 deg the branch is a net COST (+2.7%), matching the +1.6% branch-capacity tax
+  measured at 25k. A sufficiently noisy side channel does not merely fail to help; it hurts.
+
+WHAT THIS MEANS, AND THE TENSION IT CREATES
+SMPL body facing is 44.2 deg (Table III). That sits in the region where the ladder shows a net
+PENALTY, nowhere near the floor. So the null has a second, more self-contained explanation than
+redundancy: pose fails the pathway's accuracy bar by a wide margin, whether or not a heading
+channel exists. That also explains why the heading ablation was inconclusive -- removing heading
+cannot help pose if pose was never accurate enough to pay.
+
+But the box heading is 25.2 deg, which is ALSO below the floor. So the mechanism cannot be stated
+as "pose loses because the tracker's heading is more accurate" -- through a side branch, neither
+would pay. The defensible statement is narrower and needs care in Sec. IV:
+  (a) a side branch must deliver bearing to better than ~15 deg to pay at all;
+  (b) SMPL facing (44.2 deg) is far outside that, and is in fact in the penalty region;
+  (c) the box heading is not subject to (a) because it is a NATIVE per-timestep input the model
+      trains with from the start, not a late-fused side branch -- different delivery mechanism,
+      not merely a different accuracy.
+Do not write (c) as though it were measured: we have not run a ladder on the native channel.
+
+NEXT (optional, 6 runs / ~5.3 h): rungs at ~5 and ~10 deg would localise the floor inside (0,14.6]
+instead of leaving it a factor-of-three bracket. Worth it only if Sec. IV is going to quote a
+threshold rather than a bracket.
