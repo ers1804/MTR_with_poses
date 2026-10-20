@@ -30,7 +30,8 @@ REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 OUT = os.path.join(REPO, 'experiments', 'detection_floor.json')
 SEEDS = (101, 202, 303)
 # rung -> measured median |bearing error| of the delivered channel (smoke-tested 2026-10-19)
-RUNGS = {'00': 0.0, '15': 14.6, '25': 27.2, '35': 37.9, '45': 45.0, '60': 57.4}
+RUNGS = {'00': 0.0, '05': 5.5, '10': 10.2, '15': 14.6, '25': 27.2,
+         '35': 37.9, '45': 45.0, '60': 57.4}
 BOX_HEADING_DEG, SMPL_FACING_DEG = 25.2, 44.2
 
 

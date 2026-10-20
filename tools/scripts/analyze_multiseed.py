@@ -77,6 +77,8 @@ CELLS = {
     'nohead_shuf':   'mtr+pose_data_cross_attn_pe_with_map_shufflepose_nohead_fixdata',
     # Detection floor (2026-10-19): direction-only oracle at increasing angular error.
     'oracledir00': 'mtr+pose_data_cross_attn_pe_with_map_oracledir00_fixdata',
+    'oracledir05': 'mtr+pose_data_cross_attn_pe_with_map_oracledir05_fixdata',
+    'oracledir10': 'mtr+pose_data_cross_attn_pe_with_map_oracledir10_fixdata',
     'oracledir15': 'mtr+pose_data_cross_attn_pe_with_map_oracledir15_fixdata',
     'oracledir25': 'mtr+pose_data_cross_attn_pe_with_map_oracledir25_fixdata',
     'oracledir35': 'mtr+pose_data_cross_attn_pe_with_map_oracledir35_fixdata',
@@ -178,6 +180,8 @@ PAIRS = [
     ('nohead_shuf', 'nohead_pose'),                # CONTENT TEST with heading removed
     ('map_nopose_fix', 'nohead_nopose'),           # what removing heading costs
     ('map_nopose_fix', 'oracledir00'),            # detection floor rung
+    ('map_nopose_fix', 'oracledir05'),            # detection floor rung
+    ('map_nopose_fix', 'oracledir10'),            # detection floor rung
     ('map_nopose_fix', 'oracledir15'),            # detection floor rung
     ('map_nopose_fix', 'oracledir25'),            # detection floor rung
     ('map_nopose_fix', 'oracledir35'),            # detection floor rung
