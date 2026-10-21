@@ -14,6 +14,8 @@
 \usepackage{subcaption}
 \usepackage{multirow}
 \usepackage{colortbl}
+\usepackage{tikz} % fig_architecture.tex
+\usetikzlibrary{arrows.meta,calc,positioning,fit}
 
 % Useful macros
 \newcommand{\eg}{e.g.,\xspace}
@@ -235,17 +237,21 @@ in Figure~\ref{fig:architecture}. The branch has four components:
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{fig_architecture.pdf}
+\resizebox{\linewidth}{!}{\input{fig_architecture.tex}}
 \caption{%
   \textbf{MTR+Pose architecture.}
-  A GRU pose encoder processes the past 11 SMPL body poses (each represented
-  as a 144D 6D-rotation vector) and produces a 256D hidden state that is
-  concatenated with the MTR agent feature and projected before the decoder.
-  Auxiliary future-pose prediction heads are trained with a winner-takes-all
-  L1 loss $\mathcal{L}_{\text{wta}}$ on 6D rotations; gradients from this
-  auxiliary task are the only path by which pose supervision shapes the
-  shared features.
-  The trajectory decoder and map attention modules of MTR are unchanged.
+  \textbf{(a)} The pose encoder (1) embeds each pedestrian's past 11 SMPL poses
+  (24 joints in 6D rotation, 144D per frame) and, in our main configuration,
+  cross-attends to them with the agent's PointNet feature as query, after adding
+  a sinusoidal positional encoding; the GRU variant uses the last hidden state
+  instead. The pose fuser (2) concatenates the pose and agent features and
+  projects them back to 256D \emph{before} MTR's scene encoder, which then
+  attends jointly over agent and (optional) HD map tokens.
+  \textbf{(b)} After every decoder layer, pose heads (3) predict 80 future
+  poses and a pose score for each intention query, trained with the auxiliary
+  losses of Section~\ref{sec:pose_branch}. Their predictions never feed back into
+  the trajectory pathway, so pose supervision shapes the shared features only
+  through gradients. All other MTR modules are unchanged.
 }
 \label{fig:architecture}
 \end{figure}

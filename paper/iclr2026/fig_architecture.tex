@@ -1,0 +1,167 @@
+% MTR+Pose architecture figure (TikZ). Grounded in:
+%   mtr/models/context_encoder/mtr_encoder.py  (PointNet agent/map polyline encoders; pose encoder = Linear 144->256
+%                                               + sinusoidal PE + MultiheadAttention with the agent feature as query
+%                                               [USE_CROSS_ATTN_POSE, USE_POSE_SINUSOIDAL_PE], or a 2-layer GRU;
+%                                               pose_fuser MLP 512->256->256 BEFORE the 6-layer local-attention encoder)
+%   mtr/models/motion_decoder/mtr_decoder.py   (64 intention queries, 6 decoder layers; per layer motion heads and
+%                                               auxiliary pose heads: MLP -> 80x144 + pose score; losses cls/reg/vel,
+%                                               gmm_pose (WTA-L1), geo, mpjpe (SMPL FK), cls_pose)
+%   mtr/datasets/waymo/waymo_pose_dataset.py   (11 past poses, 24 joints x 6D = 144; map zero-filled if WITHOUT_HDMAP)
+% Requires: \usepackage{tikz} \usetikzlibrary{arrows.meta,calc,positioning,fit}
+\definecolor{ink}{HTML}{1F2A37}
+\definecolor{posefill}{HTML}{FAD9A9}\definecolor{poseedge}{HTML}{D48A2A}\definecolor{posetok}{HTML}{EFA54A}
+\definecolor{mtrfill}{HTML}{D4E4F4}\definecolor{mtredge}{HTML}{4F82BE}\definecolor{agenttok}{HTML}{6E9BD0}
+\definecolor{mapfill}{HTML}{EFEFEF}\definecolor{mapedge}{HTML}{8A8A8A}\definecolor{maptok}{HTML}{BDBDBD}
+\definecolor{fusedtok}{HTML}{B4A3C9}\definecolor{posein}{HTML}{FCEBD2}
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  >={Stealth[length=4pt,width=3.5pt]},
+  line/.style={->,draw=ink,line width=0.6pt},
+  stage/.style={draw,rounded corners=3pt,line width=0.7pt,align=center,inner sep=3pt,minimum height=11mm},
+  mtr/.style={stage,fill=mtrfill,draw=mtredge},
+  pose/.style={stage,fill=posefill,draw=poseedge},
+  opt/.style={dashed},
+  op/.style={draw=ink!70,rounded corners=2pt,line width=0.5pt,fill=white,align=center,inner sep=2.5pt},
+  lbl/.style={align=center,inner sep=1pt,text=ink},
+  note/.style={align=left,inner sep=1pt,text=ink!75},
+  num/.style={circle,draw=ink,fill=white,line width=0.5pt,inner sep=0.6pt,font=\sffamily\tiny\bfseries},
+  panel/.style={font=\sffamily\footnotesize\bfseries,anchor=west,inner sep=0pt},
+]
+
+% ---------- helpers ----------
+% \tokrow{x}{y}{n}{fill}{name}: n adjacent token squares, left edge at x, centred on y
+\newcommand{\tokrow}[5]{%
+  \foreach \k in {1,...,#3}{%
+    \draw[fill=#4,draw=ink,line width=0.35pt] ($(#1,#2)+({(\k-1)*0.2},-0.1)$) rectangle ++(0.2,0.2);}%
+  \node[inner sep=0pt,fit={(#1,#2-0.1) ($(#1,#2)+({#3*0.2},0.1)$)}] (#5) {};}
+% \grid{x}{y}{cols}{rows}{fill}{name}: small input grid (time along x), top-left corner at (x,y)
+\newcommand{\grid}[6]{%
+  \foreach \i in {1,...,#3}{\foreach \j in {1,...,#4}{%
+    \draw[fill=#5,draw=ink,line width=0.3pt] ($(#1,#2)+({(\i-1)*0.16},{-(\j-1)*0.16})$) rectangle ++(0.16,-0.16);}}%
+  \node[inner sep=0pt,fit={(#1,#2) ($(#1,#2)+({#3*0.16},{-#4*0.16})$)}] (#6) {};}
+
+% =====================================================================
+% (a) Scene context encoder with pose branch
+% =====================================================================
+\node[panel] at (0,0.35) {(a) Scene context encoder with pose branch};
+
+% trajectories
+\grid{0.15}{-0.56}{8}{3}{white}{gT}
+\draw[->,ink!70,line width=0.4pt] ($(gT.north west)+(0,0.12)$) -- ($(gT.north east)+(0,0.12)$) node[midway,above=-1pt,font=\sffamily\tiny,text=ink!80] {time};
+\node[lbl,below=1pt of gT] {past trajectories\\$A$ pedestrians $\times$ 11};
+\node[mtr,minimum width=28mm] (encT) at (3.65,-0.8) {\textbf{Agent polyline encoder}\\PointNet-style MLP};
+\tokrow{5.55}{-0.8}{4}{agenttok}{tT}
+\node[lbl,above=1pt of tT] {$A\times256$};
+\draw[line] (gT.east) -- (encT.west);
+\draw[line] (encT.east) -- (tT.west);
+
+% poses
+\grid{0.15}{-2.2}{8}{3}{posein}{gP}
+\node[lbl,below=1pt of gP] {past SMPL poses\\$11\times144$ (6D)};
+\node[pose,minimum width=28mm,minimum height=15mm] (encP) at (3.65,-2.45)
+  {\textbf{Pose encoder}\\Linear $144{\to}256$ $+$ sin.\ PE\\cross-attention, 8 heads\\[1pt]{\tiny ablation: 2-layer GRU, last state}};
+\node[num] at (encP.north west) {1};
+\tokrow{5.55}{-2.45}{4}{posetok}{tP}
+\node[lbl,below=1pt of tP] {$A\times256$};
+\draw[line] (gP.east) -- (encP.west);
+\draw[line] (encP.east) -- (tP.west);
+% agent feature is the attention query
+\draw[line,densely dashed] (tT.south) -- ++(0,-0.3) -| node[pos=0.3,below,lbl,font=\sffamily\tiny] {query} ($(encP.north)+(0.6,0)$);
+
+% fuser
+\node[pose,minimum width=19mm,minimum height=24mm] (fuse) at (7.85,-1.62)
+  {\textbf{Pose fuser}\\concat\\MLP\\$512{\to}256{\to}256$};
+\node[num] at (fuse.north west) {2};
+\draw[line] (tT.east) -- (tT.east -| fuse.west);
+\draw[line] (tP.east) -- (tP.east -| fuse.west);
+\tokrow{9.3}{-1.62}{4}{fusedtok}{tF}
+\node[lbl,above=1pt of tF] {agent tokens};
+\draw[line] (fuse.east |- tF) -- (tF.west);
+
+% map (optional)
+\foreach \dy/\bend in {0/10,0.17/-8,0.34/14}{
+  \draw[mapedge,line width=0.7pt] (0.15,{-3.85-\dy}) to[bend left=\bend] (1.43,{-3.92-\dy});}
+\node[inner sep=0pt,fit={(0.15,-3.8) (1.43,-4.3)}] (gM) {};
+\node[lbl,below=1pt of gM] {HD map polylines\\(optional)};
+\node[mtr,opt,minimum width=28mm] (encM) at (3.65,-4.1) {\textbf{Map polyline encoder}\\PointNet-style MLP};
+\tokrow{5.55}{-4.1}{4}{maptok}{tM}
+\node[lbl,below=1pt of tM] {map tokens};
+\draw[line] (gM.east) -- (encM.west);
+\draw[line] (encM.east) -- (tM.west);
+
+% scene encoder
+\node[mtr,minimum width=27mm,minimum height=33mm] (scene) at (12.35,-2.85)
+  {\textbf{Scene encoder}\\6-layer Transformer\\8 heads, $d{=}256$\\local attention\\($k{=}16$ neighbours)\\over agent $+$ map\\tokens};
+\draw[line] (tF.east) -- (tF.east -| scene.west);
+\draw[line] (tM.east) -- (tM.east -| scene.west);
+\tokrow{14.25}{-2.3}{4}{fusedtok}{cA}
+\tokrow{14.25}{-3.1}{4}{maptok}{cM}
+\draw[line] (scene.east |- cA) -- (cA.west);
+\draw[line] (scene.east |- cM) -- (cM.west);
+\node[lbl,above=1pt of cA] {scene context};
+
+% =====================================================================
+% (b) Motion decoder with auxiliary pose heads
+% =====================================================================
+\draw[ink!25,line width=0.4pt] (0,-5.15) -- (15.95,-5.15);
+\node[panel] at (0,-5.5) {(b) Motion decoder with auxiliary pose heads};
+
+\tokrow{0.15}{-7.15}{6}{white}{q}
+\node[lbl,below=1pt of q] {64 intention\\queries};
+\node[mtr,minimum width=30mm,minimum height=19mm] (dec) at (3.65,-7.15)
+  {\textbf{Motion decoder}\\6 layers, $d{=}512$\\cross-attention to agent\\and map context};
+\draw[line] (q.east) -- (dec.west);
+\draw[line] (cM.south) -- ++(0,-2.55) -| node[pos=0.25,above,lbl] {scene context from (a)} (dec.north);
+
+% heads (applied after every decoder layer)
+\node[mtr,minimum width=29mm,minimum height=9mm] (mh) at (7.9,-6.5) {\textbf{Motion heads}\\GMM trajectory + score};
+\node[pose,minimum width=29mm,minimum height=9mm] (ph) at (7.9,-7.8) {\textbf{Pose heads}\\MLP $\to 80\times144$ + score};
+\node[num] at (ph.north west) {3};
+\draw[line] (dec.east) -- ++(0.35,0) |- (mh.west);
+\draw[line] (dec.east) -- ++(0.35,0) |- (ph.west);
+
+% motion output
+\begin{scope}[shift={(10.3,-6.5)}]
+  \foreach \a in {-30,-17,-5,6,18,30}{%
+    \pgfmathsetmacro{\fx}{0.95*cos(\a)}\pgfmathsetmacro{\fy}{0.95*sin(\a)*0.6}%
+    \draw[agenttok,line width=0.7pt] (0,0) .. controls (0.4,0) .. (\fx,\fy);}
+  \fill[ink] (0,0) circle (0.9pt);
+\end{scope}
+\node[inner sep=0pt,fit={(10.3,-6.8) (11.3,-6.2)}] (fan) {};
+\node[lbl,below=0pt of fan] {$K{=}6$ modes (NMS)};
+\draw[line] (mh.east) -- (fan.west);
+\node[op] (lm) at (13.95,-6.5) {$\mathcal{L}_{\mathrm{cls}}+\mathcal{L}_{\mathrm{reg}}+0.5\,\mathcal{L}_{\mathrm{vel}}$};
+\draw[line] (fan.east) -- (lm.west);
+
+% pose output: auxiliary only
+\node[op,minimum width=40mm] (lp) at (12.85,-7.8)
+  {auxiliary pose losses (ablated, $w{\le}0.2$)\\WTA-L1 (6D) $\cdot$ geodesic $SO(3)$\\MPJPE (SMPL FK) $\cdot$ pose-mode CE};
+\draw[line] (ph.east) -- (lp.west);
+\node[note,anchor=north,align=center] at ($(ph.south)+(2.2,-0.1)$)
+  {\tiny pose predictions never feed back: they shape the shared features only through gradients};
+
+% =====================================================================
+% legend
+% =====================================================================
+\begin{scope}[shift={(0,-9.2)},font=\sffamily\scriptsize,
+    sw/.style={minimum width=3.5mm,minimum height=2mm,inner sep=0pt,rounded corners=1.5pt,line width=0.5pt},
+    tk/.style={minimum size=1.6mm,inner sep=0pt,draw=ink,line width=0.35pt},
+    lt/.style={anchor=west,inner sep=1.5pt,text=ink}]
+  \node[sw,fill=mtrfill,draw=mtredge] (l1) at (0.2,0) {};
+  \node[lt] (t1) at (l1.east) {MTR, unchanged};
+  \node[sw,fill=posefill,draw=poseedge,right=4mm of t1] (l2) {};
+  \node[lt] (t2) at (l2.east) {added for pose};
+  \node[sw,fill=mtrfill,draw=mtredge,dashed,right=4mm of t2] (l3) {};
+  \node[lt] (t3) at (l3.east) {map input off in no-map runs};
+  \node[tk,fill=agenttok,right=6mm of t3] (l4) {};
+  \node[lt] (t4) at (l4.east) {agent};
+  \node[tk,fill=posetok,right=3mm of t4] (l5) {};
+  \node[lt] (t5) at (l5.east) {pose};
+  \node[tk,fill=fusedtok,right=3mm of t5] (l6) {};
+  \node[lt] (t6) at (l6.east) {fused agent};
+  \node[tk,fill=maptok,right=3mm of t6] (l7) {};
+  \node[lt] (t7) at (l7.east) {map};
+  \node[tk,fill=white,right=3mm of t7] (l8) {};
+  \node[lt] (t8) at (l8.east) {query};
+\end{scope}
+\end{tikzpicture}
