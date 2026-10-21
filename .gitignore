@@ -17,6 +17,10 @@ data/
 *.bbl
 *.blg
 *.out
+# beamer navigation artifacts (same class as *.aux/*.out)
+*.nav
+*.snm
+*.toc
 *.log
 texput.log
 
