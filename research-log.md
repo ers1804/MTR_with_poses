@@ -1595,3 +1595,43 @@ Do not write (c) as though it were measured: we have not run a ladder on the nat
 NEXT (optional, 6 runs / ~5.3 h): rungs at ~5 and ~10 deg would localise the floor inside (0,14.6]
 instead of leaving it a factor-of-three bracket. Worth it only if Sec. IV is going to quote a
 threshold rather than a bracket.
+
+## 2026-10-21 — heading ablation at n=8: the hint dissolved. Third one in this project.
+
+24/24 extension runs, 0 failures. Paired seeds 101-808 in every cell (n=8).
+
+Difference-in-differences (content without heading minus content with heading), n=3 -> n=8:
+
+  subpopulation          n=3                    n=8
+  ALL                    -0.82pp  p=0.78        +2.50pp  p=0.21   CI [-1.78,+6.78]
+  stationary             -4.10pp  p=0.098       -0.58pp  p=0.65   CI [-3.45,+2.29]
+  standing_then_moves    -9.85pp  p=0.22        -0.83pp  p=0.85   CI [-10.89,+9.23]
+
+The stationary cell was the one with all three seeds agreeing in sign at n=3. At n=8 the point
+estimate is one seventh of its former size and the sign of the ALL cell has flipped. This is a
+PROPERLY POWERED null, not another underpowered one: the CI half-width in the stationary cell is
+2.87pp, so the original -4.10pp is now excluded. The effect was not there.
+
+THE COUNTERFACTUAL DOES NOT SUPPORT THE REDUNDANCY MECHANISM. Section IV's claim that pose is
+redundant *because* the tracker heading is already an input remains correlational (onset-direction
+error + stratification). Do not write it as causal.
+
+This is the third signal in this project to dissolve with more seeds, after the xattn+PE headline
+(-3.5% at n=3 -> -0.8% n.s. at n=5) and the AVO round-2 candidate (-1.18% at n=5 proxy -> -0.04%
+at n=8 full recipe). The pattern is now so consistent it deserves to be the methodological point
+of the paper: at this scale, n=3 produces sign-consistent effects of several percent that are
+simply not real.
+
+IT IS ALSO EXACTLY WHAT THE DETECTION FLOOR PREDICTS, which is the useful part. The decay law
+gain(theta) = 16.0% * exp(-theta/6.41 deg) puts SMPL facing (44.2 deg) at a predicted gain of
+0.016%. A channel that far below the floor cannot be rescued by deleting a competing channel --
+there is nothing to un-block. The null DiD is a successful prediction of the floor model, not an
+unexplained failure. The two results fit together:
+  - detection floor: a late-fused side branch needs < ~10 deg bearing accuracy to pay at all
+  - heading ablation: removing heading does not help pose, because pose was never above the floor
+
+ONE CELL TO NOT OVER-READ: stationary / heading present / content = +1.79%, t(7)=3.41, p=0.0113,
+i.e. correct pose significantly WORSE than shuffled pose. Twelve contrasts were computed (3
+subpopulations x 4 tests), so this does not survive even a crude multiplicity correction
+(Bonferroni 12 -> 0.13), and "correct pose is worse than a stranger's pose" has no mechanism
+behind it. Treat as noise unless it replicates in a pre-specified test. Never quote it.
