@@ -1635,3 +1635,30 @@ i.e. correct pose significantly WORSE than shuffled pose. Twelve contrasts were 
 subpopulations x 4 tests), so this does not survive even a crude multiplicity correction
 (Bonferroni 12 -> 0.13), and "correct pose is worse than a stranger's pose" has no mechanism
 behind it. Treat as noise unless it replicates in a pre-specified test. Never quote it.
+
+### Section IV rebuilt around the detection floor (2026-10-21)
+
+Paper restructured so the floor carries the mechanism and redundancy becomes corroboration:
+
+  IV-A "A detection floor for auxiliary channels" -- the ladder, the decay law
+       Delta minADE(theta) = -16.0% * exp(-theta/6.41 deg), break-even at 13.3 deg,
+       new Table II (8 rungs, CIs, paired t vs no-pose).
+  IV-B "Pose is far below the floor" -- 44.2 deg measured on the onset task, law predicts
+       0.02% against a ~2% capacity cost; box-heading comparison and the stratification
+       demoted to corroboration that 44.2 deg is real.
+  IV-B also carries "What this does not establish": the box heading at 25.2 deg is ALSO
+       below the floor (0.31% predicted), so pose does not lose because heading is more
+       accurate; the difference is delivery (native per-timestep input vs late-fused
+       branch) and no ladder was run on the native channel. Then the n=8 heading-ablation
+       null is reported as a successful prediction of the floor model rather than a
+       failed experiment.
+
+Also changed: the Introduction's second contribution is now the floor rather than the
+redundancy mechanism (the old wording asserted as causal what the n=8 counterfactual does not
+support); the Conclusion quotes the ~15 deg threshold; the general condition gains a third
+clause (measurement error must leave the modality above the pathway's floor).
+
+Cut to hold 6 pages: the onset-stratification table (folded into one sentence keeping the
+range extremes and the jitteriest quartile), and compression of the Introduction, the tuning
+paragraph, the practice section and Limitations. 6 pages, no overfull boxes, no undefined
+references, 17 citations.
