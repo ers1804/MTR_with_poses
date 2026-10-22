@@ -1,14 +1,14 @@
 % Standalone wrapper for fig_architecture.tex -- compile with pdflatex to check
 % that the figure builds and to inspect proportions.  The main paper needs:
 %   \usepackage{tikz}
-%   \usetikzlibrary{positioning,arrows.meta,calc}
-% (fit/backgrounds are not required by the figure but are harmless.)
+%   \usetikzlibrary{positioning,arrows.meta,calc,fit}
+% (fit is required by the token-row helper.)
 \documentclass[border=2pt]{standalone}
 \usepackage[T1]{fontenc}
 \usepackage{times}            % IEEEtran conference mode uses Times
 \usepackage{amsmath,amssymb}
 \usepackage{tikz}
-\usetikzlibrary{positioning,arrows.meta,calc}
+\usetikzlibrary{positioning,arrows.meta,calc,fit}
 \begin{document}
 \input{fig_architecture}
 \end{document}

@@ -5,7 +5,7 @@
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta,calc}
+\usetikzlibrary{arrows.meta,calc,positioning,fit}
 \usepackage{xspace}
 \usepackage{url}
 \usepackage[hidelinks]{hyperref}
@@ -146,13 +146,14 @@ an AV setting, with the reason it does not.
 \centering
 \input{fig_architecture}
 \caption{The two arms differ only in \emph{whose} body enters the model. The
-content-test switch (left) feeds the predictor either the pedestrian's own SMPL
+content-test switch~(1) feeds the predictor either the pedestrian's own SMPL
 sequence or another pedestrian's, holding parameters, optimiser and input
-dimensionality fixed; everything downstream is shared. The agent-history strip
-shows that the tracker's box heading is \emph{already} an input. Solid accent:
-the pose branch (late fusion), which costs ${\approx}1.6\%$ \minADE whether it
-carries the right body or the wrong one; dashed: early fusion, which removes that
-cost and still yields no benefit.}
+dimensionality fixed; everything downstream is shared. Blue: MTR, unchanged;
+orange: added for pose. The agent-history strip shows that the tracker's box
+heading is \emph{already} an input. Solid orange~(2): the pose branch (late
+fusion), which costs ${\approx}1.6\%$ \minADE whether it carries the right body
+or the wrong one; dashed~(3): early fusion, which removes that cost and still
+yields no benefit.}
 \label{fig:arch}
 \end{figure*}
 

@@ -1,123 +1,175 @@
+% Architecture figure for the IV paper, in the visual language of the ICLR figure
+% (paper/iclr2026/fig_architecture.tex): blue = MTR unchanged, orange = added for pose,
+% dashed orange = early fusion (no branch), circled numbers = what the text refers to.
+% Requires: \usepackage{tikz} \usetikzlibrary{arrows.meta,calc,fit}, and fig_pose_sequence.png
+% (SMPL render strip, copied from the EgoPed architecture figure) next to this file.
+\definecolor{ink}{HTML}{1F2A37}
+\definecolor{posefill}{HTML}{FAD9A9}\definecolor{poseedge}{HTML}{D48A2A}\definecolor{posetok}{HTML}{EFA54A}
+\definecolor{mtrfill}{HTML}{D4E4F4}\definecolor{mtredge}{HTML}{4F82BE}\definecolor{agenttok}{HTML}{6E9BD0}
+\definecolor{mapedge}{HTML}{8A8A8A}\definecolor{maptok}{HTML}{BDBDBD}
+\definecolor{fusedtok}{HTML}{B4A3C9}\definecolor{posein}{HTML}{FCEBD2}
 \begin{tikzpicture}[
-  x=1cm, y=1cm,
-  font=\scriptsize,
-  >={Stealth[length=4pt,width=3pt]},
-  % --- styles -------------------------------------------------------------
-  blk/.style={draw=black, line width=0.5pt, fill=black!6, align=center,
-              inner xsep=3pt, inner ysep=2pt, minimum height=0.6cm},
-  pblk/.style={blk, fill=white, draw=figaccent, line width=0.8pt},
-  src/.style={blk, fill=white, minimum width=2.3cm, minimum height=0.55cm},
-  annfont/.style={font=\fontsize{6}{7}\selectfont},
-  cell/.style={draw=black, line width=0.4pt, fill=white, annfont, align=center,
-               inner sep=1pt, outer sep=0pt, minimum height=0.55cm},
-  bb/.style={draw=black, line width=0.5pt, ->},
-  late/.style={draw=figaccent, line width=1pt, ->},
-  early/.style={draw=figaccent, line width=1pt, dash pattern=on 3pt off 2pt, ->},
-  ann/.style={annfont, align=center, text=black!85, inner sep=1pt},
-  tap/.style={circle, fill=black, inner sep=0pt, minimum size=2.6pt},
+  font=\sffamily\scriptsize,
+  >={Stealth[length=4pt,width=3.5pt]},
+  line/.style={->,draw=ink,line width=0.6pt},
+  late/.style={->,draw=poseedge,line width=1pt},
+  early/.style={->,draw=poseedge,line width=1pt,dash pattern=on 3pt off 2pt},
+  stage/.style={draw,rounded corners=3pt,line width=0.7pt,align=center,inner sep=3pt,minimum height=9mm},
+  mtr/.style={stage,fill=mtrfill,draw=mtredge},
+  pose/.style={stage,fill=posefill,draw=poseedge},
+  op/.style={draw=poseedge,rounded corners=2pt,line width=0.7pt,fill=white,align=center,inner sep=2pt},
+  cell/.style={draw=ink,line width=0.4pt,fill=white,align=center,font=\sffamily\tiny,
+               inner sep=1pt,outer sep=0pt,minimum height=5.5mm},
+  lbl/.style={align=center,inner sep=1pt,text=ink},
+  note/.style={align=center,inner sep=1pt,text=ink!75,font=\sffamily\tiny},
+  num/.style={circle,draw=ink,fill=white,line width=0.5pt,inner sep=0.6pt,font=\sffamily\tiny\bfseries},
 ]
-\definecolor{figaccent}{RGB}{0,95,140}
 
-% =========================================================================
-% (1) POSE INPUT: own pose vs. another pedestrian's pose, selected by a switch
-% =========================================================================
-\node[src] (own) at (1.35,5.55) {own pose\\(SMPL, $11{\times}144$)};
-\node[src] (oth) at (1.35,4.65) {\textbf{another pedestrian's} pose\\(shuffled control, $11{\times}144$)};
-\coordinate (tA) at (2.85,5.55);
-\coordinate (tB) at (2.85,4.65);
-\coordinate (piv) at (3.55,5.1);
-\coordinate (split) at (4.1,5.1);
-\draw[line width=0.5pt] (own.east) -- (tA);
-\draw[line width=0.5pt] (oth.east) -- (tB);
-\fill (tA) circle (1.6pt);
-\fill (tB) circle (1.6pt);
-\fill (piv) circle (1.6pt);
-\draw[line width=1.1pt] (piv) -- (tA);                       % lever: own pose selected
-\draw[line width=0.6pt, black!45, dotted] (piv) -- (tB);      % alternative lever position
-\draw[<->, black!60, line width=0.4pt]
-  (piv) ++(150:0.55) arc[start angle=150, end angle=210, radius=0.55];
-\node[ann, anchor=west] at (0.3,4.17) {content-test switch: only the body differs};
-\draw[figaccent, line width=1pt] (piv) -- (split);
+% ---------- helpers (same as the ICLR figure) ----------
+% \ivtokrow{x}{y}{n}{fill}{name}: n adjacent token squares, left edge at x, centred on y
+\newcommand{\ivtokrow}[5]{%
+  \foreach \k in {1,...,#3}{%
+    \draw[fill=#4,draw=ink,line width=0.35pt] ($(#1,#2)+({(\k-1)*0.2},-0.1)$) rectangle ++(0.2,0.2);}%
+  \node[inner sep=0pt,fit={(#1,#2-0.1) ($(#1,#2)+({#3*0.2},0.1)$)}] (#5) {};}
 
-% =========================================================================
-% (3a) LATE FUSION: pose branch -> concat with agent feature -> fuser MLP
-% =========================================================================
-\node[pblk, minimum width=1.9cm] (penc) at (5.45,5.1) {Pose encoder\\(GRU or x-attn$+$PE)};
-\node[pblk, rounded corners=2pt, annfont, inner sep=1.5pt, minimum height=0.3cm] (cat) at (8.8,5.1) {concat};
-\node[pblk, minimum width=1.4cm] (fuse) at (10.2,5.1) {Fuser MLP};
+% =====================================================================
+% (1) content-test switch: own pose vs. another pedestrian's pose
+% =====================================================================
+% pose sequences, rendered (the SMPL strip from the EgoPed architecture figure)
+\node[inner sep=0pt] (gOwn) at (1.09,{6.12-0.16}) {\includegraphics[width=13mm]{fig_pose_sequence.png}};
+\draw[->,ink!70,line width=0.4pt] ($(gOwn.north west)+(0,0.12)$) -- ($(gOwn.north east)+(0,0.12)$)
+  node[midway,above=-1pt,font=\sffamily\tiny,text=ink!80] {time};
+\node[lbl,below=1pt of gOwn] {own pose};
+\node[inner sep=0pt] (gOth) at (1.09,{5.07-0.16}) {\includegraphics[width=13mm]{fig_pose_sequence.png}};
+\node[lbl,below=1pt of gOth] {\textbf{another} pedestrian's\\pose (shuffled)};
+
+\coordinate (tA) at (2.15,{6.12-0.16});
+\coordinate (tB) at (2.15,{5.07-0.16});
+\coordinate (piv) at (2.8,5.43);
+\coordinate (split) at (3.7,5.43);
+\draw[ink,line width=0.5pt] (gOwn.east |- tA) -- (tA);
+\draw[ink,line width=0.5pt] (gOth.east |- tB) -- (tB);
+\fill[ink] (tA) circle (1.5pt) (tB) circle (1.5pt) (piv) circle (1.5pt);
+\draw[ink,line width=1.1pt] (piv) -- (tA);                      % lever: own pose selected
+\draw[ink!45,line width=0.6pt,dotted] (piv) -- (tB);            % alternative lever position
+\draw[<->,ink!60,line width=0.4pt] (piv) ++(150:0.5) arc[start angle=150,end angle=210,radius=0.5];
+\node[num] at ($(piv)+(0.3,-0.27)$) {1};
+\node[note,anchor=south] at (2.85,6.08) {content-test switch:\\only the body differs};
+\draw[poseedge,line width=1pt] (piv) -- (split) node[midway,above=-1pt,lbl,font=\sffamily\tiny] {11\,$\times$\,144};
+
+% =====================================================================
+% (2) late fusion: pose encoder -> concat with agent feature -> fuser MLP
+% =====================================================================
+\node[pose,minimum width=24mm] (penc) at (5.35,5.43)
+  {\textbf{Pose encoder}\\GRU or x-attn $+$ PE};
+\node[num] at (penc.north west) {2};
 \draw[late] (split) -- (penc.west);
-\draw[late] (penc) -- node[above, ann] {one vector} (cat);
-\draw[late] (cat) -- (fuse);
-\node[ann, anchor=south] at (9.6,5.55)
-  {\textbf{branch-capacity tax:} ${\approx}{+}1.6\%$ minADE, own \emph{or} shuffled pose alike};
+\ivtokrow{7.55}{5.43}{1}{posetok}{tPose}
+\node[lbl,above=1pt of tPose,font=\sffamily\tiny] {one vector};
+\draw[late] (penc.east) -- (tPose.west);
+\node[op] (cat) at (9.7,5.43) {concat};
+\draw[late] (tPose.east) -- (cat.west);
+\node[pose,minimum width=15mm] (fuse) at (11.05,5.43) {\textbf{Fuser}\\MLP};
+\draw[late] (cat.east) -- (fuse.west);
+\ivtokrow{12.1}{5.43}{1}{fusedtok}{tFused}
+\draw[late] (fuse.east) -- (tFused.west);
+\node[note,anchor=south,text=poseedge!80!black] at (8.75,5.98)
+  {\textbf{branch-capacity tax:} ${\approx}$\,+1.6\% minADE, own \emph{or} shuffled pose alike};
 
-% =========================================================================
-% (3b) EARLY FUSION: 8 frame-invariant descriptors appended to agent channels
-% =========================================================================
-\node[pblk, minimum width=2.1cm, minimum height=0.5cm, dash pattern=on 3pt off 2pt] (desc) at (5.3,4.05)
+% =====================================================================
+% (3) early fusion: 8 frame-invariant descriptors appended to the agent channels
+% =====================================================================
+\node[pose,dashed,minimum width=22mm,minimum height=6mm] (desc) at (5.2,4.0)
   {8 frame-invariant\\pose descriptors};
+\node[num] at (desc.north west) {3};
 \draw[early] (split) |- (desc.west);
-\node[ann, anchor=west, align=left] at (6.5,4.05)
-  {\textbf{free:} $-0.01\%$\\vs.\ no-pose;\\still no gain};
+\node[note,anchor=west,align=left,text=poseedge!80!black] at (6.45,4.0)
+  {\textbf{free:} $-$0.01\% vs.\ no-pose;\\still no gain};
 
-% =========================================================================
-% (2) AGENT HISTORY with heading channel called out
-% =========================================================================
-\node[font=\scriptsize, anchor=west, inner sep=0pt] at (0.2,3.55)
-  {Agent history ($11$ steps $\times$ $29$ channels)};
-\node[cell, minimum width=1.05cm, anchor=west] (c1) at (0.2,3.0) {pos, size};
-\node[cell, minimum width=0.55cm, anchor=west] (c2) at (c1.east) {type};
-\node[cell, minimum width=0.55cm, anchor=west] (c3) at (c2.east) {time};
-\node[cell, minimum width=1.1cm, anchor=west, fill=black!14, line width=1.3pt,
-      font=\fontsize{6}{7}\selectfont\bfseries] (c4) at (c3.east)
-  {heading\\(sin, cos)};
-\node[cell, minimum width=0.5cm, anchor=west] (c5) at (c4.east) {vel};
-\node[cell, minimum width=0.5cm, anchor=west] (c6) at (c5.east) {acc};
-\node[cell, minimum width=1.3cm, anchor=west, draw=figaccent, text=figaccent,
-      line width=0.8pt, dash pattern=on 2pt off 1.5pt] (c7) at (c6.east)
-  {$+8$ pose\\descr.\ ($\to 37$)};
+% =====================================================================
+% agent history strip, heading channel called out
+% =====================================================================
+\node[lbl,anchor=west,inner sep=0pt] at (0.15,3.42) {Agent history (11 steps $\times$ 29 channels)};
+\node[cell,minimum width=10.5mm,anchor=west] (c1) at (0.15,2.9) {pos, size};
+\node[cell,minimum width=5.5mm,anchor=west] (c2) at (c1.east) {type};
+\node[cell,minimum width=5.5mm,anchor=west] (c3) at (c2.east) {time};
+\node[cell,minimum width=11mm,anchor=west,fill=mtrfill,draw=mtredge,line width=1.2pt,
+      font=\sffamily\tiny\bfseries] (c4) at (c3.east) {heading\\(sin, cos)};
+\node[cell,minimum width=5mm,anchor=west] (c5) at (c4.east) {vel};
+\node[cell,minimum width=5mm,anchor=west] (c6) at (c5.east) {acc};
+\node[cell,minimum width=13mm,anchor=west,fill=posein,draw=poseedge,line width=0.8pt,
+      dash pattern=on 2pt off 1.5pt] (c7) at (c6.east) {+8 pose\\descr.\ ($\to$\,37)};
 \draw[early] (desc.south -| c7) -- (c7.north);
 
-\node[ann, anchor=north] (hann) at (c4.south |- 0,2.45)
+\node[note,anchor=north] (hann) at (c4.south |- 0,2.4)
   {\textbf{already carries body facing} (tracker box heading),\\
    more accurately than the pose branch recovers it\\
-   ($25^\circ$ vs.\ $44^\circ$ median onset error)};
-\draw[black!75, line width=0.5pt, ->] (hann.north) -- (c4.south);
+   (25$^\circ$ vs.\ 44$^\circ$ median onset error)};
+\draw[->,mtredge,line width=0.5pt] (hann.north) -- (c4.south);
 
-% =========================================================================
-% (4) BACKBONE: encoders -> global self-attention -> motion decoder -> 6 modes
-% =========================================================================
-\node[blk, minimum width=1.8cm] (aenc) at (7.3,3.0) {Agent encoder\\(polyline MLP)};
-\node[src] (map) at (1.35,1.1) {HD map polylines};
-\node[blk, minimum width=1.8cm] (menc) at (7.3,1.1) {Map encoder\\(polyline MLP)};
-\node[blk, minimum width=2.0cm, minimum height=2.6cm] (tr) at (12.5,2.05)
-  {Global\\self-attention\\(transformer)};
-\node[blk, minimum width=1.7cm, minimum height=1.4cm] (dec) at (15.15,2.05) {Motion\\decoder};
+% =====================================================================
+% MTR backbone: polyline encoders -> global self-attention -> motion decoder
+% =====================================================================
+\node[mtr,minimum width=22mm] (aenc) at (7.25,2.9) {\textbf{Agent encoder}\\polyline MLP};
+\draw[line] (c7.east) -- (aenc.west);
+\ivtokrow{8.75}{2.9}{3}{agenttok}{tA}
+\node[lbl,below=1pt of tA,font=\sffamily\tiny] {agent tokens};
+\draw[line] (aenc.east) -- (tA.west);
 
-\draw[bb] (c7.east) -- (aenc.west);
-\draw[bb] (map.east) -- (menc.west);
-\draw[bb] (aenc.east) -- (tr.west |- aenc);
-\draw[bb] (menc.east) -- (tr.west |- menc);
-\draw[bb] (tr.east) -- (dec.west);
+\foreach \dy/\bend in {0/10,0.17/-8,0.34/14}{
+  \draw[mapedge,line width=0.7pt] (0.45,{1.17-\dy}) to[bend left=\bend] (1.73,{1.1-\dy});}
+\node[inner sep=0pt,fit={(0.45,1.22) (1.73,0.72)}] (gM) {};
+\node[lbl,below=1pt of gM] {HD map polylines};
+\node[mtr,minimum width=22mm] (menc) at (7.25,0.97) {\textbf{Map encoder}\\polyline MLP};
+\draw[line] (gM.east) -- (menc.west);
+\ivtokrow{8.75}{0.97}{3}{maptok}{tM}
+\node[lbl,below=1pt of tM,font=\sffamily\tiny] {map tokens};
+\draw[line] (menc.east) -- (tM.west);
 
-% late-fusion detour: tap the agent feature, fuse, re-enter the transformer
-\node[tap] (tp) at (8.8,3.0) {};
-\draw[late] (tp) -- node[right, ann, pos=0.3] {agent feature} (cat);
-\draw[late] (fuse.east) -| (tr.north);
+\node[mtr,minimum width=20mm,minimum height=31mm] (tr) at (13.15,1.95)
+  {\textbf{Global}\\\textbf{self-attention}\\Transformer\\over agent $+$\\map tokens};
+\draw[line] (tA.east) -- (tA.east -| tr.west);
+\draw[line] (tM.east) -- (tM.east -| tr.west);
+\draw[late] (tFused.east) -| (tr.north);
+
+% late-fusion detour: tap the agent feature into the concat
+\fill[poseedge] (9.7,2.9) circle (1.6pt);
+\draw[late] (9.7,2.9) -- node[pos=0.22,right,lbl,font=\sffamily\tiny] {agent feature} (cat.south);
+
+\node[mtr,minimum width=16mm,minimum height=15mm] (dec) at (15.55,1.95) {\textbf{Motion}\\\textbf{decoder}};
+\draw[line] (tr.east) -- (dec.west);
 
 % six predicted modes
-\foreach \k in {0,...,5} {
-  \draw[bb] (dec.east) .. controls (16.5,2.05) and (16.9,{2.05+(\k-2.5)*0.28}) ..
-    (17.6,{2.05+(\k-2.5)*0.34});
-}
-\node[ann, anchor=north] at (16.9,1.15) {6 predicted modes};
+\begin{scope}[shift={(dec.east)}]
+  \foreach \a in {-30,-17,-5,6,18,30}{%
+    \pgfmathsetmacro{\fx}{1.05*cos(\a)}\pgfmathsetmacro{\fy}{1.05*sin(\a)*0.75}%
+    \draw[agenttok,line width=0.7pt] (0,0) .. controls (0.45,0) .. (\fx,\fy);}
+  \fill[ink] (0,0) circle (0.9pt);
+\end{scope}
+\node[lbl,anchor=north] at ($(dec.east)+(0.5,-0.45)$) {6 modes};
 
-% =========================================================================
+% =====================================================================
 % legend
-% =========================================================================
-\begin{scope}[shift={(13.7,5.6)}]
-  \draw[late,-]  (0,0)    -- (0.6,0);    \node[ann, anchor=west] at (0.7,0)    {pose branch (late fusion)};
-  \draw[early,-] (0,-0.32) -- (0.6,-0.32); \node[ann, anchor=west] at (0.7,-0.32) {early fusion (8 descriptors, no branch)};
-  \draw[bb,-]    (0,-0.64) -- (0.6,-0.64); \node[ann, anchor=west] at (0.7,-0.64) {backbone (trajectory $+$ map)};
+% =====================================================================
+\begin{scope}[shift={(0,-0.45)},font=\sffamily\scriptsize,
+    sw/.style={minimum width=3.5mm,minimum height=2mm,inner sep=0pt,rounded corners=1.5pt,line width=0.5pt},
+    tk/.style={minimum size=1.6mm,inner sep=0pt,draw=ink,line width=0.35pt},
+    lt/.style={anchor=west,inner sep=1.5pt,text=ink}]
+  \node[sw,fill=mtrfill,draw=mtredge] (l1) at (0.3,0) {};
+  \node[lt] (t1) at (l1.east) {MTR, unchanged};
+  \node[sw,fill=posefill,draw=poseedge,right=3mm of t1] (l2) {};
+  \node[lt] (t2) at (l2.east) {added for pose};
+  \draw[late,-] ($(t2.east)+(0.3,0)$) -- ++(0.5,0) coordinate (e3);
+  \node[lt] (t3) at (e3) {pose branch (late fusion)};
+  \draw[early,-] ($(t3.east)+(0.3,0)$) -- ++(0.5,0) coordinate (e4);
+  \node[lt] (t4) at (e4) {early fusion (no branch)};
+  \node[tk,fill=agenttok,right=4mm of t4] (l5) {};
+  \node[lt] (t5) at (l5.east) {agent};
+  \node[tk,fill=posetok,right=2mm of t5] (l6) {};
+  \node[lt] (t6) at (l6.east) {pose};
+  \node[tk,fill=fusedtok,right=2mm of t6] (l7) {};
+  \node[lt] (t7) at (l7.east) {fused agent};
+  \node[tk,fill=maptok,right=2mm of t7] (l8) {};
+  \node[lt] (t8) at (l8.east) {map};
 \end{scope}
 \end{tikzpicture}
