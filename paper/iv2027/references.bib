@@ -12,10 +12,13 @@
 % The Waymo Open Dataset and keypoint entries carry 23 and 12 authors; printing
 % them in full costs most of a column in a 6-page limit.
 % ---------------------------------------------------------------------------
+% URLs stay in the .bib for verification but are not printed (CTLuse_url): at
+% six pages the "[Online]. Available:" lines cost more than they return.
 @IEEEtranBSTCTL{IEEEexample:BSTcontrol,
   CTLuse_forced_etal       = "yes",
   CTLmax_names_forced_etal = "3",
-  CTLnames_show_etal       = "1"
+  CTLnames_show_etal       = "1",
+  CTLuse_url               = "no"
 }
 
 % ---------------------------------------------------------------------------
