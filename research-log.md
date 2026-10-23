@@ -1958,3 +1958,41 @@ oracle channel shuffled across agents would isolate it. Not queued yet: the floo
 zero-crossing across rungs, which already absorbs whatever the tax is, so the measurement stands
 on its own. The control is only needed to EXPLAIN a disagreement between the two pathways' floors,
 so it is worth running if and only if they disagree.
+
+### 2026-10-23 rung 10.2 at n=4: the s404 denominator dominates it
+
+MS_oracledir10_s404 finished (52 min/run, so the 13-run queue lands around 23:00). Its pair reads
+-15.45% against -2.38 / -2.75 / -6.00 for the other three seeds. The rung mean moves from -3.72%
+to -6.65%, but the variance inflation more than cancels it: MDE goes 6.2 -> 12.7 pp and p from
+0.084 to 0.117. The bracket is unchanged at [5.5, 10.2] under both denominators -- by luck, not
+by design. (The review's mid-run read that s404 was "tracking 2-4% better than its baseline at
+matched epochs" did not hold at the final epoch.)
+
+POWER, WHICH DECIDES WHETHER PART A CAN WORK AT ALL:
+  with s404     mean -6.64%  sd 6.09  -> needs n=9; n=5 gives MDE 10.1%
+  without s404  mean -3.71%  sd 1.99  -> needs n=5; n=5 gives MDE 3.3%
+So Part A's whole premise -- that n=5 converts the bracket into a measurement -- holds if and only
+if that one denominator is sound. And it is load-bearing for the paper: if rung 10.2 goes
+significant the bracket's lower edge moves 5.5 -> 10.2, which puts pooled SMPL facing (12.3 deg)
+INSIDE the bracket and makes Sec. IV-B's three-way decomposition (heavy tail, trajectory-derived
+median, noisier copy of the box heading) the load-bearing argument rather than a supporting one.
+
+DECOMPOSING THE -15.45%: the s404 oracle run landed at 0.4189, which is BETTER than the other
+three oracles (0.4346 average), while its baseline is worse. Scored against the same seed's
+baseline in sibling cells the pair would read -8.4% (map_xattn_pe_fix) or -7.9%
+(map_shufflepose_fix). So roughly half the extremity is the bad denominator and half is a
+genuinely strong oracle run; it is not purely an artifact.
+
+ACTION: queued one resample of MS_map_nopose_fix_s404 (tools/scripts/run_baseline_s404_resample.sh,
+waits for the main queue so the two never race the GPU). This is NOT cherry-picking, and the
+ordering is the reason: the outlier criterion -- a >2 SD within-cell baseline from a seed that is
+not systematically slow -- was committed in fb8eee7 hours BEFORE this oracle run finished. The
+original is kept, not overwritten; detection_floor.py now scores every rung under each available
+denominator (all seeds / without s404 / s404 resampled) and shouts if the bracket edge moves
+between them, in which case the edge is reported as unresolved rather than picked. If the resample
+also lands near 0.495 then that is simply the seed's value and the original stands.
+
+detection_floor.py was restructured for this: per-rung statistics factored into stats_for(), rows
+rebuilt per denominator by build(), and infer_bracket() lifted to module scope (exercised on
+monotone / non-monotone / all-sig / none-sig / unsorted). The printed table still reproduces the
+published numbers exactly.
