@@ -944,12 +944,21 @@ class WaymoPoseDataset(DatasetTemplate):
             # Option 2: concatenate frame-invariant pose descriptors onto the per-timestep agent
             # features so the SAME polyline encoder sees trajectory and pose jointly, instead of
             # summarising pose in a side branch and adding it to a finished agent embedding.
-            # Headings come from the agent-centric trajectory (channel 6 of obj_trajs_past), and
-            # the descriptors are angle differences, so the result is frame-consistent.
-            head_ac = obj_trajs_past_filtered[:, :, 6]                       # (num_filtered, T)
-            head_tiled = np.tile(head_ac[None], (num_center_objects, 1, 1))  # (C, N, T)
-            _fn = _ov.derive_features if _ov is not None else derive_pose_features
-            derived = np.asarray(_fn(obj_poses, head_tiled), dtype=np.float32)  # (C, N, T, F)
+            if self.oracle_pose:
+                # Detection floor for the EARLY-fusion pathway. The oracle block above
+                # has already replaced obj_poses with its 6-channel future-displacement
+                # encoding, so deriving body descriptors from it would read oracle
+                # channels as if they were SMPL 6D rotations and silently measure
+                # nothing. Carry the oracle channels through directly instead: same
+                # information, same per-timestep agent features the descriptors use.
+                derived = obj_poses[..., :6].astype(np.float32)   # (C, N, T, 6)
+            else:
+                # Headings come from the agent-centric trajectory (channel 6 of obj_trajs_past),
+                # and the descriptors are angle differences, so the result is frame-consistent.
+                head_ac = obj_trajs_past_filtered[:, :, 6]                       # (num_filtered, T)
+                head_tiled = np.tile(head_ac[None], (num_center_objects, 1, 1))  # (C, N, T)
+                _fn = _ov.derive_features if _ov is not None else derive_pose_features
+                derived = np.asarray(_fn(obj_poses, head_tiled), dtype=np.float32)  # (C, N, T, F)
             assert np.isfinite(derived).all(), 'overlay produced non-finite features'
             derived = derived * obj_poses_mask[..., None].astype(np.float32) # invalid frames -> 0
             obj_trajs_data = np.concatenate([obj_trajs_data, derived], axis=-1)
