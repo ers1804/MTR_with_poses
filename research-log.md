@@ -1754,3 +1754,54 @@ trace is absent at the gate and economically irrelevant even at its point estima
 This closes the last regime the detection floor left open. Pose does not pay anywhere we can cut
 the data: not by manoeuvre (20 tests), not by horizon, not by range, not by how well the sensor
 resolved the body.
+
+### 2026-10-23 — LONGER OBSERVATION WINDOW: blocked by the dataset, and would not be enough
+
+Q: would more observed pose frames make body facing accurate enough to clear the floor?
+
+HARD BLOCKER FIRST. WOMD's LiDAR covers exactly the 1 s history: the extracted scenario pickles
+hold 11 frames spanning 1.00 s (timestamps 0 .. 999940 us) out of a 9.1 s scenario. There is
+nothing to extend into -- poses cannot exist outside that window, so the horizon cannot be
+increased on WOMD at all. The 11 frames are the dataset, not a design choice. (The existing
+window is not even full: across the export the mean is 8.9 of 11 frames, with only 56.7% of
+agents at the full 11.)
+
+That incompleteness is a natural experiment for the same question, so it was used as one
+(tools/scripts/facing_vs_observation_length.py, reusing the calibration of
+onset_pose_vs_heading.py, which is generous to pose). Reproduces the established figures exactly
+on all 1,705 onset events: SMPL facing 44.2 deg, box heading 25.2 deg.
+
+  frames   n      SMPL med   box med
+  1-3      41      77.0        16.5
+  4-6      61      70.6        22.2
+  7-9     130      46.7        24.5
+  10       77      62.4        27.8
+  11     1396      41.8        24.9
+  Spearman(frames, facing error) = -0.079, p=0.001
+
+So more frames DOES help -- 77 deg at 1-3 frames to 41.8 deg at 11, nearly halving. But the
+scaling is weak. A sqrt(n)-weighted power-law fit gives
+
+  facing error = 117.4 * frames^(-0.423)      (predicts 42.6 deg at 11 frames; measured 41.8)
+
+Extrapolating to the floor bracket:
+  to 10.2 deg (top of bracket):   324 frames =  32 s of continuous per-pedestrian observation
+  to  5.5 deg (bottom):         1,398 frames = 140 s
+  a 3x window (3 s)  -> 26.8 deg   |   a 10x window (11 s) -> 16.1 deg
+
+Both intermediate cases are still outside the bracket. You would need roughly THIRTY SECONDS of
+unbroken LiDAR on a single pedestrian to make this cue pay through this pathway; WOMD gives one.
+
+CAVEATS: the extrapolation runs ~30x beyond the data and rests on 5 group medians, one of which
+(10 frames, 62.4 deg) is out of line. More importantly the comparison is NOT causal -- agents
+with few frames are also the occluded and distant ones, so part of the gain with frame count is
+selection. That makes the fit an UPPER BOUND on what a longer window would buy, which only
+strengthens the conclusion.
+
+NOTE: the 30fps arm already in the matrix is NOT this experiment -- it varied future-pose
+SUPERVISION (giving the auxiliary losses real gradients), not the observation window.
+
+A STALE-DATA TRAP worth recording: /home/erik/big1/waymo_motion_poses/final_10fps is the
+CORRECTED per-scene re-export; the NAS copy at .../generated_motion/final_10fps is the
+pre-fix one. Running this analysis against the NAS path loaded only 103/1705 events and gave
+84.8 deg instead of 44.2. Always check a facing analysis reproduces 44.2/25.2 before trusting it.
