@@ -2253,3 +2253,40 @@ STILL OPEN AT THIS POINT:
    needs the inertness alternative and the early-fusion recommendation qualified; Sec. IV-B's
    "we have not measured the floor of that cheaper pathway" can now be answered.
 3. Page budget: 8 pages against a 6-page limit, cuts still deferred.
+
+### 2026-10-23 paper updated for Part B; back to 8 pages (the actual limit)
+
+Page limit confirmed as 8 including references, so no content needed cutting for budget -- but
+adding Part B pushed it to 9, with page 9 holding only references, so about one column had to come
+back out.
+
+APPLIED:
+- New Sec. IV-C "The cheaper pathway has no floor to measure": the early-fusion ladder, its
+  per-seed values, and the argument that this is the absence of a curve rather than a lower floor.
+  Explicitly withdraws the paper's earlier suggestion that a cue failing through the branch might
+  still pay if fused early.
+- Sec. III-B's free-carriage sentence now flags the inertness alternative ("a channel it costs
+  nothing to carry is also a channel it largely does not read").
+- Architecture figure caption, the practice section, and the limitations all updated: the paper no
+  longer says the floor belongs only to a late-fused branch, because we laddered two pathways.
+- TWO LEFTOVERS OF THE RETRACTED "FACTOR OF FOUR" CLAIM, found by grep and fixed. The general
+  condition said pose fails "by about a factor of four in bearing" and the conclusion said facing
+  is "roughly four times coarser than that bracket". Both were the mixed-units comparison removed
+  from Sec. IV-B this morning and both survived that edit. Now: outside the bracket for most
+  pedestrians, and a factor of four only for the stationary ones, where 41.2/10.2 really is 4.0.
+  Worth noting the paper-number checker did not catch these -- it verifies quantities present in
+  the artifacts, not retracted claims restated in prose. A grep for the retracted phrasing is the
+  thing that caught them, which is a lesson about what mechanical checking does and does not buy.
+- Conclusion gains one sentence on both pathways failing for identifiable and different reasons.
+
+TRIMMED back to 8 pages, ~280 words, all redundancy rather than substance: the early-fusion table
+(its per-seed values were already the prose's content); the onset paragraph's restatement of what
+the onset task is; a duplicated "measure it on the pathway you will ship" in the practice section;
+the "not a factor of four" rebuttal in Sec. IV-B, which only made sense against a draft no reader
+will see. Every measurement in the paper survived. Builds clean, one 2.6pt overfull box.
+
+STILL PENDING, both waiting on the resample (epoch 17/30):
+- Table II regeneration at mixed n. verify_paper_numbers.py correctly flags rung 10.2's MDE as
+  8.8 at n=5 against the table's 6.2 at n=3.
+- The abstract's "already indistinguishable from zero at 10.2 deg", which is p=0.054 at n=5
+  all-seeds and significant without s404.

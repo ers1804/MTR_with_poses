@@ -180,7 +180,8 @@ orange: added for pose. The agent-history strip shows that the tracker's box
 heading is \emph{already} an input. Solid orange~(2): the pose branch (late
 fusion), which costs ${\approx}1.6\%$ \minADE whether it carries the right body
 or the wrong one; dashed~(3): early fusion, which removes that cost and still
-yields no benefit.}
+yields no benefit---and which, fed an uncorrupted oracle, fails to exploit it on
+two seeds in three (Sec.~\ref{sec:earlyfloor}).}
 \label{fig:arch}
 \end{figure*}
 
@@ -362,16 +363,18 @@ This is an operating-point statement, and the operating point matters: it is
 measured at each run's best validation epoch. Models with wider inputs overfit
 sooner, so the sign of a pose-versus-no-pose comparison is not stable under a
 fixed late-epoch rule, where the no-pose arm has degraded further by then
-($+8.0\%$ in favour of pose at epoch $30$ at $n{=}3$, n.s.; $+0.9\%$ at $n{=}8$
-in the confirmation of Sec.~\ref{sec:search}, also n.s.). Neither magnitude is
-resolved at these seed counts; what is stable is that the comparison moves with
-the stopping rule, so we never compare architecturally different arms at a fixed
-late epoch. The \emph{content} test---whose two arms have identical input
+($+8.0\%$ in favour of pose at epoch $30$, $n{=}3$; $+0.9\%$ at $n{=}8$, both
+n.s. and neither resolved at these seed counts). What is stable is that the
+comparison moves with the stopping rule, so we never compare architecturally
+different arms at a fixed late epoch. The \emph{content} test---whose two arms have identical input
 dimensionality, and for which this asymmetry does not arise---is null under
 either rule. Replacing the $144$-d branch with eight frame-invariant descriptors
 fused into the existing agent channels removes the cost ($-0.01\%$ versus
 no-pose, $p{=}0.99$; $-1.67\%$ versus the branch, $p{=}0.12$ at $n{=}3$) without
-creating a benefit: pose can be carried for free, and still does not pay. We
+creating a benefit: pose can be carried for free, and still does not pay. That
+freedom turns out to be partly illusory---Sec.~\ref{sec:earlyfloor} shows this
+pathway fails to exploit even an uncorrupted oracle on two seeds in three, so a
+channel it costs nothing to carry is also a channel it largely does not read. We
 quote the seed-level $p$ here for consistency with the rest of the paper; a
 pedestrian-resampling bootstrap makes the branch contrast look decisive
 ($p{=}0.006$), which is exactly the unit error Sec.~\ref{sec:setup} warns
@@ -507,12 +510,11 @@ branch tax of Sec.~\ref{sec:real}, and we read no sign change into them.
 \subsection{Where body facing sits relative to the floor}
 \label{sec:belowfloor}
 The floor is calibrated in displacement-bearing error over every predicted
-pedestrian, so we measure body facing against that target, on that population.
-Median SMPL facing error is $12.3^\circ$ at $+3$\,s ($n{=}5{,}824$) and
-$15.1^\circ$ at $+8$\,s ($n{=}6{,}206$). Read naively that is \emph{not} below
-the floor: extrapolating each seed's fit to $12.3^\circ$ predicts
-$1.5$--$4.1\%$, at or above the ${\sim}1.6\%$ branch tax. Three properties of
-that median remove the apparent margin.
+pedestrian, so we measure body facing against that target, on that population:
+median $12.3^\circ$ at $+3$\,s ($n{=}5{,}824$), $15.1^\circ$ at $+8$\,s
+($n{=}6{,}206$). Read naively that is \emph{not} below the floor---each seed's
+fit at $12.3^\circ$ predicts $1.5$--$4.1\%$, at or above the ${\sim}1.6\%$ branch
+tax. Three properties of that median remove the apparent margin.
 
 \emph{Most of it is the trajectory restated.} $95.5\%$ of the scored agents are
 moving, and for a mover the pipeline snaps root orientation to the direction of
@@ -538,25 +540,22 @@ bracket for only $22.3\%$ of agents---even though we calibrated the SMPL forward
 axis \emph{against} the box heading first. The two differ by $10.0^\circ$ in
 median.
 
-The defensible claim is therefore not that facing misses the bracket by a factor
-of four in bearing error. It is that facing is inside the bracket only for the
-agents whose facing their own velocity already supplies, and outside it for the
-majority---most plainly for the stationary pedestrians the cue was introduced to
-serve.
+So facing is inside the bracket only for the agents whose facing their own
+velocity already supplies, and outside it for the majority---most plainly for the
+stationary pedestrians the cue was introduced to serve.
 
-\textbf{The onset task agrees.} Measured where pose should be at its best---which
-way a stationary pedestrian steps off, the one case where velocity carries no
-directional information---SMPL facing predicts onset direction at roughly twice
-chance: median error $44.2^\circ$, $50.6\%$ within $45^\circ$ (chance $90^\circ$,
-$25\%$), over $19{,}939$ validation pedestrians stationary at prediction time, of
-whom $8.5\%$ move more than $1$\,m within $3$\,s. Genuinely informative,
-consistent with the $41.2^\circ$ above, and not an artifact of our axis fitting:
-the box heading estimates the same quantity at $25.2^\circ$, and paired on the
-same events SMPL is $7.3^\circ$ worse in median (Wilcoxon
-$p{=}2.6{\times}10^{-43}$). Nor does pose take over where perception degrades---
-over $1{,}705$ onset events the gap favours the box heading in all ten testable
-strata ($p<10^{-5}$ each) and \emph{widens} with range, to $+32.9^\circ$ at
-$41$--$75$\,m, because both derive from the same returns.
+\textbf{The onset task agrees.} On the one case where velocity carries no
+directional information---which way a stationary pedestrian steps off---SMPL
+facing predicts onset direction at roughly twice chance over $19{,}939$
+validation pedestrians: median error $44.2^\circ$, $50.6\%$ within $45^\circ$
+(chance $90^\circ$, $25\%$). Informative, consistent with the $41.2^\circ$
+above, and not an artifact of our axis fitting: the box heading estimates the
+same quantity at $25.2^\circ$, and paired on the same events SMPL is
+$7.3^\circ$ worse in median (Wilcoxon $p{=}2.6{\times}10^{-43}$). Nor does pose
+take over where perception degrades---over $1{,}705$ onset events the gap favours
+the box heading in all ten testable strata ($p<10^{-5}$ each) and \emph{widens}
+with range, to $+32.9^\circ$ at $41$--$75$\,m, because both derive from the same
+returns.
 
 \begin{table}[t]
 \caption{Detection floor for the pose branch. A direction-only oracle corrupted
@@ -590,26 +589,53 @@ $57.4^\circ$ & $+2.7\%$  & $0.237$  & $[-4.2,+9.5]$  & $8.5$ \\
 
 \textbf{What this does not establish.} On the stationary pedestrians the box
 heading is \emph{also} outside the bracket---(\ref{eq:floor}) at its $25.2^\circ$
-predicts $0.3\%$, per-seed $0.1$--$1.4\%$, under the branch tax on every
-seed---so it is not that pose loses to heading because heading is accurate enough
-to pay through this pathway. Through a late-fused side branch neither accuracy
-would pay. Pooled over all predicted pedestrians the box heading's $3.9^\circ$ is
-well inside the bracket, which is consistent with its value to the model; but it
-reaches the model as a native per-timestep input rather than through a branch,
-and we have not run a ladder on that channel. The floor we report is a property
-of the auxiliary branch, not of every way a cue can enter a model. Sec.~\ref{sec:real} makes that caveat
-concrete: early fusion of the same information removes the branch tax entirely,
-and we have not measured the floor of that cheaper pathway.
+predicts $0.3\%$, per-seed $0.1$--$1.4\%$, under the branch tax on every seed---so
+pose does not lose to heading because heading is accurate enough to pay through
+this pathway; through a late-fused branch neither accuracy would. Pooled, the box
+heading's $3.9^\circ$ is well inside the bracket, but it reaches the model as a
+native per-timestep input rather than through a branch, and we have not laddered
+that channel. The floor is a property of the pathway, not of every way a cue can
+enter a model---and Sec.~\ref{sec:earlyfloor} ladders the one alternative we
+could test, finding it converts the cue even less reliably.
 
 We tested the implied counterfactual directly. Removing the heading channel
 entirely and repeating the content test changes it by $-0.6$\,pp in the
 stationary subpopulation ($n{=}8$, $p{=}0.65$, CI $[-3.5,+2.3]$): no effect.
-That is consistent with (\ref{eq:floor}) for a channel that was never inside the
-bracket, though a null here is equally consistent with pose carrying nothing the
-trajectory does not already supply; it rules out the redundancy mechanism as the
-\emph{cause}, rather than confirming the floor. At $n{=}3$ that same comparison read $-4.1$\,pp with all three seeds
-agreeing in sign---the third multi-percent effect in this study to dissolve under
-more seeds.
+That is consistent with (\ref{eq:floor}) for a channel never inside the bracket,
+though equally consistent with pose carrying nothing the trajectory does not
+already supply; it rules out redundancy as the \emph{cause} rather than
+confirming the floor. At $n{=}3$ the same comparison read $-4.1$\,pp with all
+three seeds agreeing in sign---the third multi-percent effect here to dissolve
+under more seeds.
+
+\subsection{The cheaper pathway has no floor to measure}
+\label{sec:earlyfloor}
+Early fusion removes the branch tax (Sec.~\ref{sec:real}), which makes it the
+pathway worth recommending---so we ran the same ladder through it, carrying the
+oracle in the per-timestep agent channels instead of the branch. At a given rung
+the six channels equal the branch's six inputs bit for bit, so the rungs keep
+their measured-error labels.
+
+No rung is significant, \emph{including the uncorrupted one}: $-4.5\%$ at
+$\theta{=}0$ ($p{=}0.44$, MDE $25.5$), $-1.0\%$ at $5.5^\circ$ ($p{=}0.53$) and
+$+0.2\%$ at $10.2^\circ$ ($p{=}0.94$), at $n{=}3$ throughout. That is not a
+lower floor; it is the absence of a curve on which to locate one. At $\theta{=}0$ the channel is the agent's own
+future bearing, and the side branch converts it on all three seeds ($-16.5\%$,
+$-19.3\%$, $-11.5\%$); early fusion converts it on one ($-14.0\%$, against
+$+0.7\%$ and $-0.3\%$). The two failing seeds sit at their no-pose level from
+$\theta{=}0$ onward and their validation curves never approach the successful
+one's, so the cue reaches the input and is not used.
+
+This reframes the free-carriage result of Sec.~\ref{sec:real}. ``No tax, no
+benefit'' admits two readings: that early fusion integrates pose at no capacity
+cost, or that it largely ignores the appended channels, in which case there is
+nothing to cost and nothing to gain. A perfect channel separates them---the first
+predicts a large gain, the second none---and we measure none on two seeds in
+three. We therefore withdraw the suggestion that a cue failing through the branch
+might still pay if fused early: where we could test it, the cheaper integration
+was the less reliable one. Caveats: $n{=}3$, and the free-carriage result was
+measured at $25$k scenes while this ladder runs at $579$.
+
 
 \begin{figure}[t]
 \centering
@@ -704,19 +730,20 @@ baseline is neither saturated nor dominated by intent the modality cannot
 observe, and where the modality's own measurement error leaves it above the
 integration pathway's detection floor.} All three clauses must hold. The third is
 the cheapest to check and the one most often skipped---and for pose on WOMD it is
-the one that fails, by about a factor of four in bearing.
+the one that fails: body facing is inside the bracket only for the agents whose
+facing their own velocity already supplies, and outside it for the majority.
 
 \section{What This Means in Practice}
 For an AV stack, three consequences follow. First, before integrating an
 auxiliary modality, measure its error on the cue it is meant to carry and
-compare that against the floor of the pathway you intend to use---an oracle
-ladder costs a handful of runs and no new sensor. That floor is a property of
-the pathway, not of the modality: ours is measured through a late-fused branch,
-and a cue that cannot pay there may still pay if fused early. Second, the
+compare that against the floor of the pathway you intend to ship---an oracle
+ladder costs a handful of runs and no new sensor. That floor belongs to the
+pathway, not the modality: we laddered two, and the cheaper one was not the safer
+one (Sec.~\ref{sec:earlyfloor}). Second, the
 capacity cost of an extra branch is real (${\sim}1.6\%$ here, at the best-epoch
 operating point) and is easily mistaken for a modality effect in either
-direction; early fusion avoids it, and a shuffled-pose control separates the
-two. Third, do not accept a pose estimator on aggregate MPJPE alone: check
+direction; early fusion avoids it, though on our evidence it does so partly by
+not reading the channel, and a shuffled-pose control separates the two. Third, do not accept a pose estimator on aggregate MPJPE alone: check
 per-joint skill, because the joints an aggregate flatters may be the ones
 carrying a prior.
 
@@ -725,8 +752,9 @@ $299{,}220$ exported, so the full rung is a compute limit rather than an
 annotation one; at eight seeds the minimum detectable content effect is
 ${\approx}1.25\%$ at $80\%$ power, and the ladder's own rungs are far coarser
 ($n{=}3$, Table~\ref{tab:floor}). We test one forecaster, one dataset and one
-pose estimator, and the floor we measure belongs to a late-fused side branch,
-not to every way a cue can enter a model. WOMD ships camera data only as
+pose estimator. We measure the floor on two integration pathways rather than
+one, but two is not every way a cue can enter a model, and the early-fusion
+ladder is $n{=}3$ at the $579$-scene rung. WOMD ships camera data only as
 quantised tokens, so a camera-based pose or gaze estimate cannot be tested at
 this scale; on Waymo Perception, where raw imagery exists, an RGB estimator
 (HMR2.0) reaches $106.2$\,mm root-aligned MPJPE against LiDAR-HMR's $87.6$\,mm
@@ -740,10 +768,14 @@ holds across scale, representation, integration, a directed search and a
 pre-registered confirmation; an oracle through the same branch rules out a dead
 pathway. It also has a quantitative mechanism: an oracle ladder shows this
 integration path converts a bearing cue into accuracy at $5.5^\circ$ but no
-longer by $10^\circ$, and body facing is roughly four times coarser than that
-bracket. The lesson generalises past pose---measure a modality's error on the
-cue it is meant to carry, and compare it against the floor of the pathway you
-intend to use, before integrating it.
+longer by $10^\circ$, and body facing falls outside that bracket for most
+pedestrians---by a factor of four for the stationary ones the cue was introduced
+to serve. Fusing the same cue early removes the branch's capacity cost but does
+not rescue it: that pathway fails to exploit even an uncorrupted bearing on two
+seeds in three, so both integration routes fail, for different and identifiable
+reasons. The lesson generalises past pose---measure a modality's error on the cue
+it is meant to carry, and compare it against the floor of the pathway you intend
+to use, before integrating it.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
