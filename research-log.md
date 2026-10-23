@@ -2205,3 +2205,22 @@ CONSEQUENCES:
   floor above SMPL's accuracy, while early fusion avoids the tax by largely not using the channel.
 
 Two runs left (earlyoracle05/10_s303), then the s404 baseline resample.
+
+### 2026-10-23 PART B rung 5.5 at n=3 -- the pathway contrast is now stark
+
+12/13.
+
+  rung 0.0d  early s101:-14.01%  s202:+0.72%  s303:-0.31%   mean -4.53%  sd 8.22
+             late  s101:-16.47%  s202:-19.33%  s303:-11.48%  mean -15.76%  sd 3.97
+  rung 5.5d  early s101: -3.20%  s202:+1.16%  s303:-0.82%   mean  -0.95%  sd 2.18  MDE 6.8
+             late  s101: -7.74%  s202: -7.25%  s303: -7.69%  mean  -7.56%  sd 0.27  p=0.0004
+
+Two things stand out. The late ladder at rung 5.5 is almost noiseless -- three seeds within 0.5 pp
+of each other, sd 0.27 -- which is why that rung's MDE is 0.8 and why the published floor has a
+sharp lower edge at all. And even the one seed where early fusion works loses the cue far faster:
+s101 goes -14.01% -> -3.20% between rungs 0 and 5.5, while late fusion holds -7.6% across all
+three seeds at 5.5.
+
+So the early pathway is both unreliable (1 of 3 seeds exploits a perfect oracle) and, where it
+does work, shorter-ranged. Nothing here changes the conclusion already logged; it sharpens it.
+One run left (earlyoracle10_s303), then the s404 resample.
