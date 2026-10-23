@@ -1805,3 +1805,50 @@ A STALE-DATA TRAP worth recording: /home/erik/big1/waymo_motion_poses/final_10fp
 CORRECTED per-scene re-export; the NAS copy at .../generated_motion/final_10fps is the
 pre-fix one. Running this analysis against the NAS path loaded only 103/1705 events and gave
 84.8 deg instead of 44.2. Always check a facing analysis reproduces 44.2/25.2 before trusting it.
+
+### 2026-10-23 — FACING ERROR IN THE LADDER'S UNITS: the 44.2 deg comparison was not apples-to-apples
+
+The review's M2, acted on. The ladder's theta is the error on FUTURE DISPLACEMENT BEARING at
++3/+8 s over every predicted pedestrian. The paper's 44.2 deg is onset direction for the
+STATIONARY subset. Comparing one to the other is a category error, so this measures SMPL facing
+against the ladder's target on the ladder's population
+(tools/scripts/facing_error_ladder_units.py; 579-rung validation, 7,620 agents with a pose
+sequence and valid +3/+8 s states; body-forward calibrated against the box heading, generous to
+pose; calibration lands at 11.5 deg median vs box).
+
+  target                       n      SMPL     box    SMPL >10.2 deg   box >10.2 deg
+  +3 s displacement bearing   5824    12.3     3.9        56.8%            22.3%
+  +8 s displacement bearing   6206    15.1     7.1        63.6%            40.8%
+  percentiles (+3 s): SMPL p50 12.3 / p75 23.9 / p90 45.9 ; box p50 3.9 / p75 9.3 / p90 20.1
+  moving (>=0.3 m/s)          5562    11.9     3.7
+  stationary (<0.3 m/s)        262    41.2    24.7     (reproduces the 44.2/25.2 story)
+
+TAKEN NAIVELY THIS BREAKS THE PAPER'S ARGUMENT: at a median of 12.3 deg the per-seed ladder fits
+predict a 1.46-4.11% gain, which MEETS OR EXCEEDS the ~1.6% branch cost. Written as "44.2 deg,
+far below the floor", Sec. IV-B is comparing the wrong number.
+
+IT DOES NOT SURVIVE SCRUTINY, FOR TWO REASONS, AND THE RESTATED VERSION IS STRONGER.
+
+1. The median is the wrong statistic. A ladder rung corrupts EVERY agent by about theta, so a
+   channel is comparable to a rung only if its whole distribution sits there. SMPL's does not:
+   56.8% of agents are outside the 10.2 deg bracket at +3 s and 63.6% at +8 s, with p90 at 45.9
+   and 59.6 deg. A channel that is excellent for half the agents and useless for the other half
+   is not a 12 deg channel.
+
+2. It is mostly a copy of an input the model already has. SMPL facing sits 11.5 deg from the box
+   heading in median, which is the pipeline's root-orientation snapping (Sec. III-A) showing up
+   exactly where predicted: for movers -- 95% of this population -- body facing is derived from
+   the trajectory. And the box heading beats SMPL at EVERY percentile (3.9 vs 12.3 median; 22.3%
+   vs 56.8% outside the bracket) while already being a per-timestep model input. The oracle at
+   theta is 12 deg accurate about the FUTURE; SMPL at 12 deg is accurate about the PRESENT
+   heading, which the model is already given, and better.
+
+This also squares with the n=8 heading ablation (-0.6 pp, p=0.65): pose is not merely redundant,
+it is ALSO below the floor for most agents, so removing the competing channel cannot rescue it.
+Redundancy and insufficiency both hold; neither alone is the whole mechanism.
+
+PAPER CONSEQUENCE: Sec. IV-B must stop asserting "44.2 deg, far below the floor" as the headline
+comparison. The defensible claim is the share-of-agents one: on the ladder's own target, the
+majority of pedestrians fall outside the bracket, and the cue is a noisier copy of a channel the
+model already receives. The 44.2 deg figure stays, correctly labelled as the stationary-onset
+number, where it is the right measure of the one case pose was supposed to serve.
