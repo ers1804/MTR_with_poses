@@ -1876,3 +1876,31 @@ floor is a property of the branch, not of every delivery mechanism. The point-cl
 no longer cites 44.2 deg as the pooled facing accuracy.
 
 Builds clean, 8 pages (limit is 6; cuts deferred by request).
+
+### 2026-10-23 detection_floor.py hardened before the n=5 runs land
+
+Two things that would have corrupted the extension, found by running the analysis against a
+queue that had been going for 40 minutes.
+
+1. THE SCRIPT SCORED A RUNNING JOB. best_minade() fell back to min() over every minADE in the
+   /tmp log, and best_eval_record.txt is appended after EVERY eval epoch, so neither its presence
+   nor the log told the script the run had ended. Rung 10.2 read n=4 and +3.97% because seed 404
+   was 2/30 epochs in and contributed +25.0%. It now requires a DONE marker or a record that has
+   reached epoch 30, and prints what it skipped. The n=3 numbers reproduce Table II exactly
+   (MDE 12.30/0.84/6.17/6.71/6.57/5.46/9.13/8.53), so the published values are unaffected.
+
+2. map_nopose_fix_s404 is a ~2 SD outlier FOR ITS CELL: 0.4954 against 0.4428-0.4584, where the
+   sibling cells map_xattn_pe_fix and map_shufflepose_fix put s404 at 0.4570 and 0.4547, and seed
+   404 averages BETTER than its cell mean across 37 cells (within-cell z = -0.37). So it is a bad
+   run, not a bad seed, and it is the paired denominator for two of the four new comparisons.
+
+   KEPT, not re-rolled. A baseline landing badly is exactly the training noise the seed-level test
+   is meant to absorb, and re-running it to get a more convenient denominator is selection. It
+   also errs the safe way: a too-high baseline inflates the oracle's apparent gain at rungs 10 and
+   15, which makes it HARDER to claim the gain is gone by 10.2 deg. The script now prints a
+   leave-one-out range per rung, and names seed 404's contribution explicitly, so no rung's
+   verdict can rest on it unnoticed.
+
+Reference points in the script were also moved into the ladder's own units (pooled box 3.8 deg,
+SMPL 12.3; stationary box 24.7, SMPL 41.2) with a note that a median is not a rung, so the
+mixed-units comparison cannot creep back in.
