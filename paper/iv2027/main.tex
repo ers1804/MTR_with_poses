@@ -445,6 +445,26 @@ contain no surprise.
 \section{Why Pose Does Not Pay}
 \label{sec:why}
 
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{fig_qualitative_traj.pdf}
+\caption{Qualitative comparison of the four arms on the same three agents
+(seed $101$, epoch $30$, the epoch for which full trajectory dumps were
+retained). Scenes are picked by percentile of the \emph{no-pose} arm's \minADE
+($60$th, $76$th, $92$nd) among agents with a full $8$\,s future and more than
+$3$\,m of travel---selection is on the baseline alone, never on the treatment.
+Thin lines are the six predicted modes, thick the best of them, dashed the
+ground truth, grey the observed past. Fed the agent's own future bearing, the
+oracle bends its modes onto the true path through the \emph{same} branch that
+carries pose; correct pose is not consistently distinguishable from a stranger's
+pose or from no pose. Per-panel values are single-seed illustrations: across
+seeds the oracle's advantage is stable ($-34$ to $-40\%$), whereas the content
+difference at this fixed epoch is not ($-16.2$, $-8.0$, $-0.2\%$ for seeds
+$101/202/303$) and is null at the best-epoch operating point used for inference
+(Table~\ref{tab:ladder}).}
+\label{fig:qualtraj}
+\end{figure*}
+
 \subsection{A detection floor for auxiliary channels}
 \label{sec:floor}
 The content test bounds what pose is worth, and the oracle of
@@ -561,6 +581,22 @@ trajectory does not already supply; it rules out the redundancy mechanism as the
 \emph{cause}, rather than confirming the floor. At $n{=}3$ that same comparison read $-4.1$\,pp with all three seeds
 agreeing in sign---the third multi-percent effect in this study to dissolve under
 more seeds.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{fig_pointcloud_mesh.pdf}
+\caption{What the pose estimator has to work with. Raw per-pedestrian LiDAR
+returns (orange) and the SMPL mesh fitted to them (blue), at four ranges and a
+common metric scale. Each panel is a frame whose return count equals the median
+for its range band over the validation segments: $300$, $100$, $38$ and $12$
+points. Past ${\approx}40$\,m a pedestrian is a few dozen returns, mostly on
+head and torso, while the mesh drawn over them still has fully articulated
+limbs---that articulation, and any gait or facing cue read from it, comes
+largely from the AMASS motion prior rather than from the measurement. This is
+the physical reason body facing reaches only $44.2^\circ$, far outside the
+bracket of Sec.~\ref{sec:floor}.}
+\label{fig:pcmesh}
+\end{figure}
 
 \subsection{The complementary cue is barely measured}
 Gaze precedes locomotion, so head yaw relative to the torso is a plausible
