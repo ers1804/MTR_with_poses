@@ -51,10 +51,13 @@ We then measure why pose does not. Corrupting that oracle with a controlled
 angular error gives the pathway a \emph{detection floor}: the gain survives a
 median bearing error of $5.5^\circ$ ($p{=}0.0004$) but is already
 indistinguishable from zero at $10.2^\circ$, where the ladder's minimum
-detectable effect is $6$\,pp. SMPL body facing is accurate to $44.2^\circ$ on the
-cue it is supposed to carry, and across seeds the fitted decay predicts at most
-$0.3\%$ there against a branch-capacity cost of ${\sim}1.6\%$---so the null is
-not a near miss, and the floor is measurable before a modality is integrated.
+detectable effect is $6$\,pp. SMPL body facing has a median bearing error of
+$12.3^\circ$, but over half of pedestrians fall outside that bracket and the
+median is largely inherited from the trajectory; for pedestrians stationary at
+prediction time, whose facing their velocity does not supply, it reaches only
+$41.2^\circ$, where the fitted decay predicts under $0.4\%$ against a
+branch-capacity cost of ${\sim}1.6\%$---so the null is not a near miss, and the
+floor is measurable before a modality is integrated.
 Corroborating this, the tracker's box heading estimates the same quantity more
 accurately ($25.2^\circ$) and pose does not beat it in any range, occlusion or
 heading-jitter stratum. Finally, aggregate MPJPE is the wrong acceptance metric
@@ -100,11 +103,13 @@ not of the plumbing.
 before this pathway converts it into accuracy at all, by corrupting that oracle
 with a controlled angular error. The gain decays by roughly half for every
 $3$--$8^\circ$ of bearing error: it is still significant at $5.5^\circ$ and is
-already indistinguishable from zero at $10.2^\circ$. SMPL body facing is accurate
-to $44.2^\circ$ on the cue it is supposed to carry, where every seed's fitted
-decay predicts a gain under $0.3\%$ against a branch cost of ${\sim}1.6\%$. The
-null is not a near miss, and the floor can be measured before any modality is
-integrated.
+already indistinguishable from zero at $10.2^\circ$. SMPL body facing has a
+median bearing error of $12.3^\circ$, but that median is inherited: the pipeline
+snaps body orientation to the direction of travel for moving pedestrians. For the
+stationary ones---where facing is precisely the cue velocity cannot supply---it
+reaches only $41.2^\circ$, where every seed's fitted decay predicts a gain under
+$0.4\%$ against a branch cost of ${\sim}1.6\%$. The null is not a near miss, and
+the floor can be measured before any modality is integrated.
 
 \textbf{A measurement caveat.} Aggregate MPJPE cannot distinguish a pose
 estimator that tracks a joint imprecisely from one that ignores the input and
@@ -499,37 +504,59 @@ the ladder cannot resolve anything below ${\approx}6$\,pp there, so the high
 rungs ($+2.7\%$ at $45^\circ$) are indistinguishable both from zero and from the
 branch tax of Sec.~\ref{sec:real}, and we read no sign change into them.
 
-\subsection{Pose is far below the floor}
-How accurate is body facing in the units of (\ref{eq:floor})? We measured it on
-the task where pose should be at its best: which way a stationary pedestrian
-steps off, the one case where velocity carries no directional information. Over
-every pedestrian stationary at prediction time ($<0.3$\,m/s)---$224{,}946$ in
-training, $19{,}939$ in validation, of whom $8.5\%$ move more than $1$\,m within
-$3$\,s---SMPL facing predicts onset direction at roughly twice chance: median
-error $44.2^\circ$, $50.6\%$ within $45^\circ$ (chance $90^\circ$, $25\%$).
+\subsection{Where body facing sits relative to the floor}
+\label{sec:belowfloor}
+The floor is calibrated in displacement-bearing error over every predicted
+pedestrian, so we measure body facing against that target, on that population.
+Median SMPL facing error is $12.3^\circ$ at $+3$\,s ($n{=}5{,}824$) and
+$15.1^\circ$ at $+8$\,s ($n{=}6{,}206$). Read naively that is \emph{not} below
+the floor: extrapolating each seed's fit to $12.3^\circ$ predicts
+$1.5$--$4.1\%$, at or above the ${\sim}1.6\%$ branch tax. Three properties of
+that median remove the apparent margin.
 
-Genuinely informative, and still far below the floor---and here the three seeds
-agree despite their spread in $\tau$. Extrapolating each seed's own fit to
-$44.2^\circ$ predicts an improvement between $0.002\%$ and $0.27\%$, against a
-branch-capacity cost of ${\sim}1.6\%$ measured at $25$k. Pose is not a near miss
-at any seed's calibration: it sits roughly a factor of four in bearing error
-outside the bracket where this pathway pays at all.
+\emph{Most of it is the trajectory restated.} $95\%$ of the scored agents are
+moving, and for a mover the pipeline snaps root orientation to the direction of
+travel whenever the raw estimate deviates by more than $90^\circ$
+(Sec.~\ref{sec:setup}). Movers sit at $11.9^\circ$; the $262$ agents stationary
+at prediction time---the only ones whose facing is not already implied by their
+velocity---sit at $41.2^\circ$, where the per-seed fits predict
+$0.003$--$0.35\%$. The pooled median largely measures the snapping.
 
-One caveat on units: the ladder's $\theta$ is displacement-bearing error over
-every predicted pedestrian, while $44.2^\circ$ is onset direction for the
-stationary subset. We use the latter because it is the case pose is meant to
-serve---for moving pedestrians the pipeline snaps root orientation to the
-direction of travel (Sec.~\ref{sec:setup}), so a pooled figure would largely
-measure the trajectory---which makes this the favourable reading for pose.
+\emph{A rung is a uniform corruption; SMPL is a heavy tail.} Each rung applies
+its angle to \emph{every} agent, so a channel is comparable to a rung only if
+its whole distribution sits there. SMPL's does not: $5.5^\circ$ at the first
+quartile, $23.9^\circ$ at the third, $45.9^\circ$ at the ninetieth percentile.
+$56.8\%$ of agents fall outside the $10.2^\circ$ bracket at $+3$\,s and $63.6\%$
+at $+8$\,s. Reading an exponential decay at a median flatters the channel for
+the same reason, since the badly estimated majority contributes almost none of
+the gain.
 
-Two measurements corroborate that $44.2^\circ$ is real rather than an artifact of
-our axis fitting. The tracker's own box heading estimates the same quantity at
-$25.2^\circ$; paired on the same events SMPL is $7.3^\circ$ worse in median
-(Wilcoxon $p{=}2.6{\times}10^{-43}$), even though we calibrated the SMPL forward
-axis \emph{against} the box heading first. And pose does not take over where
-perception degrades: over $1{,}705$ onset events the gap favours the box heading
-in all ten testable strata ($p<10^{-5}$ each) and \emph{widens} with range, to
-$+32.9^\circ$ at $41$--$75$\,m, because both derive from the same returns.
+\emph{It is a noisier copy of an input the model already has.} The tracker's box
+heading estimates the same bearing at $3.8^\circ$ ($+3$\,s) and $7.1^\circ$
+($+8$\,s), beats SMPL at every percentile we measured, and is outside the
+bracket for only $22.3\%$ of agents---even though we calibrated the SMPL forward
+axis \emph{against} the box heading first. The two differ by $10.0^\circ$ in
+median.
+
+The defensible claim is therefore not that facing misses the bracket by a factor
+of four in bearing error. It is that facing is inside the bracket only for the
+agents whose facing their own velocity already supplies, and outside it for the
+majority---most plainly for the stationary pedestrians the cue was introduced to
+serve.
+
+\textbf{The onset task agrees.} Measured where pose should be at its best---which
+way a stationary pedestrian steps off, the one case where velocity carries no
+directional information---SMPL facing predicts onset direction at roughly twice
+chance: median error $44.2^\circ$, $50.6\%$ within $45^\circ$ (chance $90^\circ$,
+$25\%$), over $19{,}939$ validation pedestrians stationary at prediction time, of
+whom $8.5\%$ move more than $1$\,m within $3$\,s. Genuinely informative,
+consistent with the $41.2^\circ$ above, and not an artifact of our axis fitting:
+the box heading estimates the same quantity at $25.2^\circ$, and paired on the
+same events SMPL is $7.3^\circ$ worse in median (Wilcoxon
+$p{=}2.6{\times}10^{-43}$). Nor does pose take over where perception degrades---
+over $1{,}705$ onset events the gap favours the box heading in all ten testable
+strata ($p<10^{-5}$ each) and \emph{widens} with range, to $+32.9^\circ$ at
+$41$--$75$\,m, because both derive from the same returns.
 
 \begin{table}[t]
 \caption{Detection floor for the pose branch. A direction-only oracle corrupted
@@ -539,7 +566,8 @@ no-pose run, negative favours the oracle. MDE is the minimum effect this rung
 could detect at $80\%$ power given its realised spread: only the two lowest
 rungs are sensitive enough to resolve the effects at issue, which is why we
 report the floor as the bracket $[5.5^\circ,10.2^\circ]$ rather than a crossing
-point. SMPL body facing, at $44.2^\circ$, is far outside it.}
+point. SMPL body facing lies outside it for most agents, and for the stationary
+pedestrians the cue was introduced to serve (Sec.~\ref{sec:belowfloor}).}
 \label{tab:floor}
 \centering
 \footnotesize
@@ -560,15 +588,16 @@ $57.4^\circ$ & $+2.7\%$  & $0.237$  & $[-4.2,+9.5]$  & $8.5$ \\
 \end{table}
 
 
-\textbf{What this does not establish.} The box heading is \emph{also} outside the
-bracket---(\ref{eq:floor}) at $25.2^\circ$ predicts $0.3\%$, and the per-seed
-fits put it between $0.1\%$ and $1.4\%$, still under the branch tax on every
-seed---so it is not the case that pose loses to heading because heading is more
-accurate. Through a late-fused side branch neither accuracy would pay. The box
-heading earns its place by being a native per-timestep input the model trains
-with from the start, a different delivery mechanism, and we have not run a ladder
-on that channel; the floor we report is a property of the auxiliary branch, not
-of every way a cue can enter a model. Sec.~\ref{sec:real} makes that caveat
+\textbf{What this does not establish.} On the stationary pedestrians the box
+heading is \emph{also} outside the bracket---(\ref{eq:floor}) at its $25.2^\circ$
+predicts $0.3\%$, per-seed $0.1$--$1.4\%$, under the branch tax on every
+seed---so it is not that pose loses to heading because heading is accurate enough
+to pay through this pathway. Through a late-fused side branch neither accuracy
+would pay. Pooled over all predicted pedestrians the box heading's $3.8^\circ$ is
+well inside the bracket, which is consistent with its value to the model; but it
+reaches the model as a native per-timestep input rather than through a branch,
+and we have not run a ladder on that channel. The floor we report is a property
+of the auxiliary branch, not of every way a cue can enter a model. Sec.~\ref{sec:real} makes that caveat
 concrete: early fusion of the same information removes the branch tax entirely,
 and we have not measured the floor of that cheaper pathway.
 
@@ -593,8 +622,9 @@ points. Past ${\approx}40$\,m a pedestrian is a few dozen returns, mostly on
 head and torso, while the mesh drawn over them still has fully articulated
 limbs---that articulation, and any gait or facing cue read from it, comes
 largely from the AMASS motion prior rather than from the measurement. This is
-the physical reason body facing reaches only $44.2^\circ$, far outside the
-bracket of Sec.~\ref{sec:floor}.}
+the physical reason body facing falls outside the bracket of
+Sec.~\ref{sec:floor} for most pedestrians, and reaches only $41.2^\circ$ for the
+stationary ones.}
 \label{fig:pcmesh}
 \end{figure}
 

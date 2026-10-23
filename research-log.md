@@ -1852,3 +1852,27 @@ comparison. The defensible claim is the share-of-agents one: on the ladder's own
 majority of pedestrians fall outside the bracket, and the cue is a noisier copy of a channel the
 model already receives. The 44.2 deg figure stays, correctly labelled as the stationary-onset
 number, where it is the right measure of the one case pose was supposed to serve.
+
+### 2026-10-23 Sec. IV-B rewritten to the ladder's own units
+
+Applied the consequence above. Sec. IV-B is now "Where body facing sits relative to the floor",
+and leads with the honest measurement (12.3 deg at +3 s, 15.1 at +8 s, on the ladder's target and
+population) including the fact that it naively predicts 1.5-4.1% -- at or above the branch tax --
+before decomposing it three ways: 95% of the scored agents are movers whose root orientation is
+snapped to the direction of travel (stationary subset 41.2 deg, predicting 0.003-0.35%); a rung is
+a uniform corruption while SMPL is a heavy tail (56.8% / 63.6% outside the bracket); and the box
+heading is better at every percentile (3.8 deg pooled) while already being a per-timestep input.
+
+The old "factor of four in bearing error outside the bracket" sentence is gone -- it was an
+artifact of reading an onset-direction number against a displacement-bearing floor. 44.2 deg
+survives in exactly one place, labelled as the stationary-onset measurement, where it corroborates
+the 41.2 deg figure.
+
+Two downstream claims also needed the units named. The "What this does not establish" paragraph
+asserted the box heading is "also outside the bracket"; that is true on the stationary subset
+(25.2 deg) but false pooled (3.8 deg, well inside), so the paragraph now says both and keeps the
+point it was making -- that through a late-fused branch neither accuracy would pay, and that the
+floor is a property of the branch, not of every delivery mechanism. The point-cloud figure caption
+no longer cites 44.2 deg as the pooled facing accuracy.
+
+Builds clean, 8 pages (limit is 6; cuts deferred by request).
