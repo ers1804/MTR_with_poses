@@ -514,7 +514,7 @@ the floor: extrapolating each seed's fit to $12.3^\circ$ predicts
 $1.5$--$4.1\%$, at or above the ${\sim}1.6\%$ branch tax. Three properties of
 that median remove the apparent margin.
 
-\emph{Most of it is the trajectory restated.} $95\%$ of the scored agents are
+\emph{Most of it is the trajectory restated.} $95.5\%$ of the scored agents are
 moving, and for a mover the pipeline snaps root orientation to the direction of
 travel whenever the raw estimate deviates by more than $90^\circ$
 (Sec.~\ref{sec:setup}). Movers sit at $11.9^\circ$; the $262$ agents stationary
@@ -532,7 +532,7 @@ the same reason, since the badly estimated majority contributes almost none of
 the gain.
 
 \emph{It is a noisier copy of an input the model already has.} The tracker's box
-heading estimates the same bearing at $3.8^\circ$ ($+3$\,s) and $7.1^\circ$
+heading estimates the same bearing at $3.9^\circ$ ($+3$\,s) and $7.1^\circ$
 ($+8$\,s), beats SMPL at every percentile we measured, and is outside the
 bracket for only $22.3\%$ of agents---even though we calibrated the SMPL forward
 axis \emph{against} the box heading first. The two differ by $10.0^\circ$ in
@@ -593,7 +593,7 @@ heading is \emph{also} outside the bracket---(\ref{eq:floor}) at its $25.2^\circ
 predicts $0.3\%$, per-seed $0.1$--$1.4\%$, under the branch tax on every
 seed---so it is not that pose loses to heading because heading is accurate enough
 to pay through this pathway. Through a late-fused side branch neither accuracy
-would pay. Pooled over all predicted pedestrians the box heading's $3.8^\circ$ is
+would pay. Pooled over all predicted pedestrians the box heading's $3.9^\circ$ is
 well inside the bracket, which is consistent with its value to the model; but it
 reaches the model as a native per-timestep input rather than through a branch,
 and we have not run a ladder on that channel. The floor we report is a property

@@ -13,7 +13,7 @@ absolute bearing error of the delivered channel, not the nominal sigma.
 
 Reference points must be in THIS ladder's units -- median error on future displacement bearing,
 pooled over every predicted pedestrian -- not the onset-direction numbers. Pooled: box heading
-3.8 deg, SMPL facing 12.3 deg. Stationary subset, where facing is the cue velocity cannot supply:
+3.9 deg, SMPL facing 12.3 deg. Stationary subset, where facing is the cue velocity cannot supply:
 box 24.7 deg, SMPL 41.2 deg. Mixing the two is what made Sec. IV-B compare 44.2 against a floor
 calibrated on a different quantity (see research-log 2026-10-23).
 
@@ -52,7 +52,7 @@ LADDERS = {
                   label='early fusion, per-timestep agent channels'),
 }
 # ladder units (pooled over all predicted pedestrians), from facing_error_ladder_units.py
-BOX_HEADING_DEG, SMPL_FACING_DEG = 3.8, 12.3
+BOX_HEADING_DEG, SMPL_FACING_DEG = 3.9, 12.3
 # the same two channels on the stationary subset, the population pose was meant to serve
 BOX_STATIONARY_DEG, SMPL_STATIONARY_DEG = 24.7, 41.2
 FINAL_EPOCH = 30

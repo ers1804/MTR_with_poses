@@ -1996,3 +1996,26 @@ detection_floor.py was restructured for this: per-rung statistics factored into 
 rebuilt per denominator by build(), and infer_bracket() lifted to module scope (exercised on
 monotone / non-monotone / all-sig / none-sig / unsorted). The printed table still reproduces the
 published numbers exactly.
+
+### 2026-10-23 paper numbers checked against artifacts; one rounding error fixed
+
+Mechanically compared every Sec. IV-B number against experiments/facing_error_ladder_units.json.
+Nineteen of twenty matched. One did not: the box heading's +3 s median is 3.884 deg, which rounds
+to 3.9, and I had written 3.8 in two places in the paper and in detection_floor.py's reference
+constant. Fixed. Also made the movers share exact (95.5%, was written as 95%).
+
+Saved the check as tools/scripts/verify_paper_numbers.py, because this paper keeps accumulating
+derived numbers and this class of error has now happened three times in one day: 44.2 deg quoted
+against a floor calibrated on a different quantity, a rel column printed with a different
+estimator from the one tested, and now a mis-rounded median. The script rounds each artifact value
+the way the paper writes it and asserts the string is present, so it catches the paper and the
+artifact drifting apart in either direction. It also surfaces detection_floor.json's new
+bracket_edge_stable flag, so a bracket that is not stable across denominators cannot be quoted as
+a single edge.
+
+It currently reports one mismatch, correctly: rung 10.2's MDE is 12.7 at n=4 while Table II was
+built at n=3 (6.2). That is Part A in flight, not an error -- the rung's n is printed in the label
+so an in-flight divergence reads as "refresh the table when the queue lands". Table II and the
+bracket both need regenerating once Part A finishes.
+
+Paper rebuilds clean, 8 pages, no undefined references.
