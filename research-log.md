@@ -1708,3 +1708,49 @@ to ~22% of its agents, raising MDE well above the effect being chased.
 
 NOTE: point count cannot be used as a stratifier here. The per-pedestrian return counts come from
 Waymo Perception; WOMD motion data ships no per-agent LiDAR. Range is the available proxy.
+
+### 2026-10-23 — POINT-COUNT STRATIFICATION AT 25k: still no window (the better cut, same answer)
+
+Range was only a proxy. The pose pipeline's own extraction keeps the per-pedestrian point clouds
+(scripts/extract_waymo_motion.py writes `pedestrian_pcd` per (object, frame); the files are on
+the NAS at .../waymo_motion_extracted/validation/{scenario_id}.pkl). Return count governs
+mesh-fit quality directly and absorbs OCCLUSION, which range cannot: a close half-occluded
+pedestrian and a clear distant one can share a range and differ 10x in returns.
+
+Built counts for all 16,486 25k-validation agents (tools/scripts/make_pointcounts_25k.py;
+16,486/16,486 resolved, 0 scenario files missing). Mean returns over the 11 observed frames:
+p10=14, p25=23, p50=48, p75=115, p90=275. Range vs returns: Spearman -0.87, so related but not
+the same cut.
+
+CONTENT TEST (pose vs shuffled), minADE, n=5 seeds, negative favours pose:
+  ALL          n=16486   +0.06%  p=0.93  [-1.59,+1.70]   (reproduces Table I exactly)
+  >=30 pts     n=10902   -0.08%  p=0.91  MDE 2.50%
+  >=50 pts     n= 8083   -0.21%  p=0.78  MDE 2.63%
+  >=100 pts    n= 4722   +0.06%  p=0.94  MDE 2.86%
+  >=200 pts    n= 2372   -0.37%  p=0.54  MDE 2.02%
+  Q4 (>=115)   n= 4124   -0.20%  p=0.80  MDE 2.84%
+
+Across 8 equal-count bins the effect wanders (+0.59, -0.06, +0.81, +0.62, -1.06, +0.46, -0.02,
+-0.37) with nothing significant. The bin-level trend is nominally in the PREDICTED direction for
+once -- Pearson r=-0.38 (p=0.35), Spearman -0.45 (p=0.26) -- so it was worth testing properly
+rather than eyeballing 8 points.
+
+DECISIVE TEST: per-agent OLS of (pose - shuffled) minADE on standardised log10(returns), slope
+taken per seed, then a seed-level t on the five slopes (the project's standard gate):
+
+  seed 101 +0.00313 | 202 -0.00096 | 303 -0.00173 | 404 -0.00160 | 505 -0.00400  (m per SD)
+  mean = -0.00103 m/SD   t=-0.89   p=0.423   CI [-0.00426,+0.00219]
+
+Null, and one seed has the opposite sign. Even taking the point estimate at face value: -0.001 m
+per SD on a 0.38 m baseline is 0.27% per SD of log-returns, i.e. moving a pedestrian from the
+median (48 returns) to the top decile (275) buys ~0.27% -- against a branch tax of +1.66%
+(p=0.0005) in the same runs. Six times under water on the most favourable reading available.
+
+DECISION: no near-only and no well-resolved-only training run. The decision rule was "any trace
+of pose helping"; on the cut that most directly measures how well the body was MEASURED, the
+trace is absent at the gate and economically irrelevant even at its point estimate. Subsetting to
+>=200 returns would also cut the rung to 14% of its agents.
+
+This closes the last regime the detection floor left open. Pose does not pay anywhere we can cut
+the data: not by manoeuvre (20 tests), not by horizon, not by range, not by how well the sensor
+resolved the body.
