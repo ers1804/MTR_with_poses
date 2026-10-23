@@ -1,0 +1,66 @@
+{
+  "ladder": "early",
+  "pathway": "early fusion, per-timestep agent channels",
+  "rungs": [
+    {
+      "rung": "00",
+      "median_err_deg": 0.0,
+      "seeds": [
+        101,
+        202
+      ],
+      "oracle": 0.42007845640182495,
+      "nopose": 0.4506,
+      "per_seed": [
+        0.39418160915374756,
+        0.44597530364990234
+      ],
+      "n": 2,
+      "rel": -6.646075494120133,
+      "t": -0.9026103734247164,
+      "p": 0.5325584774933265,
+      "lo": -100.20404735928383,
+      "hi": 86.91189637104355,
+      "mde80": 103.69250878348757,
+      "loo_rel": [],
+      "per_seed_rel": [
+        -14.009247566808991,
+        0.7170965785687256
+      ]
+    }
+  ],
+  "floor_bracket_deg": [
+    null,
+    0.0
+  ],
+  "floor_brackets": {
+    "all seeds": {
+      "lo": null,
+      "hi": 0.0,
+      "anomalies": [],
+      "note": "no rung significant: the floor is below the finest rung tested"
+    },
+    "without s404": {
+      "lo": null,
+      "hi": 0.0,
+      "anomalies": [],
+      "note": "no rung significant: the floor is below the finest rung tested"
+    }
+  },
+  "bracket_edge_stable": true,
+  "watch_seed": 404,
+  "watch_seed_baseline": 0.4954,
+  "watch_seed_baseline_resample": null,
+  "seeds": [
+    101,
+    202,
+    303,
+    404,
+    505
+  ],
+  "box_heading_deg": 3.9,
+  "smpl_facing_deg": 12.3,
+  "box_stationary_deg": 24.7,
+  "smpl_stationary_deg": 41.2,
+  "note": "direction-only oracle; rungs labelled by measured median bearing error; paired t over seeds against map_nopose_fix; bracket inferred from the first monotone significant->n.s. transition, not max/min"
+}

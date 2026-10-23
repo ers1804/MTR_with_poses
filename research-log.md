@@ -2063,3 +2063,38 @@ PAPER CONSEQUENCES IF [10.2, 14.6] STANDS -- not applied yet, the resample decid
 Note on method: both of the guards added earlier today fired on real conditions within hours --
 the completion gate (which caught a 2/30-epoch run scoring as finished) and the bracket-edge
 stability check. Neither was hypothetical.
+
+### 2026-10-23 PART B rung 0 at n=2: early fusion exploits the oracle on one seed, not the other
+
+8/13 runs done. Rung 0 (uncorrupted direction oracle) is scorable at n=2 and the two seeds
+disagree by 15 pp:
+
+  early rung 0.0   s101  0.3942  -14.01%      late rung 0.0   s101 -16.47%
+                   s202  0.4460   +0.72%                      s202 -19.33%
+                                                              s303 -11.48%  (sd 3.97 pp)
+
+The channels are bit-identical between pathways at a given rung (verified earlier today), and
+late fusion converted them on all three seeds at -11 to -19%. So s202 is not an information
+problem; the early-fusion run simply failed to exploit a cue that was present in its input.
+
+Its trajectory says the same: the last six evaluated epochs are 0.4738 0.4731 0.4829 0.4887
+0.5244 0.4460 -- drifting worse, then an 0.08 jump at epoch 30, with "best" being the final
+epoch. s101 by contrast sat stably at ~0.395. So s202 is parked near the no-pose level (its
+baseline is 0.4428) and was arguably still descending when training stopped.
+
+This is NOT a general early-fusion instability. Last-6 spread across runs: early 0.0156 mean
+(0.0070, 0.0114, 0.0182 and s202's 0.0256), late 0.0115 (0.0082-0.0164). Only s202 stands out,
+and it stands out in LEVEL more than in spread.
+
+CONSEQUENCE FOR PART B. If rung 0's spread is ~10 pp at n=3, the zero-crossing cannot be located
+and Part B comes back uninterpretable -- the floor is read off where the decay curve crosses zero,
+which needs the rungs to be separable. s303 at rung 0 (two runs out) decides whether s202 or s101
+is the outlier. Not queuing anything extra: the remaining 5 runs will show whether this resolves,
+and the options then are more seeds, more epochs, or reporting Part B as inconclusive. That is the
+user's call.
+
+Worth noting the single-seed shape from s101 pointed the same way earlier: early fusion matched
+late fusion at rung 0 but had a 2.6 deg half-life against late's 5.1 deg. If early fusion both
+exploits the cue less reliably AND loses it faster, the pathway the paper recommends has a
+STRICTER floor than the one it measured, which strengthens the paper's conclusion rather than
+weakening it. Too early to assert.
