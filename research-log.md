@@ -2136,3 +2136,29 @@ Still not queuing anything. s303 (two runs out) tells us whether the split is 2-
 honest options then are: report the bimodality with n=3 and drop the early floor claim; add seeds
 to characterise the failure rate; or investigate the late-training divergence (LR schedule, or
 gradient scale on the appended channels). That is the user's call.
+
+### 2026-10-23 PART B: s202 fails at all three early rungs, s101 succeeds at all three
+
+10/13. Rung 10.2 completes the 2-seed picture and the split is clean:
+
+    rung   s101 early  s202 early  |  s101 late  s202 late
+    0.0d     -14.01%      +0.72%   |   -16.47%    -19.33%
+    5.5d      -3.20%      +1.16%   |    -7.74%     -7.25%
+   10.2d      -3.55%      +2.87%   |    -2.39%     -2.76%
+
+3/3 s202 early runs fail to exploit, 3/3 s202 late runs succeed, 3/3 s101 early runs succeed.
+All three s202 early runs carry the same trajectory signature -- drift worse through epochs 25-29,
+jump at epoch 30, best = final epoch -- with the spread growing with rung:
+  rung 00  0.4738 0.4731 0.4829 0.4887 0.5244 0.4460   sd 0.0256
+  rung 05  0.4576 0.4811 0.5192 0.5148 0.5343 0.4627   sd 0.0321
+  rung 10  0.4629 0.4651 0.5208 0.5015 0.5465 0.4596   sd 0.0361
+
+The within-seed consistency matters: this is not random per-run failure but a reproducible
+property of that initialisation combined with the early-fusion architecture. (The seed sets init
+and data order; the oracle's angular noise is deterministic by crc32 of scene/sigma/object and so
+is identical across seeds at a given rung.) Three independent runs of the same seed failing the
+same way, while the same seed succeeds three times through the other pathway on the same input,
+is a stronger statement than three unrelated bad runs would be.
+
+n=2 statistics remain meaningless (MDE 103.7 / 30.7 / 45.2); the per-seed values are the content.
+s303 decides whether the split is 2-1 or 1-2.
