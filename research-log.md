@@ -2098,3 +2098,41 @@ late fusion at rung 0 but had a 2.6 deg half-life against late's 5.1 deg. If ear
 exploits the cue less reliably AND loses it faster, the pathway the paper recommends has a
 STRICTER floor than the one it measured, which strengthens the paper's conclusion rather than
 weakening it. Too early to assert.
+
+### 2026-10-23 PART B: seed 202 fails to exploit early fusion at BOTH rungs
+
+9/13. Rung 5.5 is now scorable and s202 repeats its rung-0 behaviour, so the earlier entry's
+"s303 decides whether s202 or s101 is the outlier" now has a sharper framing: this is a seed x
+pathway interaction, not one bad run.
+
+            early           late (same seed)
+  rung 0.0  s101 -14.01%    s101 -16.47%
+            s202  +0.72%    s202 -19.33%
+  rung 5.5  s101  -3.20%    s101  -7.74%
+            s202  +1.16%    s202  -7.25%
+
+Seed 202 converts the cue strongly through the side branch (-19.3%, -7.3%) and not at all through
+the agent channels (+0.7%, +1.2%), with the SAME bit-identical input tensor. Seed 101 converts it
+through both. So the information is there and the failure is in optimisation.
+
+The trajectories agree. s202's early runs both drift worse through epochs 25-29 and then jump at
+epoch 30, with "best" being the final epoch:
+  rung 00  0.4738 0.4731 0.4829 0.4887 0.5244 0.4460   sd 0.0256
+  rung 05  0.4576 0.4811 0.5192 0.5148 0.5343 0.4627   sd 0.0321
+against s101's early runs at sd 0.0070 / 0.0114 / 0.0182. Late-training divergence specific to
+that initialisation with six extra input channels, not a general early-fusion instability.
+
+Running tallies: 2/2 s202 early runs failed to exploit, 3/3 s101 succeeded, 2/2 s202 late runs
+succeeded. n=2 statistics are meaningless as expected (rung 0 MDE 103.7, rung 5.5 MDE 30.7).
+
+WHAT THIS LIKELY MEANS FOR THE PAPER -- stronger than the floor measurement it replaces. Part B
+was asked "what is the floor of the pathway we recommend?" The answer forming is "that pathway
+does not reliably use the cue at all": early fusion is bimodal across initialisations, succeeding
+on one seed and failing on another with identical input. For a paper that recommends early fusion
+on the grounds that it carries no capacity tax, an unreliability result is a more important caveat
+than a slightly different floor, and it is a practical warning rather than a null.
+
+Still not queuing anything. s303 (two runs out) tells us whether the split is 2-1 or 1-2, and the
+honest options then are: report the bimodality with n=3 and drop the early floor claim; add seeds
+to characterise the failure rate; or investigate the late-training divergence (LR schedule, or
+gradient scale on the appended channels). That is the user's call.
