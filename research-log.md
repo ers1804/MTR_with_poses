@@ -2224,3 +2224,32 @@ three seeds at 5.5.
 So the early pathway is both unreliable (1 of 3 seeds exploits a perfect oracle) and, where it
 does work, shorter-ranged. Nothing here changes the conclusion already logged; it sharpens it.
 One run left (earlyoracle10_s303), then the s404 resample.
+
+### 2026-10-23 23:02 QUEUE FINISHED (13/13, no failures). PART B complete.
+
+  rung | early per seed                         mean     sd      p  | late mean    sd       p
+  0.0d | s101:-14.01  s202:+0.72  s303:-0.31  -4.53%   8.22  0.440 |  -15.76%  3.97  0.0205
+  5.5d | s101: -3.20  s202:+1.16  s303:-0.82  -0.95%   2.18  0.528 |   -7.56%  0.27  0.0004
+ 10.2d | s101: -3.55  s202:+2.87  s303:+1.16  +0.16%   3.32  0.941 |   -6.41%  5.30  0.0540
+
+PART B RESULT: no rung is significant, including rung 0. There is no decay curve to find a
+zero-crossing on, because there is no reliable gain to decay. The early-fusion pathway has no
+measurable detection floor for want of a measurable gain -- 1 of 3 seeds exploits an uncorrupted
+oracle, against 3 of 3 for the side branch, from a bit-identical input tensor.
+
+This answers the question Sec. IV-B raised ("we have not measured the floor of that cheaper
+pathway") with something other than a number, and the honest write-up is that the pathway does not
+reliably convert the cue at all. See the 21:xx entry for why that probably also reinterprets
+Sec. III-B's "early fusion removes the branch-capacity tax": a channel that is largely ignored
+costs nothing and buys nothing, which is what both results look like together.
+
+The resample handoff worked: the waiter saw the queue finish at 23:02:46 and started
+MS_map_nopose_fix_s404_resample at 23:03:06. That run decides the Part A bracket.
+
+STILL OPEN AT THIS POINT:
+1. s404 baseline resample -> Part A bracket is [5.5, 10.2] or [10.2, 14.6]. ~35 min out.
+2. Paper edits, none applied yet: Table II needs mixed-n regeneration; the abstract's
+   "indistinguishable from zero at 10.2 deg" is marginal at best (p=0.054 at n=5); Sec. III-B
+   needs the inertness alternative and the early-fusion recommendation qualified; Sec. IV-B's
+   "we have not measured the floor of that cheaper pathway" can now be answered.
+3. Page budget: 8 pages against a 6-page limit, cuts still deferred.
