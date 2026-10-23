@@ -1904,3 +1904,57 @@ queue that had been going for 40 minutes.
 Reference points in the script were also moved into the ladder's own units (pooled box 3.8 deg,
 SMPL 12.3; stationary box 24.7, SMPL 41.2) with a note that a median is not a rung, so the
 mixed-units comparison cannot creep back in.
+
+### 2026-10-23 review of the queued runs; bracket inference rebuilt
+
+A Fable review of the launched Part A / Part B setup found nothing that invalidates either, and
+verified the thing I most wanted checked independently: the early-fusion path delivers a tensor
+BIT-IDENTICAL to the late-fusion one at a given rung (early obj_trajs[..., 29:35] == cross-attn
+obj_poses[..., :6], checked at rungs 00 and 10), the first 29 channels equal the no-pose input,
+every other batch key is equal, the noise is applied BEFORE the carry-through (rotate pairs (0,1)
+and (3,4), then dir-only zeroes channels 2 and 5), masks carry over, and rung 00's direction equals
+each agent's own future displacement bearing for 74/74 agents. So the rungs keep their measured-
+error labels across pathways, and Part B is a valid comparison against map_nopose_fix: the configs
+differ from the baseline only in the fusion keys, the channel count 29->35, and pose loss weights
+that are inert (2 of 30,960 target steps have a valid future pose). Also confirmed the pose branch
+is genuinely off (USE_POSE_ENCODER False skips construction, so no second route and no unused
+parameters), DONE cannot be written for a crashed run, and the queue's output path matches the one
+train.py builds.
+
+THREE REAL FINDINGS, all in the analysis rather than the experiment, all fixed:
+
+1. THE BRACKET RULE DID NOT SURVIVE MIXED n. It was max(significant) / min(non-significant). With
+   the bracket rungs going to n=5 while the rest stay at n=3, and MDE scaling as 1/sqrt(n), a
+   higher rung can read significant purely because it is better powered -- and max/min then yields
+   an INVERTED bracket, e.g. [14.6, 10.2], which the reference-point test reads as "pays" because
+   it checks th < lo first. At pooled SMPL 12.3 deg that would have flipped the paper's headline
+   from "outside the floor" to "inside" on the strength of one rung's power. Replaced with the
+   first monotone significant->n.s. transition, with any later significant rung reported as an
+   anomaly instead of folded into an edge. Lifted to module scope and exercised on five cases
+   (monotone, non-monotone, all-sig, none-sig, unsorted); the non-monotone case now returns
+   [5.5, 10.2] + anomaly at 14.6 where the old rule gave [14.6, 10.2].
+
+2. THE BRACKET IS NOW REPORTED BOTH WITH AND WITHOUT s404, and shouts if the edge moves. The
+   review sharpened my earlier note: s404's high baseline is conservative for the claim "the gain
+   is gone by 10.2 deg", but it biases the BRACKET LOCATION upward, and the bracket is itself a
+   headline number. If the s404 oracle run lands at a cell-typical 0.45 its pair is about -9.2%,
+   enough to flip rung 10.2 significant on its own. Currently both readings give [5.5, 10.2].
+   (Mid-run, s404's oracle is tracking 2-4% better than its own baseline at matched epochs, i.e.
+   seed 404 looks slow in both arms, which would make the pair well-behaved -- but that is a
+   snapshot, not a result.)
+
+3. PART B HAD NO CONSUMER: the script hardcoded the cross-attention config and MS_oracledir tags,
+   so scoring the early ladder would have meant an ad-hoc path that bypassed the completion gate --
+   the exact bug fixed earlier today. Now parameterised: `detection_floor.py [late|early]`.
+
+Minor, also fixed: the printed `rel` column was ratio-of-means while t, p, CI, MDE and the JSON all
+used mean-of-ratios. Table II in the paper uses mean-of-ratios (its 0.0 deg row reads -15.8%, which
+only that definition gives), so the print was the odd one out; all eight rows now agree exactly.
+
+DEFERRED, with a reason. The review notes Part B's motivation -- "early fusion carries no capacity
+tax" -- was measured at 25k scenes and LR 5e-5, while Part B runs at 579 scenes and LR 1e-4, so
+rung 00 alone cannot separate "pathway live" from "tax at this scale". A 3-seed early arm with the
+oracle channel shuffled across agents would isolate it. Not queued yet: the floor is read off the
+zero-crossing across rungs, which already absorbs whatever the tax is, so the measurement stands
+on its own. The control is only needed to EXPLAIN a disagreement between the two pathways' floors,
+so it is worth running if and only if they disagree.

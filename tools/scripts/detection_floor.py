@@ -17,7 +17,13 @@ pooled over every predicted pedestrian -- not the onset-direction numbers. Poole
 box 24.7 deg, SMPL 41.2 deg. Mixing the two is what made Sec. IV-B compare 44.2 against a floor
 calibrated on a different quantity (see research-log 2026-10-23).
 
-Usage: python tools/scripts/detection_floor.py
+Two ladders deliver the SAME corrupted channel through different pathways, so both are
+scored here: 'late' through the cross-attention pose branch (the published ladder) and
+'early' through extra per-timestep agent feature channels. The delivered tensors are
+bit-identical at a given rung -- early obj_trajs[..., 29:35] equals late obj_poses[..., :6]
+-- so the rungs carry the same measured-error labels.
+
+Usage: python tools/scripts/detection_floor.py [late|early]
 """
 from __future__ import annotations
 
@@ -30,11 +36,21 @@ import numpy as np
 from scipy import stats
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-OUT = os.path.join(REPO, 'experiments', 'detection_floor.json')
 SEEDS = (101, 202, 303, 404, 505)
 # rung -> measured median |bearing error| of the delivered channel (smoke-tested 2026-10-19)
-RUNGS = {'00': 0.0, '05': 5.5, '10': 10.2, '15': 14.6, '25': 27.2,
-         '35': 37.9, '45': 45.0, '60': 57.4}
+_RUNGS = {'00': 0.0, '05': 5.5, '10': 10.2, '15': 14.6, '25': 27.2,
+          '35': 37.9, '45': 45.0, '60': 57.4}
+LADDERS = {
+    'late': dict(cfg='mtr+pose_data_cross_attn_pe_with_map_oracledir{}_fixdata',
+                 tag='MS_oracledir{key}_s{seed}', rungs=_RUNGS,
+                 out='detection_floor.json',
+                 label='cross-attention pose branch (published ladder)'),
+    'early': dict(cfg='mtr+pose_data_early_oracledir{}_fixdata',
+                  tag='MS_earlyoracle{key}_s{seed}',
+                  rungs={k: _RUNGS[k] for k in ('00', '05', '10')},
+                  out='detection_floor_early.json',
+                  label='early fusion, per-timestep agent channels'),
+}
 # ladder units (pooled over all predicted pedestrians), from facing_error_ladder_units.py
 BOX_HEADING_DEG, SMPL_FACING_DEG = 3.8, 12.3
 # the same two channels on the stationary subset, the population pose was meant to serve
@@ -46,11 +62,10 @@ BOX_STATIONARY_DEG, SMPL_STATIONARY_DEG = 24.7, 41.2
 WATCH_SEED = 404
 
 
-CFG = 'mtr+pose_data_cross_attn_pe_with_map_oracledir{}_fixdata'
 FINAL_EPOCH = 30
 
 
-def best_minade(key: str, seed: int) -> float | None:
+def best_minade(key: str, seed: int, L: dict) -> float | None:
     """Best-epoch minADE, from the run's own best_eval_record.txt.
 
     That file is the canonical artifact the rest of the project scores against; the
@@ -64,8 +79,8 @@ def best_minade(key: str, seed: int) -> float | None:
     reached FINAL_EPOCH -- that file is appended after every eval epoch, so its mere
     existence means the run started, not that it ended.
     """
-    tag = f'MS_oracledir{key}_s{seed}'
-    run_dir = os.path.join(REPO, 'output', 'waymo', CFG.format(key), tag)
+    tag = L['tag'].format(key=key, seed=seed)
+    run_dir = os.path.join(REPO, 'output', 'waymo', L['cfg'].format(key), tag)
     rec = os.path.join(run_dir, 'eval', 'eval_with_train', 'best_eval_record.txt')
     done = os.path.exists(os.path.join(run_dir, 'DONE'))
     if not done:
@@ -92,7 +107,40 @@ def best_minade(key: str, seed: int) -> float | None:
     return None
 
 
+def infer_bracket(rows, sig_of):
+    """Floor bracket from a MONOTONE prefix of significant rungs.
+
+    "significant up to max(sig), gone from min(n.s.)" is only meaningful if
+    significance falls monotonically in theta. It need not: rungs now carry
+    different n (the bracket rungs went to 5 seeds, the rest are at 3), and MDE
+    scales as 1/sqrt(n), so a higher rung can read significant purely because it
+    is better powered. max/min over that would return an inverted bracket, which
+    the reference-point test then reads as "pays". So walk the rungs in
+    delivered-error order, stop at the FIRST transition, and report any later
+    significant rung as an anomaly instead of folding it into an edge.
+    """
+    order = sorted(rows, key=lambda r: r['median_err_deg'])
+    flags = [sig_of(r) for r in order]
+    i = next((j for j, f in enumerate(flags) if not f), None)
+    if i is None:
+        return dict(lo=order[-1]['median_err_deg'], hi=None, anomalies=[],
+                    note='every rung significant: the floor is beyond the ladder')
+    if i == 0:
+        return dict(lo=None, hi=order[0]['median_err_deg'], anomalies=[],
+                    note='no rung significant: the floor is below the finest rung tested')
+    return dict(lo=order[i - 1]['median_err_deg'], hi=order[i]['median_err_deg'],
+                anomalies=[order[j]['median_err_deg']
+                           for j in range(i + 1, len(order)) if flags[j]],
+                note='bracketed')
+
+
 def main() -> int:
+    which = sys.argv[1] if len(sys.argv) > 1 else 'late'
+    if which not in LADDERS:
+        print(f'usage: detection_floor.py [{"|".join(LADDERS)}]'); return 2
+    L = LADDERS[which]
+    RUNGS, OUT = L['rungs'], os.path.join(REPO, 'experiments', L['out'])
+    print(f'ladder: {which} -- {L["label"]}\n')
     base = json.load(open(os.path.join(REPO, 'experiments', 'multiseed_analysis.json')))
     B = {int(k): v['best_minADE'] for k, v in base['cells']['map_nopose_fix']['seeds'].items()
          if v.get('best_minADE') is not None}
@@ -102,7 +150,7 @@ def main() -> int:
           f'{"t":>8}{"p":>9}{"MDE":>7}   95% CI')
     print('-' * 86)
     for key, med in RUNGS.items():
-        vals = {s: best_minade(key, s) for s in SEEDS}
+        vals = {s: best_minade(key, s, L) for s in SEEDS}
         s_ok = [s for s in SEEDS if vals[s] is not None and s in B]
         if len(s_ok) < 2:
             print(f'{med:>9.1f}d  insufficient runs'); continue
@@ -116,8 +164,15 @@ def main() -> int:
         # leave-one-out: a rung whose verdict rests on one seed is not a measurement
         loo = [float(np.delete(rel, i).mean()) for i in range(n)] if n >= 4 else []
         loo_s = f'  LOO [{min(loo):+.2f},{max(loo):+.2f}]' if loo else ''
+        # the same rung with the outlier-baseline seed dropped; the bracket is inferred
+        # both ways below, because an edge that moves is not a measured edge
+        hi_wo = None
+        if WATCH_SEED in s_ok and n >= 3:
+            r2 = np.delete(rel, s_ok.index(WATCH_SEED)); n2 = len(r2)
+            hi_wo = float(r2.mean() + stats.t.ppf(0.975, n2 - 1)
+                          * r2.std(ddof=1) / np.sqrt(n2))
         print(f'{med:>9.1f}d{n:>4}{av.mean():>9.4f}{bv.mean():>9.4f}'
-              f'{(av.mean()-bv.mean())/bv.mean()*100:>+9.2f}%{t:>8.2f}{p:>9.4f}'
+              f'{rel.mean():>+9.2f}%{t:>8.2f}{p:>9.4f}'
               f'{mde:>7.2f}   [{lo:+.2f},{hi:+.2f}]{loo_s}')
         if WATCH_SEED in s_ok and n >= 4:
             i = s_ok.index(WATCH_SEED)
@@ -126,24 +181,48 @@ def main() -> int:
         rows.append(dict(rung=key, median_err_deg=med, n=n, oracle=float(av.mean()),
                          nopose=float(bv.mean()), rel=float(rel.mean()), t=float(t),
                          p=float(p), lo=float(lo), hi=float(hi), mde80=float(mde),
-                         seeds=list(s_ok), loo_rel=loo,
+                         seeds=list(s_ok), loo_rel=loo, hi_wo_watch=hi_wo,
                          per_seed_rel=[float(x) for x in rel],
                          per_seed=[float(x) for x in av]))
 
-    sig = [r for r in rows if r['hi'] < 0]
-    ns = [r for r in rows if r['hi'] >= 0]
     print()
     if not rows:
         print('no rungs could be read -- nothing to conclude')
         return 1
-    if sig and ns:
-        last, first = max(r['median_err_deg'] for r in sig), min(r['median_err_deg'] for r in ns)
-        print(f'gain is significant up to {last:.1f} deg and indistinguishable from zero '
-              f'from {first:.1f} deg onward')
-        print(f'  => detection floor lies between {last:.1f} and {first:.1f} deg')
+
+    allseeds = infer_bracket(rows, lambda r: r['hi'] < 0)
+    wo_watch = infer_bracket(rows, lambda r: (r['hi'] if r['hi_wo_watch'] is None
+                                              else r['hi_wo_watch']) < 0)
+
+    def show(tag, b):
+        if b['note'] != 'bracketed':
+            print(f'  {tag:<16} {b["note"]}')
+            return
+        powers = ', '.join(f'{r["median_err_deg"]:.1f}d n={r["n"]} MDE={r["mde80"]:.1f}'
+                           for r in sorted(rows, key=lambda r: r['median_err_deg'])
+                           if r['median_err_deg'] in (b['lo'], b['hi']))
+        print(f'  {tag:<16} [{b["lo"]:.1f}, {b["hi"]:.1f}] deg   ({powers})')
+        if b['anomalies']:
+            print(f'  {"":<16} WARNING non-monotone: significant again at '
+                  f'{", ".join(f"{a:.1f}" for a in b["anomalies"])} deg -- a rung above the '
+                  f'bracket reading significant is a power or noise artifact, not a floor')
+
+    print('detection floor (gain significant below, indistinguishable above):')
+    show('all seeds', allseeds)
+    show(f'without s{WATCH_SEED}', wo_watch)
+    if (allseeds['lo'], allseeds['hi']) != (wo_watch['lo'], wo_watch['hi']):
+        print(f'  => THE BRACKET MOVES when s{WATCH_SEED} is dropped. Its no-pose baseline is a')
+        print(f'     ~2 SD outlier for its cell, so the edge is not safely reportable; quote the')
+        print(f'     bracket both ways, or add seeds, before putting a number in the paper.')
+
+    floor = [allseeds['lo'], allseeds['hi']]
+    if allseeds['note'] == 'bracketed':
+        last, first = allseeds['lo'], allseeds['hi']
+
         def verdict(th):
             return ('inside the bracket (pays)' if th < last else
                     'outside (does not pay)' if th > first else 'in the gap')
+        print('\nwhere the real channels sit, in this ladder\'s units:')
         for lab, th in (('box heading  (pooled)    ', BOX_HEADING_DEG),
                         ('SMPL facing  (pooled)    ', SMPL_FACING_DEG),
                         ('box heading  (stationary)', BOX_STATIONARY_DEG),
@@ -151,20 +230,18 @@ def main() -> int:
             print(f'  {lab} {th:>5.1f} deg : {verdict(th)}')
         print('  NB a median is not a rung: a rung corrupts every agent uniformly, while SMPL')
         print('     is a heavy tail with 56.8% of agents outside the 10.2 deg bracket.')
-        floor = [last, first]
-    elif not ns:
-        print('every rung still shows a significant gain: the floor is beyond the ladder')
-        floor = [max(RUNGS.values()), None]
-    else:
-        print('no rung shows a significant gain: the floor is below the finest rung tested')
-        floor = [None, min(r['median_err_deg'] for r in ns)]
 
-    json.dump(dict(rungs=rows, floor_bracket_deg=floor, seeds=list(SEEDS),
+    json.dump(dict(ladder=which, pathway=L['label'], rungs=rows,
+                   floor_bracket_deg=floor,
+                   floor_bracket_all_seeds=allseeds,
+                   floor_bracket_without_watch_seed=wo_watch,
+                   watch_seed=WATCH_SEED, seeds=list(SEEDS),
                    box_heading_deg=BOX_HEADING_DEG, smpl_facing_deg=SMPL_FACING_DEG,
                    box_stationary_deg=BOX_STATIONARY_DEG,
                    smpl_stationary_deg=SMPL_STATIONARY_DEG,
-                   note='direction-only oracle; rungs labelled by measured median bearing error; '
-                        'paired t over seeds against map_nopose_fix'),
+                   note='direction-only oracle; rungs labelled by measured median bearing '
+                        'error; paired t over seeds against map_nopose_fix; bracket inferred '
+                        'from the first monotone significant->n.s. transition, not max/min'),
               open(OUT, 'w'), indent=2)
     print(f'\nwrote {OUT}')
     return 0
