@@ -2162,3 +2162,46 @@ is a stronger statement than three unrelated bad runs would be.
 
 n=2 statistics remain meaningless (MDE 103.7 / 30.7 / 45.2); the per-seed values are the content.
 s303 decides whether the split is 2-1 or 1-2.
+
+### 2026-10-23 PART B rung 0 at n=3 -- early fusion leaves a PERFECT oracle inert in 2 of 3 seeds
+
+11/13. s303 also fails to exploit, so the split is 1-2, not 2-1.
+
+  seed   early oracle   early rel   late rel   last-6 sd
+  s101        0.3942     -14.01%    -16.47%      0.0070   exploited
+  s202        0.4460      +0.72%    -19.33%      0.0256   INERT
+  s303        0.4516      -0.31%    -11.48%      0.0161   INERT
+
+  early rung 0: mean  -4.53%  sd 8.22 pp  p=0.440  MDE 25.5
+  late  rung 0: mean -15.76%  sd 3.97 pp  p=0.021  MDE 12.3
+
+Rung 0 is a PERFECT direction oracle -- the agent's own future bearing, uncorrupted. It is the
+best case the pathway will ever see. Late fusion converts it on 3/3 seeds (-11.5 to -19.3%).
+Early fusion converts it on 1/3, from a bit-identical input tensor. Epoch trajectories: s101
+settles at ~0.395, while s202 and s303 wander at 0.47-0.52 and never approach it.
+
+THIS PROBABLY REINTERPRETS A RESULT THE PAPER ALREADY REPORTS. Sec. III-B finds early fusion
+carries no branch-capacity tax: it performs the same as no-pose. Two explanations fit that:
+  (a) early fusion integrates pose at no capacity cost          <- the paper's reading, favourable
+  (b) early fusion largely ignores the appended channels         <- nothing to cost, unfavourable
+The oracle discriminates, because (a) predicts a large gain from a perfect channel and (b)
+predicts nothing. We see nothing in 2 of 3 seeds. So "no tax, no benefit" is at least partly the
+signature of an inert input, which is not a virtue, and the paper currently RECOMMENDS this
+pathway on the strength of it.
+
+Limits, stated plainly: n=3; and the paper's early-fusion cells (fa_derived, fa_derived_shuf) ran
+at 25k scenes and LR 5e-5 while these run at 579 and LR 1e-4, so the reinterpretation is
+suggestive at this scale and not demonstrated at theirs. Testing it where the claim lives would
+mean an oracle arm at 25k.
+
+CONSEQUENCES:
+- Part B cannot measure an early-fusion floor. A floor is where a decay curve crosses zero, and
+  there is no reliable curve: 2 of 3 seeds sit at zero from rung 0 onward. The honest Part B
+  result is the unreliability, not a bracket.
+- Sec. III-B's "early fusion removes the tax" needs the inertness alternative stated, and the
+  recommendation to prefer early fusion needs withdrawing or heavily qualifying.
+- This strengthens rather than weakens the paper's thesis: both integration pathways fail, for
+  different and now-identified reasons -- the side branch pays a capacity tax and has a detection
+  floor above SMPL's accuracy, while early fusion avoids the tax by largely not using the channel.
+
+Two runs left (earlyoracle05/10_s303), then the s404 baseline resample.
