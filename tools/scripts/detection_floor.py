@@ -166,14 +166,22 @@ def main() -> int:
     # once it exists -- a second sample of that seed's baseline
     resample = _read_best(os.path.join(REPO, 'output', 'waymo', BASELINE_CFG, RESAMPLE_TAG),
                           RESAMPLE_TAG)
+    PRIMARY = ['all seeds']
     variants = [('all seeds', B, SEEDS)]
     if WATCH_SEED in B:
         variants.append((f'without s{WATCH_SEED}', B,
                          tuple(s for s in SEEDS if s != WATCH_SEED)))
     if resample is not None:
-        print(f's{WATCH_SEED} baseline resample: {resample:.4f} '
-              f'(original {B[WATCH_SEED]:.4f})\n')
+        both = (B[WATCH_SEED] + resample) / 2
+        print(f's{WATCH_SEED} baseline: original {B[WATCH_SEED]:.4f}, resample {resample:.4f}, '
+              f'mean {both:.4f}')
+        print(f'  the two draws differ by {abs(B[WATCH_SEED]-resample):.4f}; the other four '
+              f'baselines span {max(o for s,o in B.items() if s!=WATCH_SEED)-min(o for s,o in B.items() if s!=WATCH_SEED):.4f}.')
+        print('  Both draws are legitimate samples, so the MEAN is the primary denominator and')
+        print('  the single-draw readings below are the sensitivity analysis.\n')
         variants.append((f's{WATCH_SEED} resampled', {**B, WATCH_SEED: resample}, SEEDS))
+        variants.append((f's{WATCH_SEED} both draws', {**B, WATCH_SEED: both}, SEEDS))
+        PRIMARY[0] = f's{WATCH_SEED} both draws'
 
     raw = {key: {s: best_minade(key, s, L) for s in SEEDS} for key in RUNGS}
 
@@ -191,7 +199,8 @@ def main() -> int:
                              **stats_for((av - bv) / bv * 100)))
         return rows
 
-    rows = build(B, SEEDS)
+    Bprim = dict(next(v[1] for v in variants if v[0] == PRIMARY[0]))
+    rows = build(Bprim, SEEDS)
     if not rows:
         print('no rungs could be read -- nothing to conclude')
         return 1
@@ -241,7 +250,8 @@ def main() -> int:
         print('     edge is NOT safely reportable. Quote it both ways, or add seeds, before')
         print('     putting a number in the paper.')
 
-    primary = brackets['all seeds']
+    primary = brackets[PRIMARY[0]]
+    print(f'\n  primary denominator: {PRIMARY[0]}')
     if primary['note'] == 'bracketed':
         last, first = primary['lo'], primary['hi']
 
@@ -255,11 +265,12 @@ def main() -> int:
                         ('SMPL facing  (stationary)', SMPL_STATIONARY_DEG)):
             print(f'  {lab} {th:>5.1f} deg : {verdict(th)}')
         print('  NB a median is not a rung: a rung corrupts every agent uniformly, while SMPL')
-        print('     is a heavy tail with 56.8% of agents outside the 10.2 deg bracket.')
+        print("     is a heavy tail: 43.5% of agents sit above the bracket's upper edge.")
 
     json.dump(dict(ladder=which, pathway=L['label'], rungs=rows,
                    floor_bracket_deg=[primary['lo'], primary['hi']],
                    floor_brackets=brackets, bracket_edge_stable=(len(edges) <= 1),
+                   primary_denominator=PRIMARY[0],
                    watch_seed=WATCH_SEED, watch_seed_baseline=B.get(WATCH_SEED),
                    watch_seed_baseline_resample=resample, seeds=list(SEEDS),
                    box_heading_deg=BOX_HEADING_DEG, smpl_facing_deg=SMPL_FACING_DEG,

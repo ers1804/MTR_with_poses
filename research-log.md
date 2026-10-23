@@ -2290,3 +2290,57 @@ STILL PENDING, both waiting on the resample (epoch 17/30):
   8.8 at n=5 against the table's 6.2 at n=3.
 - The abstract's "already indistinguishable from zero at 10.2 deg", which is p=0.054 at n=5
   all-seeds and significant without s404.
+
+### 2026-10-24 00:xx RESAMPLE IN: the floor bracket moves to [10.2, 14.6]
+
+MS_map_nopose_fix_s404_resample = 0.4729, against the original 0.4954. The pre-specified test
+(criterion committed in fb8eee7, hours before the s404 oracle runs finished) came back positive:
+the original draw was anomalous.
+
+  denominator for s404        rung 10.2        rung 14.6        bracket
+  original 0.4954 (as pub.)   -6.41% p=0.054   -1.86% p=0.447   [ 5.5, 10.2]
+  resampled 0.4729            -5.60% p=0.026   -1.00% p=0.519   [10.2, 14.6]
+  mean of both 0.4842         -6.01% p=0.040   -1.44% p=0.472   [10.2, 14.6]
+  dropped (n=4)               -4.14% p=0.020   +0.24% p=0.804   [10.2, 14.6]
+
+Three of four treatments give [10.2, 14.6]; only keeping the single original draw gives
+[5.5, 10.2]. Both draws are legitimate samples, so the MEAN is now the primary denominator in
+detection_floor.py and the single-draw readings are the sensitivity analysis.
+
+AN UNCOMFORTABLE SECOND FINDING. The resample is still +3.36 sigma above the other four baselines
+(the original was +6.82), and the two draws of the SAME seed differ by 0.0225 -- more than the
+other four baselines' entire range (0.0156). So run-to-run noise at fixed seed rivals the
+between-seed spread. The paired t-test is still valid (it uses the observed spread of the per-seed
+differences, and never assumes a noiseless baseline), but it means a large share of the ladder's
+variance is baseline noise, which is why the MDEs are what they are. Averaging baseline draws
+would buy more power per GPU-hour than adding seeds. Noted, not acted on.
+
+CONSEQUENCES, ALL APPLIED TO THE PAPER:
+- Bracket [5.5, 10.2] -> [10.2, 14.6] in the abstract, intro, Table II caption, Sec. IV, the
+  point-cloud caption and the conclusion.
+- Eq. (1) refit: -16%*exp(-theta/8.1 deg), half-life ~6 deg (was 6.4 deg / ~4 deg). The per-seed
+  constants (amplitudes 12-20%, half-lives 3.3-8.1 deg) are UNCHANGED, because they are fit on
+  seeds 101/202/303 only and never touch the s404 denominator -- so Sec. IV-B's per-seed
+  predictions (1.5-4.1% at 12.3 deg, 0.003-0.35% at 41.2 deg) also stand as published.
+- Table II gains an n column (3, or 5 at the two bracket rungs) and the two rungs are updated.
+- A new paragraph states the denominator dependence plainly and calls the lower edge the least
+  robust number in the paper.
+- THE HEADLINE CHANGES CHARACTER. Pooled SMPL facing (12.3 deg) now falls INSIDE the bracket, so
+  "pose is below the floor" is no longer true of the pooled median. Sec. IV-B's three-way
+  decomposition is now the whole argument rather than a reinforcement: roughly half of pedestrians
+  sit above the bracket (43.5% above 14.6 deg at +3 s, 51.1% at +8 s); the pooled median is
+  inherited from root-orientation snapping, and the stationary subset the cue was meant to serve
+  sits at 41.2 deg; and the box heading is a better copy (3.9 deg, above the bracket for only
+  14.9% of agents) that the model already receives. That paragraph was written this morning for
+  exactly this contingency, which is the only reason this landed as an edit rather than a rewrite.
+- The abstract's "the null is not a near miss" is GONE. In pooled median terms it is nearer than
+  that sentence claimed, and the honest framing is the decomposition.
+- Fractions updated throughout: the threshold that matters is now the bracket's upper edge
+  (14.6 deg), not 10.2.
+
+Back to 8 pages: the denominator paragraph was tightened, two paragraphs trimmed, and the two
+figures scaled to 0.80\textwidth and 0.94\linewidth. No measurement was cut. Zero overfull boxes,
+no undefined references, all 17 references on page 8, and verify_paper_numbers.py passes 30/30 --
+after fixing a false pass in the checker itself, which was validating the 'all seeds' bracket
+while the paper quotes the primary one (5.5 and 10.2 still appear as rung labels, so it passed
+without checking anything).

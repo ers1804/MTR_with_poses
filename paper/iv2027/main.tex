@@ -49,15 +49,16 @@ out a dead pathway: the same branch, fed the agent's own future instead of its
 body, improves \minADE by $34.8\%$.
 We then measure why pose does not. Corrupting that oracle with a controlled
 angular error gives the pathway a \emph{detection floor}: the gain survives a
-median bearing error of $5.5^\circ$ ($p{=}0.0004$) but is already
-indistinguishable from zero at $10.2^\circ$, where the ladder's minimum
-detectable effect is $6$\,pp. SMPL body facing has a median bearing error of
-$12.3^\circ$, but over half of pedestrians fall outside that bracket and the
-median is largely inherited from the trajectory; for pedestrians stationary at
-prediction time, whose facing their velocity does not supply, it reaches only
+median bearing error of $10.2^\circ$ ($p{=}0.04$) but is already
+indistinguishable from zero at $14.6^\circ$, where the ladder's minimum
+detectable effect is $6.7$\,pp. SMPL body facing's median error, $12.3^\circ$,
+falls inside that bracket---but roughly half of pedestrians sit above it, and the
+median is largely inherited from the trajectory, since the pipeline snaps body
+orientation to the direction of travel for movers. For pedestrians stationary at
+prediction time, whose facing their velocity does not supply, facing reaches
 $41.2^\circ$, where the fitted decay predicts under $0.4\%$ against a
-branch-capacity cost of ${\sim}1.6\%$---so the null is not a near miss, and the
-floor is measurable before a modality is integrated.
+branch-capacity cost of ${\sim}1.6\%$. The floor is cheap to measure before a
+modality is integrated.
 Corroborating this, the tracker's box heading estimates the same quantity more
 accurately ($25.2^\circ$) and pose does not beat it in any range, occlusion or
 heading-jitter stratum. Finally, aggregate MPJPE is the wrong acceptance metric
@@ -102,14 +103,15 @@ not of the plumbing.
 \textbf{A detection floor.} We then measure how accurate a side channel must be
 before this pathway converts it into accuracy at all, by corrupting that oracle
 with a controlled angular error. The gain decays by roughly half for every
-$3$--$8^\circ$ of bearing error: it is still significant at $5.5^\circ$ and is
-already indistinguishable from zero at $10.2^\circ$. SMPL body facing has a
-median bearing error of $12.3^\circ$, but that median is inherited: the pipeline
-snaps body orientation to the direction of travel for moving pedestrians. For the
-stationary ones---where facing is precisely the cue velocity cannot supply---it
-reaches only $41.2^\circ$, where every seed's fitted decay predicts a gain under
-$0.4\%$ against a branch cost of ${\sim}1.6\%$. The null is not a near miss, and
-the floor can be measured before any modality is integrated.
+$3$--$8^\circ$ of bearing error: it is still significant at $10.2^\circ$ and is
+indistinguishable from zero by $14.6^\circ$. SMPL body facing's median error,
+$12.3^\circ$, lands inside that bracket---but the median is inherited, because
+the pipeline snaps body orientation to the direction of travel for moving
+pedestrians, and roughly half of pedestrians sit above the bracket anyway. For
+the stationary ones---where facing is precisely the cue velocity cannot
+supply---it reaches $41.2^\circ$, where every seed's fitted decay predicts a gain
+under $0.4\%$ against a branch cost of ${\sim}1.6\%$. The floor can be measured
+before any modality is integrated.
 
 \textbf{A measurement caveat.} Aggregate MPJPE cannot distinguish a pose
 estimator that tracks a joint imprecisely from one that ignores the input and
@@ -455,7 +457,7 @@ contain no surprise.
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=\textwidth]{fig_qualitative_traj.pdf}
+\includegraphics[width=0.80\textwidth]{fig_qualitative_traj.pdf}
 \caption{Qualitative comparison of the four arms on the same three agents
 (seed $101$, epoch $30$, the epoch for which full trajectory dumps were
 retained). Scenes are picked by percentile of the \emph{no-pose} arm's \minADE
@@ -490,22 +492,33 @@ observation; resampling it each epoch would let training average it away and
 flatter a noisy channel.
 
 The improvement decays with bearing error. It is large and significant when the
-bearing is exact ($-15.8\%$) and at $5.5^\circ$ ($-7.6\%$, $p{=}0.0004$), and it
-is no longer distinguishable from zero at $10.2^\circ$ ($-3.7\%$, $p{=}0.084$)
-or anywhere above it. Fitting all eight rungs,
+bearing is exact ($-15.8\%$), at $5.5^\circ$ ($-7.6\%$, $p{=}0.0004$) and at
+$10.2^\circ$ ($-6.0\%$, $p{=}0.040$), and it is no longer distinguishable from
+zero at $14.6^\circ$ ($-1.4\%$, $p{=}0.47$) or anywhere above it. Fitting all
+eight rungs,
 \begin{equation}
-\Delta\minADE(\theta) \;\approx\; -16\%\cdot\exp(-\theta/6.4^\circ),
+\Delta\minADE(\theta) \;\approx\; -16\%\cdot\exp(-\theta/8.1^\circ),
 \label{eq:floor}
 \end{equation}
-a half-life of ${\approx}4^\circ$. Three seeds do not pin these constants down:
-fitting each seed separately against its own no-pose run gives amplitudes of
+a half-life of ${\approx}6^\circ$. The seeds do not pin these constants down:
+fitting each separately against its own no-pose run gives amplitudes of
 $12$--$20\%$ and half-lives of $3.3$--$8.1^\circ$, so we read (\ref{eq:floor})
 as an order-of-magnitude law and state the floor as a \emph{bracket}---the gain
-survives $5.5^\circ$ and is undetectable beyond $10^\circ$---rather than as a
-crossing point. Above the bracket the values scatter around zero; with $n{=}3$
+survives $10.2^\circ$ and is undetectable beyond ${\approx}15^\circ$---rather
+than as a crossing point. Above the bracket the values scatter around zero, and
 the ladder cannot resolve anything below ${\approx}6$\,pp there, so the high
 rungs ($+2.7\%$ at $45^\circ$) are indistinguishable both from zero and from the
 branch tax of Sec.~\ref{sec:real}, and we read no sign change into them.
+
+The two rungs bounding the bracket were taken to five seeds, which exposed a
+dependence worth stating. One seed's no-pose run is a $6.8\,\sigma$ outlier
+against the other four and is the shared denominator for that seed's whole
+column; retraining it gave a draw $0.023$ lower, more than the span of the other
+four, so run-to-run noise at fixed seed rivals the between-seed spread. Both
+draws are legitimate, so the bracket uses their mean. Retraining, averaging or
+dropping that seed all give $[10.2^\circ,14.6^\circ]$; only the single original
+draw gives $[5.5^\circ,10.2^\circ]$. The lower edge is the least robust number
+here.
 
 \subsection{Where body facing sits relative to the floor}
 \label{sec:belowfloor}
@@ -516,33 +529,33 @@ median $12.3^\circ$ at $+3$\,s ($n{=}5{,}824$), $15.1^\circ$ at $+8$\,s
 fit at $12.3^\circ$ predicts $1.5$--$4.1\%$, at or above the ${\sim}1.6\%$ branch
 tax. Three properties of that median remove the apparent margin.
 
-\emph{Most of it is the trajectory restated.} $95.5\%$ of the scored agents are
-moving, and for a mover the pipeline snaps root orientation to the direction of
-travel whenever the raw estimate deviates by more than $90^\circ$
-(Sec.~\ref{sec:setup}). Movers sit at $11.9^\circ$; the $262$ agents stationary
-at prediction time---the only ones whose facing is not already implied by their
-velocity---sit at $41.2^\circ$, where the per-seed fits predict
-$0.003$--$0.35\%$. The pooled median largely measures the snapping.
+\emph{Most of it is the trajectory restated.} $95.5\%$ of the scored agents move,
+and for a mover the pipeline snaps root orientation to the direction of travel
+whenever the raw estimate deviates by more than $90^\circ$
+(Sec.~\ref{sec:setup}). Movers sit at $11.9^\circ$; the $262$ stationary
+agents---the only ones whose facing their velocity does not already imply---sit
+at $41.2^\circ$, where the per-seed fits predict $0.003$--$0.35\%$. The pooled
+median largely measures the snapping.
 
 \emph{A rung is a uniform corruption; SMPL is a heavy tail.} Each rung applies
 its angle to \emph{every} agent, so a channel is comparable to a rung only if
 its whole distribution sits there. SMPL's does not: $5.5^\circ$ at the first
 quartile, $23.9^\circ$ at the third, $45.9^\circ$ at the ninetieth percentile.
-$56.8\%$ of agents fall outside the $10.2^\circ$ bracket at $+3$\,s and $63.6\%$
-at $+8$\,s. Reading an exponential decay at a median flatters the channel for
-the same reason, since the badly estimated majority contributes almost none of
-the gain.
+$43.5\%$ of agents sit above the bracket's upper edge at $+3$\,s and $51.1\%$ at
+$+8$\,s, and $56.8\%$ are above its lower edge. Reading an exponential decay at a
+median flatters the channel for the same reason, since the badly estimated half
+contributes almost none of the gain.
 
 \emph{It is a noisier copy of an input the model already has.} The tracker's box
 heading estimates the same bearing at $3.9^\circ$ ($+3$\,s) and $7.1^\circ$
-($+8$\,s), beats SMPL at every percentile we measured, and is outside the
-bracket for only $22.3\%$ of agents---even though we calibrated the SMPL forward
-axis \emph{against} the box heading first. The two differ by $10.0^\circ$ in
+($+8$\,s), beats SMPL at every percentile we measured, and clears the bracket
+for all but $14.9\%$ of agents---even though we calibrated the SMPL forward axis
+\emph{against} the box heading first. The two differ by $10.0^\circ$ in
 median.
 
-So facing is inside the bracket only for the agents whose facing their own
-velocity already supplies, and outside it for the majority---most plainly for the
-stationary pedestrians the cue was introduced to serve.
+So facing clears the bracket mainly for the agents whose facing their own
+velocity already supplies, and sits above it for roughly half---most plainly for
+the stationary pedestrians the cue was introduced to serve.
 
 \textbf{The onset task agrees.} On the one case where velocity carries no
 directional information---which way a stationary pedestrian steps off---SMPL
@@ -560,28 +573,29 @@ returns.
 \begin{table}[t]
 \caption{Detection floor for the pose branch. A direction-only oracle corrupted
 by a fixed per-agent angular error, each rung labelled by the median bearing
-error actually delivered; $n{=}3$ seeds, paired $t$ against each seed's own
-no-pose run, negative favours the oracle. MDE is the minimum effect this rung
-could detect at $80\%$ power given its realised spread: only the two lowest
-rungs are sensitive enough to resolve the effects at issue, which is why we
-report the floor as the bracket $[5.5^\circ,10.2^\circ]$ rather than a crossing
-point. SMPL body facing lies outside it for most agents, and for the stationary
-pedestrians the cue was introduced to serve (Sec.~\ref{sec:belowfloor}).}
+error actually delivered; paired $t$ against each seed's own no-pose run,
+negative favours the oracle. The two rungs bounding the bracket were extended to
+five seeds. MDE is the minimum effect a rung could detect at $80\%$ power given
+its realised spread, so the floor is reported as the bracket
+$[10.2^\circ,14.6^\circ]$ rather than a crossing point. Roughly half of
+pedestrians have a facing error above that bracket, and the stationary ones the
+cue was introduced to serve sit far above it (Sec.~\ref{sec:belowfloor}).}
 \label{tab:floor}
 \centering
 \footnotesize
-\begin{tabular}{lcccc}
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{@{}lrcccc@{}}
 \toprule
-Median bearing error & $\Delta$\minADE & $p$ & 95\% CI & MDE \\
+Bearing error & $n$ & $\Delta$\minADE & $p$ & 95\% CI & MDE \\
 \midrule
-$0.0^\circ$  & $-15.8\%$ & $0.021$  & $[-25.6,-5.9]$ & $12.3$ \\
-$5.5^\circ$  & $-7.6\%$  & $0.0004$ & $[-8.2,-6.9]$  & $0.8$ \\
-$10.2^\circ$ & $-3.7\%$  & $0.084$  & $[-8.7,+1.2]$  & $6.2$ \\
-$14.6^\circ$ & $+0.2\%$  & $0.876$  & $[-5.2,+5.6]$  & $6.7$ \\
-$27.2^\circ$ & $-0.1\%$  & $0.954$  & $[-5.4,+5.2]$  & $6.6$ \\
-$37.9^\circ$ & $+0.6\%$  & $0.624$  & $[-3.8,+5.0]$  & $5.5$ \\
-$45.0^\circ$ & $+2.7\%$  & $0.252$  & $[-4.6,+10.0]$ & $9.1$ \\
-$57.4^\circ$ & $+2.7\%$  & $0.237$  & $[-4.2,+9.5]$  & $8.5$ \\
+$0.0^\circ$  & 3 & $-15.8\%$ & $0.021$  & $[-25.6,-5.9]$ & $12.3$ \\
+$5.5^\circ$  & 3 & $-7.6\%$  & $0.0004$ & $[-8.2,-6.9]$  & $0.8$ \\
+$10.2^\circ$ & 5 & $-6.0\%$  & $0.040$  & $[-11.6,-0.5]$ & $7.4$ \\
+$14.6^\circ$ & 5 & $-1.4\%$  & $0.472$  & $[-6.5,+3.6]$  & $6.7$ \\
+$27.2^\circ$ & 3 & $-0.1\%$  & $0.954$  & $[-5.4,+5.2]$  & $6.6$ \\
+$37.9^\circ$ & 3 & $+0.6\%$  & $0.624$  & $[-3.8,+5.0]$  & $5.5$ \\
+$45.0^\circ$ & 3 & $+2.7\%$  & $0.252$  & $[-4.6,+10.0]$ & $9.1$ \\
+$57.4^\circ$ & 3 & $+2.7\%$  & $0.237$  & $[-4.2,+9.5]$  & $8.5$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -623,8 +637,7 @@ lower floor; it is the absence of a curve on which to locate one. At $\theta{=}0
 future bearing, and the side branch converts it on all three seeds ($-16.5\%$,
 $-19.3\%$, $-11.5\%$); early fusion converts it on one ($-14.0\%$, against
 $+0.7\%$ and $-0.3\%$). The two failing seeds sit at their no-pose level from
-$\theta{=}0$ onward and their validation curves never approach the successful
-one's, so the cue reaches the input and is not used.
+$\theta{=}0$ onward, so the cue reaches the input and is not used.
 
 This reframes the free-carriage result of Sec.~\ref{sec:real}. ``No tax, no
 benefit'' admits two readings: that early fusion integrates pose at no capacity
@@ -639,7 +652,7 @@ measured at $25$k scenes while this ladder runs at $579$.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{fig_pointcloud_mesh.pdf}
+\includegraphics[width=0.94\linewidth]{fig_pointcloud_mesh.pdf}
 \caption{What the pose estimator has to work with. Raw per-pedestrian LiDAR
 returns (orange) and the SMPL mesh fitted to them (blue), at four ranges and a
 common metric scale. Each panel is a frame whose return count equals the median
@@ -648,9 +661,9 @@ points. Past ${\approx}40$\,m a pedestrian is a few dozen returns, mostly on
 head and torso, while the mesh drawn over them still has fully articulated
 limbs---that articulation, and any gait or facing cue read from it, comes
 largely from the AMASS motion prior rather than from the measurement. This is
-the physical reason body facing falls outside the bracket of
-Sec.~\ref{sec:floor} for most pedestrians, and reaches only $41.2^\circ$ for the
-stationary ones.}
+the physical reason body facing falls above the bracket of Sec.~\ref{sec:floor}
+for roughly half of pedestrians, and reaches $41.2^\circ$ for the stationary
+ones.}
 \label{fig:pcmesh}
 \end{figure}
 
@@ -751,7 +764,7 @@ carrying a prior.
 $299{,}220$ exported, so the full rung is a compute limit rather than an
 annotation one; at eight seeds the minimum detectable content effect is
 ${\approx}1.25\%$ at $80\%$ power, and the ladder's own rungs are far coarser
-($n{=}3$, Table~\ref{tab:floor}). We test one forecaster, one dataset and one
+($n{=}3$, or $5$ at the two rungs bounding the bracket, Table~\ref{tab:floor}). We test one forecaster, one dataset and one
 pose estimator. We measure the floor on two integration pathways rather than
 one, but two is not every way a cue can enter a model, and the early-fusion
 ladder is $n{=}3$ at the $579$-scene rung. WOMD ships camera data only as
@@ -767,9 +780,9 @@ forecasting on WOMD. The null is controlled against a shuffled-pose baseline and
 holds across scale, representation, integration, a directed search and a
 pre-registered confirmation; an oracle through the same branch rules out a dead
 pathway. It also has a quantitative mechanism: an oracle ladder shows this
-integration path converts a bearing cue into accuracy at $5.5^\circ$ but no
-longer by $10^\circ$, and body facing falls outside that bracket for most
-pedestrians---by a factor of four for the stationary ones the cue was introduced
+integration path converts a bearing cue into accuracy at $10^\circ$ but no longer
+by $15^\circ$, and body facing falls above that bracket for roughly half of
+pedestrians---by a factor of three for the stationary ones the cue was introduced
 to serve. Fusing the same cue early removes the branch's capacity cost but does
 not rescue it: that pathway fails to exploit even an uncorrupted bearing on two
 seeds in three, so both integration routes fail, for different and identifiable

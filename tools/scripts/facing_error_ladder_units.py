@@ -132,14 +132,18 @@ def main() -> int:
                         for q in (25, 50, 75, 90, 95)},
             'smpl_frac_outside_bracket': float(np.mean(e_p > 10.2)),
             'box_frac_outside_bracket': float(np.mean(e_b > 10.2)),
+            'smpl_frac_above_14_6': float(np.mean(e_p > 14.6)),
+            'box_frac_above_14_6': float(np.mean(e_b > 14.6)),
             'smpl_vs_box_med': float(np.median(angdiff(pose_yaw[m], box[m])))}
         print(f'{lab:<34}{int(m.sum()):>7}{np.median(e_p):>8.1f}°'
               f'{np.median(e_b):>8.1f}°{100*np.mean(e_p < 45):>7.1f}%')
         print('    percentiles  ' + '  '.join(
             f'p{q}: SMPL {np.percentile(e_p, q):.1f}° box {np.percentile(e_b, q):.1f}°'
             for q in (50, 75, 90)))
-        print(f'    outside the 10.2° bracket: SMPL {100*np.mean(e_p > 10.2):.1f}%'
+        print(f'    above 10.2°: SMPL {100*np.mean(e_p > 10.2):.1f}%'
               f'  box {100*np.mean(e_b > 10.2):.1f}%')
+        print(f'    above 14.6°: SMPL {100*np.mean(e_p > 14.6):.1f}%'
+              f'  box {100*np.mean(e_b > 14.6):.1f}%')
 
     # the moving/stationary split matters: for movers the pipeline snaps root
     # orientation to the direction of travel, which flatters pose

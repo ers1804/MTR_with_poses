@@ -50,9 +50,12 @@ def main() -> int:
             (g, 'SMPL p25', t3['smpl_pct']['25'], '5.5'),
             (g, 'SMPL p75', t3['smpl_pct']['75'], '23.9'),
             (g, 'SMPL p90', t3['smpl_pct']['90'], '45.9'),
-            (g, 'SMPL outside bracket +3 s', 100 * t3['smpl_frac_outside_bracket'], '56.8'),
-            (g, 'SMPL outside bracket +8 s', 100 * t8['smpl_frac_outside_bracket'], '63.6'),
-            (g, 'box outside bracket +3 s', 100 * t3['box_frac_outside_bracket'], '22.3'),
+            # the bracket's UPPER edge moved to 14.6 when its two rungs went to n=5,
+            # so the share above 14.6 is the figure the argument now turns on
+            (g, 'SMPL above 14.6 +3 s', 100 * t3['smpl_frac_above_14_6'], '43.5'),
+            (g, 'SMPL above 14.6 +8 s', 100 * t8['smpl_frac_above_14_6'], '51.1'),
+            (g, 'box above 14.6 +3 s', 100 * t3['box_frac_above_14_6'], '14.9'),
+            (g, 'SMPL above 10.2 +3 s', 100 * t3['smpl_frac_outside_bracket'], '56.8'),
             (g, 'SMPL vs box median', t3['smpl_vs_box_med'], '10.0'),
             (g, 'movers median', mv['smpl_med'], '11.9'),
             (g, 'stationary median', st['smpl_med'], '41.2'),
@@ -72,7 +75,11 @@ def main() -> int:
             th = r['median_err_deg']
             checks.append((g, f'rung {th:.1f} MDE (n={r["n"]})', r['mde80'],
                            f'{r["mde80"]:.1f}'))
-        b = D.get('floor_brackets', {}).get('all seeds') or {}
+        # the bracket the paper quotes is the PRIMARY denominator's, not the
+        # literal published-data one -- checking 'all seeds' was a false pass,
+        # since 5.5 and 10.2 also appear as rung labels
+        prim = D.get('primary_denominator', 'all seeds')
+        b = D.get('floor_brackets', {}).get(prim) or {}
         if b.get('note') == 'bracketed':
             checks += [(g, 'bracket low', b['lo'], f'{b["lo"]:.1f}'),
                        (g, 'bracket high', b['hi'], f'{b["hi"]:.1f}')]
