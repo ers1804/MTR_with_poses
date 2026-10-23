@@ -2019,3 +2019,47 @@ so an in-flight divergence reads as "refresh the table when the queue lands". Ta
 bracket both need regenerating once Part A finishes.
 
 Paper rebuilds clean, 8 pages, no undefined references.
+
+### 2026-10-23 PART A complete at n=5: the bracket is UNRESOLVED, and one baseline decides it
+
+All four runs landed (15:11). The bracket edge moves depending on a single denominator:
+
+  rung    n=5 all seeds                     n=4 without s404
+  10.2    -6.41%  p=0.054  MDE 8.8          -4.14%  significant  MDE 3.8
+  14.6    -1.86%  p=0.447  MDE 8.2          +0.24%  n.s.         MDE 3.7
+  bracket [5.5, 10.2]                       [10.2, 14.6]
+
+THE ANOMALY IS THE SHARED DENOMINATOR, not the oracle runs. This is now established
+non-circularly, from the oracle runs' agreement with each other rather than from the disputed
+relative differences:
+
+  rung   s404 oracle   others avg   oracle gap   s404 rel   others rel
+  10.2      0.4188       0.4324       -3.13%      -15.45%     -4.14%
+  14.6      0.4447       0.4521       -1.64%      -10.24%     +0.24%
+
+At rung 14.6 the s404 oracle run is 1.6% better than the other four -- unremarkable -- yet reads
+-10.24%. Its baseline (0.4954) is +9.8% above the other four (0.4511, range 0.4428-0.4584), and
+that factor divides into every s404 arm identically. So the same seed reads extreme at BOTH rungs
+in the same direction while its numerators are ordinary, which is the signature of a bad common
+denominator and not of two lucky oracle runs.
+
+PART A THEREFORE DID NOT CONVERT THE BRACKET INTO A MEASUREMENT. It established something more
+useful: the bracket's location was resting on one baseline run all along, and at n=3 that was
+invisible. The queued resample of MS_map_nopose_fix_s404 now decides between [5.5, 10.2] and
+[10.2, 14.6]. It runs after the main queue, so ~23:00-24:00.
+
+PAPER CONSEQUENCES IF [10.2, 14.6] STANDS -- not applied yet, the resample decides:
+- The abstract's "already indistinguishable from zero at 10.2 deg" becomes false; at n=5 it is
+  p=0.054 all-seeds and significant without s404. Even the all-seeds reading is now marginal
+  rather than a clean null, so that sentence needs softening either way.
+- Pooled SMPL facing (12.3 deg) would sit INSIDE the bracket. The paper survives, but Sec. IV-B's
+  three-way decomposition (heavy tail with 56.8% of agents outside; the median is trajectory-
+  derived via root-orientation snapping, with the stationary subset at 41.2 deg; the box heading
+  is a better copy at 3.9 deg and already an input) stops being a supporting argument and becomes
+  THE argument. That decomposition is already written, which is lucky.
+- Table II needs regenerating with mixed n and the per-rung MDE column, and the bracket must be
+  quoted both ways until the denominator is settled.
+
+Note on method: both of the guards added earlier today fired on real conditions within hours --
+the completion gate (which caught a 2/30-epoch run scoring as finished) and the bracket-edge
+stability check. Neither was hypothetical.
