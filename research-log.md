@@ -1662,3 +1662,49 @@ Cut to hold 6 pages: the onset-stratification table (folded into one sentence ke
 range extremes and the jitteriest quartile), and compression of the Introduction, the tuning
 paragraph, the practice section and Limitations. 6 pages, no overfull boxes, no undefined
 references, 17 citations.
+
+### 2026-10-23 — RANGE STRATIFICATION AT 25k: no near-field window either
+
+The last untested regime. The floor says pose fails because facing is imprecise (44.2 deg pooled),
+and facing improves with proximity (32.9 deg in the nearest onset quartile) because returns do
+(median 329 points under 15 m vs 11 beyond 45 m). So if pose ever clears the floor, it is close in.
+
+Scored the content test on range strata at the 25k rung from per-agent metrics already on disk
+(tools/scripts/range_stratified_content.py; n=5 seeds, canonical best epochs from
+multiseed_analysis.json -- two 25k seeds never got a best_eval_record.txt written). Range is
+distance from the SDC at t=10, as in onset_stratify_covariates.py. 16,353 of 16,486 agents
+(133 dropped with impossible ego distances).
+
+Sanity check: ALL = +0.05%, CI [-1.63,+1.70], reproducing Table I (+0.06%, [-1.59,+1.70]).
+
+  CONTENT TEST (pose vs shuffled), minADE, negative favours pose
+    ALL            n=16353   +0.05%  p=0.94  [-1.63,+1.72]
+    <19 m          n= 3594   -0.27%  p=0.65  [-1.80,+1.26]
+    <15 m          n= 2324   +0.20%  p=0.76  [-1.46,+1.85]
+    <10 m          n=  974   -0.14%  p=0.81  [-1.61,+1.33]
+    Q1 [2,21)      n= 4088   -0.25%  p=0.67  [-1.73,+1.24]
+    Q4 [51,75]     n= 4089   +0.44%  p=0.46  [-1.05,+1.94]
+
+The near strata are nominally negative, which looks like a trace until the bins are made finer.
+In 8 equal-count bins the sign alternates (+0.58, -1.20, -0.82, +1.13, -0.80, +1.07, +1.27,
+-0.53) with nothing significant, and crucially the CLOSEST bin (1.9-13.9 m) is +0.58% -- pose
+WORSE -- while the most negative is the second-farthest. Trend of content effect with range:
+Pearson r=+0.20 (p=0.63), Spearman +0.43 (p=0.29). A genuine proximity benefit would show a
+strong positive gradient; there is none. The "<19 m" number is a bin-edge artifact averaging the
++0.58% closest bin with the -1.20% next one.
+
+Per-bin MDE is 2.0-4.1% at 80% power, so these bins exclude only effects above ~2%; the pooled
+<19 m test excludes above ~1.8%. What they do rule out is a near-field effect large enough to
+matter against the branch tax, which in the SAME stratum is +1.76% (p=0.005) -- significant, and
+6x any content point estimate. Even a real -0.27% would be swallowed whole.
+
+Consistent with the ladder a priori: at 32.9 deg (nearest onset quartile) the per-seed fits
+predict a 0.02-0.71% gain, against that 1.65% tax. Theory and measurement agree.
+
+DECISION: do NOT train on a near-only subset. The decision rule was "any trace of pose helping";
+the finer-grained test says the trace is a binning artifact, the gradient is absent, and the
+closest pedestrians favour a stranger's pose. Training on the subset would also cut the 25k rung
+to ~22% of its agents, raising MDE well above the effect being chased.
+
+NOTE: point count cannot be used as a stratifier here. The per-pedestrian return counts come from
+Waymo Perception; WOMD motion data ships no per-agent LiDAR. Range is the available proxy.
