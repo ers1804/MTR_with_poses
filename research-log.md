@@ -2344,3 +2344,29 @@ no undefined references, all 17 references on page 8, and verify_paper_numbers.p
 after fixing a false pass in the checker itself, which was validating the 'all seeds' bracket
 while the paper quotes the primary one (5.5 and 10.2 still appear as rung labels, so it passed
 without checking anything).
+
+### 2026-10-25 point-cloud caption contradicted the paper's own per-joint table
+
+The fig:pcmesh caption said the mesh's articulation "and any gait or facing cue read from it,
+comes largely from the AMASS motion prior rather than from the measurement". Stated generally
+that is the retracted "gait at the noise floor" argument leaking back in through a caption:
+Sec. V's own Table (n=534 pedestrians, 1,789 GT-keypoint frames) scores every limb joint at
++0.46 to +0.64 skill, so limbs ARE measured. The only joint the pipeline emits from its prior is
+the HEAD, at skill 0.05 [0.02, 0.07] -- MPJPE 112 mm against a GT spread of 117 mm.
+
+Caption now scopes the prior-dominance claim to the far panels it actually depicts (12-38
+returns), points at Table~\ref{tab:skill} for what is and is not recovered, and demotes "this is
+the physical reason body facing falls above the bracket" to range-sparsity being ONE contributor,
+cited against the evidence that does support it (the pose-versus-heading gap widening to
++32.9 deg at 41-75 m). Still 8 pages, no overfull boxes, 30/30 number checks.
+
+Surfaced while assessing a proposal to turn WOD Perception into a prediction dataset. Recorded
+there because it changes which cue is open: gait is measured and was tested (null), facing looks
+intrinsically limited (the box heading, far better measured, still only reaches 25.2 deg on onset
+direction, outside the [10.2, 14.6] bracket), and HEAD ORIENTATION is the one channel the LiDAR
+pipeline demonstrably fails to deliver. That is the argument for cameras, and it is why the WOD
+question is worth a diagnostic rather than a dataset build -- see [[wod-prediction-dataset]]
+reasoning in the session: the ceiling test needs GT pose at ONE instant plus the tracked future,
+not 9.1 s of keypoint continuity, so it costs no training at all. Feasibility gate before any
+build: count stationary pedestrians with GT keypoints and a usable future; 534 locally implies
+~25 stationary, which is too few.

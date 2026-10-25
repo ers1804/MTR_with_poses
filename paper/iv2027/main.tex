@@ -658,12 +658,14 @@ returns (orange) and the SMPL mesh fitted to them (blue), at four ranges and a
 common metric scale. Each panel is a frame whose return count equals the median
 for its range band over the validation segments: $300$, $100$, $38$ and $12$
 points. Past ${\approx}40$\,m a pedestrian is a few dozen returns, mostly on
-head and torso, while the mesh drawn over them still has fully articulated
-limbs---that articulation, and any gait or facing cue read from it, comes
-largely from the AMASS motion prior rather than from the measurement. This is
-the physical reason body facing falls above the bracket of Sec.~\ref{sec:floor}
-for roughly half of pedestrians, and reaches $41.2^\circ$ for the stationary
-ones.}
+head and torso, while the mesh over them still has fully articulated limbs: at
+that range the articulation is largely the AMASS prior. That applies to the far
+panels only---scored against ground-truth keypoints across all ranges, every
+limb joint carries real skill, and it is the \emph{head} the pipeline emits from
+its prior (Table~\ref{tab:skill}). Sparsity at range is therefore one
+contributor to the facing error of Sec.~\ref{sec:belowfloor}, where the
+pose-versus-heading gap widens to $+32.9^\circ$ at $41$--$75$\,m, not its whole
+explanation.}
 \label{fig:pcmesh}
 \end{figure}
 
