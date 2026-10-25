@@ -11,17 +11,87 @@ This checks the couplings, not the prose: for each quantity it rounds the artifa
 value the way the paper writes it and asserts that string is present. A FAIL means
 either the paper or the artifact moved without the other.
 
+It then greps for RETIRED claims -- see the registry below. Number checks cannot
+catch a withdrawn claim restated in prose, which has happened twice: "a factor of
+four in bearing" survived the Sec. IV-B units fix and reached the conclusion, and
+"gait at the noise floor" re-entered through a figure caption after the per-joint
+table had retired it. Append to RETIRED whenever a claim is withdrawn; the list is
+manual and goes stale otherwise.
+
 Usage: python tools/scripts/verify_paper_numbers.py
+       PAPER_TEX=/path/to/scratch.tex python tools/scripts/verify_paper_numbers.py
 Exit 0 if every check passes, 1 otherwise.
 """
 from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-TEX = os.path.join(REPO, 'paper', 'iv2027', 'main.tex')
+# PAPER_TEX overrides the target so the retired-claim grep can be negative-tested
+# against a scratch copy without touching the real paper
+TEX = os.environ.get('PAPER_TEX',
+                     os.path.join(REPO, 'paper', 'iv2027', 'main.tex'))
+
+# Claims this project has RETIRED. The number checks below verify quantities that are
+# in the artifacts; they cannot catch a withdrawn claim restated in prose, which has now
+# happened twice -- "a factor of four in bearing" survived the Sec. IV-B units fix and
+# reached the conclusion, and "gait at the noise floor" re-entered through a figure
+# caption after the per-joint table had retired it. Both were found by grep, so the grep
+# lives here. `allow` is a regex that, matched anywhere in the surrounding window, makes
+# an occurrence legitimate -- several of these numbers are fine in their correct scope
+# and wrong as headlines.
+RETIRED = [
+    dict(pat=r'factor of four|four times coarser',
+         why='mixed units: 44.2 deg is onset direction on the stationary subset, the floor '
+             'is calibrated on displacement bearing over every predicted pedestrian',
+         instead='the share of agents above the bracket; the factor is three, and only '
+                 'for the stationary subset'),
+    dict(pat=r'far below the floor',
+         why='same mixed-units comparison; pooled facing is 12.3 deg, inside the bracket',
+         instead='facing clears the bracket mainly for agents whose velocity already '
+                 'supplies it'),
+    dict(pat=r'noise floor',
+         why='"gait at the noise floor" was retired: over 534 pedestrians every limb joint '
+             'scores +0.46 to +0.64 skill, so limbs are measured',
+         instead='the head is the prior-dominated joint (skill 0.05); limbs are recovered'),
+    dict(pat=r'gait or facing cue read from it',
+         why='asserted prior-dominance for limbs generally, contradicting tab:skill',
+         instead='scope prior-dominance to the far-range panels the figure depicts'),
+    dict(pat=r'may still pay if fused early|might still pay if fused early',
+         why='withdrawn after the early-fusion ladder: that pathway left an uncorrupted '
+             'oracle inert on two seeds in three',
+         instead='say the cheaper pathway was the less reliable one',
+         # the paper states this claim in order to withdraw it, which is legitimate
+         allow=r'withdraw'),
+    dict(pat=r'160\.6',
+         why='MPJPE from the misaligned harness protocol; the fair number is 87.6 mm',
+         instead='87.6 mm root-aligned, timestamp-aligned'),
+    dict(pat=r'44\.2',
+         why='only valid as the stationary-onset measurement, never as "the" facing error',
+         instead='12.3 deg pooled in the ladder units, 41.2 deg stationary',
+         allow=r'onset'),
+    dict(pat=r'\[5\.5\^',
+         why='the superseded floor bracket; three of four denominators give [10.2, 14.6]',
+         instead='[10.2, 14.6], with [5.5, 10.2] cited only as the single-draw sensitivity',
+         allow=r'original draw|single original'),
+]
+
+
+def check_retired(tex):
+    """Grep for claims the project has withdrawn. Returns a list of violations."""
+    bad = []
+    for r in RETIRED:
+        for m in re.finditer(r['pat'], tex):
+            window = tex[max(0, m.start() - 250):m.end() + 250]
+            if r.get('allow') and re.search(r['allow'], window):
+                continue
+            line = tex[:m.start()].count(chr(10)) + 1
+            bad.append((line, m.group(0), r))
+    return bad
+
 
 
 def load(name):
@@ -106,13 +176,29 @@ def main() -> int:
         shown = str(val) if isinstance(val, int) else f'{val:.4g}'
         print(f'  {label:<30}{shown:>10}  paper: {written:<10} {status}')
 
+    retired = check_retired(tex)
+    print()
+    print('retired claims')
+    print('-' * 74)
+    if retired:
+        for line, hit, r in retired:
+            print(f'  main.tex:{line}  "{hit}"')
+            print(f'      retired because: {r["why"]}')
+            print(f'      say instead:     {r["instead"]}')
+    else:
+        print(f'  none of the {len(RETIRED)} withdrawn claims appear outside their '
+              f'permitted scope')
+
     print()
     if bad:
         print(f'{len(bad)} MISMATCH(ES):')
         for g, label, val, written, status in bad:
             print(f'  [{g}] {label}: artifact {val}, paper writes {written} -- {status}')
+    if retired:
+        print(f'{len(retired)} RETIRED CLAIM(S) PRESENT (listed above)')
+    if bad or retired:
         return 1
-    print(f'all {len(checks)} checks pass')
+    print(f'all {len(checks)} number checks pass; no retired claims present')
     return 0
 
 

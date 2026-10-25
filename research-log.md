@@ -2370,3 +2370,26 @@ reasoning in the session: the ceiling test needs GT pose at ONE instant plus the
 not 9.1 s of keypoint continuity, so it costs no training at all. Feasibility gate before any
 build: count stationary pedestrians with GT keypoints and a usable future; 534 locally implies
 ~25 stationary, which is too few.
+
+### 2026-10-25 retired-claim grep added to verify_paper_numbers.py
+
+The number checker verifies quantities that exist in the artifacts; it cannot catch a claim the
+project has WITHDRAWN being restated in prose. That happened twice in three days -- "a factor of
+four in bearing" survived the Sec. IV-B units fix and reached the conclusion, and "gait at the
+noise floor" re-entered through a figure caption after the per-joint table had retired it. Both
+were caught by grep, so the grep is now part of the checker.
+
+Eight entries, each with why it was retired and what to say instead, and an optional `allow`
+regex for occurrences that are legitimate in their correct scope: 44.2 deg is fine next to
+"onset", [5.5 deg bracket is fine next to "original draw", and "might still pay if fused early"
+is fine next to "withdraw" because the paper states it in order to withdraw it. That last one
+fired on the first run, which is the design working.
+
+Negative-tested. The FIRST negative test silently verified nothing -- the sed pattern I injected
+with never matched, so the scratch file was byte-identical to the paper and the checker correctly
+passed. Exactly the failure the checker exists to prevent, in the test for the checker. Injecting
+on a phrase that does occur gives exit 1 with the right line and guidance. Added a PAPER_TEX env
+override so this can be tested against a scratch copy without touching the real paper.
+
+Caveat worth keeping in mind: RETIRED is a manual list. It catches regressions of claims someone
+remembered to add, not claims nobody wrote down.
