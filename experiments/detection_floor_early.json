@@ -1,6 +1,6 @@
 {
   "ladder": "early",
-  "pathway": "early fusion, per-timestep agent channels",
+  "pathway": "early fusion, per-timestep agent channels, 579 scenes",
   "rungs": [
     {
       "rung": "00",
@@ -106,12 +106,25 @@
       "hi": 0.0,
       "anomalies": [],
       "note": "no rung significant: the floor is below the finest rung tested"
+    },
+    "s404 resampled": {
+      "lo": null,
+      "hi": 0.0,
+      "anomalies": [],
+      "note": "no rung significant: the floor is below the finest rung tested"
+    },
+    "s404 both draws": {
+      "lo": null,
+      "hi": 0.0,
+      "anomalies": [],
+      "note": "no rung significant: the floor is below the finest rung tested"
     }
   },
   "bracket_edge_stable": true,
+  "primary_denominator": "s404 both draws",
   "watch_seed": 404,
   "watch_seed_baseline": 0.4954,
-  "watch_seed_baseline_resample": null,
+  "watch_seed_baseline_resample": 0.4729149639606476,
   "seeds": [
     101,
     202,

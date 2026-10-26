@@ -17,13 +17,20 @@ pooled over every predicted pedestrian -- not the onset-direction numbers. Poole
 box 24.7 deg, SMPL 41.2 deg. Mixing the two is what made Sec. IV-B compare 44.2 against a floor
 calibrated on a different quantity (see research-log 2026-10-23).
 
-Two ladders deliver the SAME corrupted channel through different pathways, so both are scored
-here: 'late' through the cross-attention pose branch (the published ladder) and 'early' through
-extra per-timestep agent feature channels. The delivered tensors are bit-identical at a given
-rung -- early obj_trajs[..., 29:35] equals late obj_poses[..., :6] -- so the rungs carry the
-same measured-error labels.
+Three ladders are scored here. Two deliver the SAME corrupted channel through different
+PATHWAYS: 'late' through the cross-attention pose branch (the published ladder) and 'early'
+through extra per-timestep agent feature channels. The delivered tensors are bit-identical at
+a given rung -- early obj_trajs[..., 29:35] equals late obj_poses[..., :6] -- so the rungs
+carry the same measured-error labels.
 
-Usage: python tools/scripts/detection_floor.py [late|early]
+The third, '25k', is the late pathway again at a different SCALE. It exists because the floor
+was measured on 579 scenes while the branch-capacity tax it is weighed against was measured at
+25k, and a bracket at one scale compared against a tax at another is the weakest joint in the
+argument. 579 is a cheap iteration rung (~52 min a run), not a data limit. The 25k arm also has
+a far tighter denominator -- no-pose sd 0.0027 over five seeds against a 0.4428-0.4954 spread
+at 579 -- so n=3 there should resolve more than n=5 did here.
+
+Usage: python tools/scripts/detection_floor.py [late|early|25k]
 """
 from __future__ import annotations
 
@@ -43,13 +50,24 @@ _RUNGS = {'00': 0.0, '05': 5.5, '10': 10.2, '15': 14.6, '25': 27.2,
 LADDERS = {
     'late': dict(cfg='mtr+pose_data_cross_attn_pe_with_map_oracledir{}_fixdata',
                  tag='MS_oracledir{key}_s{seed}', rungs=_RUNGS,
+                 baseline_cell='map_nopose_fix', watch=True,
                  out='detection_floor.json',
-                 label='cross-attention pose branch (published ladder)'),
+                 label='cross-attention pose branch, 579 scenes (published ladder)'),
     'early': dict(cfg='mtr+pose_data_early_oracledir{}_fixdata',
                   tag='MS_earlyoracle{key}_s{seed}',
                   rungs={k: _RUNGS[k] for k in ('00', '05', '10')},
+                  baseline_cell='map_nopose_fix', watch=True,
                   out='detection_floor_early.json',
-                  label='early fusion, per-timestep agent channels'),
+                  label='early fusion, per-timestep agent channels, 579 scenes'),
+    '25k': dict(cfg='mtr+pose_data_cross_attn_pe_with_map_oracledir{}_scale25k',
+                tag='MS_oracledir{key}_25k_s{seed}',
+                rungs={k: _RUNGS[k] for k in ('00', '05', '10', '15')},
+                # no watch seed: the 2 SD baseline outlier is a property of the 579 cell.
+                # The 25k no-pose cell spans 0.3683-0.3752 over five seeds, so there is no
+                # draw to resample and the single denominator is the only one.
+                baseline_cell='scale25k_nopose', watch=False,
+                out='detection_floor_25k.json',
+                label='cross-attention pose branch, 25k scenes'),
 }
 # ladder units (pooled over all predicted pedestrians), from facing_error_ladder_units.py
 BOX_HEADING_DEG, SMPL_FACING_DEG = 3.9, 12.3
@@ -159,16 +177,20 @@ def main() -> int:
     print(f'ladder: {which} -- {L["label"]}\n')
 
     base = json.load(open(os.path.join(REPO, 'experiments', 'multiseed_analysis.json')))
-    B = {int(k): v['best_minADE'] for k, v in base['cells']['map_nopose_fix']['seeds'].items()
+    B = {int(k): v['best_minADE']
+         for k, v in base['cells'][L['baseline_cell']]['seeds'].items()
          if v.get('best_minADE') is not None}
+    print(f'baseline cell: {L["baseline_cell"]}  n={len(B)}  '
+          f'mean {np.mean(list(B.values())):.4f}  '
+          f'spread {min(B.values()):.4f}-{max(B.values()):.4f}\n')
 
     # denominators to score under: the published one, it minus the outlier seed, and --
     # once it exists -- a second sample of that seed's baseline
-    resample = _read_best(os.path.join(REPO, 'output', 'waymo', BASELINE_CFG, RESAMPLE_TAG),
-                          RESAMPLE_TAG)
+    resample = (_read_best(os.path.join(REPO, 'output', 'waymo', BASELINE_CFG, RESAMPLE_TAG),
+                           RESAMPLE_TAG) if L['watch'] else None)
     PRIMARY = ['all seeds']
     variants = [('all seeds', B, SEEDS)]
-    if WATCH_SEED in B:
+    if L['watch'] and WATCH_SEED in B:
         variants.append((f'without s{WATCH_SEED}', B,
                          tuple(s for s in SEEDS if s != WATCH_SEED)))
     if resample is not None:
@@ -214,7 +236,7 @@ def main() -> int:
         print(f'{r["median_err_deg"]:>9.1f}d{r["n"]:>4}{r["oracle"]:>9.4f}'
               f'{r["nopose"]:>9.4f}{r["rel"]:>+9.2f}%{r["t"]:>8.2f}{r["p"]:>9.4f}'
               f'{r["mde80"]:>7.2f}   [{r["lo"]:+.2f},{r["hi"]:+.2f}]{loo}')
-        if WATCH_SEED in r['seeds'] and r['n'] >= 4:
+        if L['watch'] and WATCH_SEED in r['seeds'] and r['n'] >= 4:
             i = r['seeds'].index(WATCH_SEED)
             print(f'{"":>11}  s{WATCH_SEED} alone {r["per_seed_rel"][i]:+.2f}%, without it '
                   f'{np.delete(np.array(r["per_seed_rel"]), i).mean():+.2f}%')

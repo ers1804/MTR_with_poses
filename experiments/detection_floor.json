@@ -1,6 +1,6 @@
 {
   "ladder": "late",
-  "pathway": "cross-attention pose branch (published ladder)",
+  "pathway": "cross-attention pose branch, 579 scenes (published ladder)",
   "rungs": [
     {
       "rung": "00",
