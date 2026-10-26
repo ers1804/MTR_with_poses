@@ -2393,3 +2393,35 @@ override so this can be tested against a scratch copy without touching the real 
 
 Caveat worth keeping in mind: RETIRED is a manual list. It catches regressions of claims someone
 remembered to add, not claims nobody wrote down.
+
+### 2026-10-26 the 579 rung: clean data, but the tax comparison is cross-scale
+
+Raised as "579 is weird, it came from the extraction bug — replace it with 5k or 25k". Two
+corrections and one real finding.
+
+1. THE 579 DATA IS CLEAN. `final_10fps_subset579` was created 2026-08-19 01:49, three minutes
+   after the corrected 299,220-scene re-export, so it is a subset carved from the good export.
+   The bug explains why the rung is 579 scenes (that was all that existed when the ladder was
+   first built) but not the quality of what is in it.
+
+2. THE REAL PROBLEM IS A SCALE MISMATCH, not the number. Sec. IV-B compares the ladder's
+   predicted gains (579 rung) against the ~1.6% branch tax (25k rung). Measured at both:
+     579 rung  n=5  +0.61%  p=0.800  CI [-5.64,+6.85]
+     25k rung  n=5  +1.67%  p=0.001  CI [+1.22,+2.12]
+   At 579 the tax is unresolvable at +/-6 pp, so it CANNOT be quoted at the ladder's own scale.
+   The paper now discloses this in one clause rather than pairing the two silently.
+
+3. MIGRATION COST, from measured wall times (50 min/run at 579, 17.0 h/run at 25k):
+     rung   per run   full 8-rung ladder n=3   bracket rungs (05/10/15) n=3
+     579     0.8 h     20 h  (0.8 d)            7.5 h (0.3 d)
+     5k      3.4 h     82 h  (3.4 d)           31   h (1.3 d)
+     25k    17.0 h    409 h (17.0 d)          153   h (6.4 d)
+   No-pose baselines already exist at 25k (scale25k_nopose, n=5) and 579; 5k has none, so a 5k
+   ladder costs 3 extra baseline runs.
+
+RECOMMENDATION: do not move the whole ladder. The full 8-rung ladder at 25k is 17 days of
+single-GPU compute and most of its rungs (27-57 deg) only establish that the gain is gone, which
+579 already shows. If the scale mismatch is worth GPU, the targeted buy is rungs 05/10/15 at 25k,
+n=3 -- 6.4 days, baselines already in hand -- which would state the floor and the tax at one
+scale and incidentally retire 579 from the headline. Everything below the bracket (rung 0's
+-15.8%) is far larger than any plausible tax, so those rungs do not need re-running at scale.
