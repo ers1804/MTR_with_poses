@@ -33,6 +33,15 @@
 # NOT the 579 ladder's 1e-4; inheriting that LR at 4.9x data is what manufactured
 # a +37% fake "pose hurts" effect in August.
 #
+# Output lives on big1, not ssd2. ssd2 is 100% full with 2.2 GiB free and 234 GiB of
+# it is finished experiments' checkpoints; a run needs ~2.6 GiB transient to write a
+# 1.3 GiB checkpoint while the previous one still exists. The first attempt at this
+# queue died exactly there -- "PytorchStreamWriter failed writing file data/385" at the
+# end of epoch 1 -- and then burned 28 min failing the other two seeds the same way,
+# because a non-OOM failure only skips to the next run. So output/waymo/<cfg> for these
+# four configs are symlinks into /home/erik/big1/mtr_output, the pre-flight below
+# refuses to start without them, and a write failure now aborts the whole queue.
+#
 # Data. Scenario pkls are staged to local disk first: 22 GiB of them, read for 30
 # epochs x 12 runs. The 579 ladder read them off the NFS mount, which is fine for
 # a 52 min run and a 667 MiB working set, but a mount hiccup eight days into this
@@ -65,6 +74,20 @@ while true; do
 done
 echo "staging ok: $have pkls $(date)" >> "$LOG"
 
+# --- refuse to start without somewhere to put a 1.3 GiB checkpoint ------------
+for m in 00 05 10 15; do
+  d="../output/waymo/mtr+pose_data_cross_attn_pe_with_map_oracledir${m}_scale25k"
+  if [ ! -L "$d" ]; then
+    echo "ABORT $d is not a symlink; output would land on a full ssd2 $(date)" >> "$LOG"
+    exit 1
+  fi
+  free=$(df -BG --output=avail "$d" | tail -1 | tr -dc '0-9')
+  if [ "${free:-0}" -lt 50 ]; then
+    echo "ABORT only ${free}G free behind $d, need 50G $(date)" >> "$LOG"; exit 1
+  fi
+done
+echo "output ok: symlinked, ${free}G free $(date)" >> "$LOG"
+
 launch() {    # tag cfg seed
   local tag="$1" cfg="$2" seed="$3"
   # wait for a quiet card: foreign jobs are never touched, we just wait
@@ -89,7 +112,11 @@ run_one() {   # tag cfg seed
       rm -f "${out}/ckpt/best_model.pth" "${out}/eval/eval_with_train/result.pkl"
       echo "OK ${tag} $(date)" >> "$LOG"; return
     fi
-    if grep -q 'OutOfMemoryError' "/tmp/${tag}.log" 2>/dev/null; then
+    if grep -qE 'No space left|failed writing file|unexpected pos' \
+            "/tmp/${tag}.log" 2>/dev/null; then
+      # Every remaining run would fail the same way at the end of its first epoch.
+      echo "ABORT ${tag}: out of disk $(date)" >> "$LOG"; exit 1
+    elif grep -q 'OutOfMemoryError' "/tmp/${tag}.log" 2>/dev/null; then
       echo "OOM ${tag} attempt ${attempt} -- waiting 20 min $(date)" >> "$LOG"; sleep 1200
     else
       echo "FAIL ${tag} attempt ${attempt} (not OOM) $(date)" >> "$LOG"; break
