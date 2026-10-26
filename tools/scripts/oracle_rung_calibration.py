@@ -28,8 +28,10 @@ Usage: python tools/scripts/oracle_rung_calibration.py [--scenes N] CFG [CFG ...
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
+import re
 import sys
 
 import numpy as np
@@ -97,11 +99,16 @@ def measure(cfg_file: str, n_scenes: int) -> dict:
     return out
 
 
+OUT = os.path.join(REPO, 'experiments', 'oracle_rung_calibration.json')
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('cfgs', nargs='+')
     ap.add_argument('--scenes', type=int, default=400)
+    ap.add_argument('--out', default=OUT, help='merge results into this JSON (keyed by rung)')
     a = ap.parse_args()
+    store = json.load(open(a.out)) if os.path.exists(a.out) else {}
     print(f'{"config":58}{"sigma":>7}{"0.6745s":>9}{"n":>7}{"med+3s":>8}{"med+8s":>8}')
     print('-' * 97)
     for c in a.cfgs:
@@ -114,6 +121,14 @@ def main() -> int:
               f'{r["+3s"]["n"]:>7}'
               f'{(f"{m3:.2f}" if m3 is not None else "-"):>8}'
               f'{(f"{m8:.2f}" if m8 is not None else "-"):>8}')
+        # key by the rung token in the config name, so repeated runs over different
+        # subsets of the ladder accumulate into one file instead of overwriting it
+        m = re.search(r'oracledir(\d\d)', r['cfg'])
+        if m:
+            store[m.group(1)] = r
+    if store:
+        json.dump(dict(sorted(store.items())), open(a.out, 'w'), indent=2)
+        print(f'\nwrote {a.out}')
     return 0
 
 

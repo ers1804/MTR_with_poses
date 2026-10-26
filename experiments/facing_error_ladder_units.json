@@ -22,10 +22,10 @@
     "90": 20.080712355678358,
     "95": 32.88464275732043
    },
-   "smpl_frac_outside_bracket": 0.5683379120879121,
-   "box_frac_outside_bracket": 0.22269917582417584,
-   "smpl_frac_above_14_6": 0.43526785714285715,
-   "box_frac_above_14_6": 0.14886675824175824,
+   "smpl_frac_above_lo": 0.5746909340659341,
+   "box_frac_above_lo": 0.2290521978021978,
+   "smpl_frac_above_hi": 0.4223901098901099,
+   "box_frac_above_hi": 0.14217032967032966,
    "smpl_vs_box_med": 9.985084532679664
   },
   "+8 s displacement bearing": {
@@ -47,10 +47,10 @@
     "90": 42.040249765988065,
     "95": 67.25492114424578
    },
-   "smpl_frac_outside_bracket": 0.6361585562359008,
-   "box_frac_outside_bracket": 0.4081533999355462,
-   "smpl_frac_above_14_6": 0.5114405414115373,
-   "box_frac_above_14_6": 0.3179181437318724,
+   "smpl_frac_above_lo": 0.6417982597486304,
+   "box_frac_above_lo": 0.41427650660650983,
+   "smpl_frac_above_hi": 0.500322268772156,
+   "box_frac_above_hi": 0.31002255881405094,
    "smpl_vs_box_med": 10.193294594143719
   },
   "+3 s / moving (>=0.3 m/s)": {
@@ -65,7 +65,7 @@
   }
  },
  "floor_prediction_pct": [
-  1.4549034934246594,
-  4.11435200624034
+  1.281126428285893,
+  4.007156577797702
  ]
 }

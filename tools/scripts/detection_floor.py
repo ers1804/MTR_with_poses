@@ -44,9 +44,29 @@ from scipy import stats
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 SEEDS = (101, 202, 303, 404, 505)
-# rung -> measured median |bearing error| of the delivered channel (smoke-tested 2026-10-19)
-_RUNGS = {'00': 0.0, '05': 5.5, '10': 10.2, '15': 14.6, '25': 27.2,
-          '35': 37.9, '45': 45.0, '60': 57.4}
+
+
+def _load_rungs() -> dict:
+    """rung -> measured median |bearing error| of the delivered channel.
+
+    Read from the artifact oracle_rung_calibration.py writes, so the labels the paper
+    quotes cannot drift from the channel the branch was fed. The values that stood here
+    until 2026-10-26 (5.5, 10.2, 14.6, 27.2, 37.9, 45.0, 57.4) came from a single ad hoc
+    smoke test and were wrong by up to 2.7 deg: the configured sigmas are exactly
+    rung_key / 0.6745, so a rung delivers its key by construction, and measuring the
+    channel over the full validation population (n=11,328, against roughly 130 draws
+    before) confirms it. The one that mattered was the bracket's upper edge, 14.6 -> 15.1.
+    """
+    cal = os.path.join(REPO, 'experiments', 'oracle_rung_calibration.json')
+    if not os.path.exists(cal):
+        raise SystemExit(f'missing {cal}; run tools/scripts/oracle_rung_calibration.py')
+    d = json.load(open(cal))
+    # +3 s is the paper's reference target; the +8 s channel agrees to within 0.3 deg
+    return {k: round(v['+3s']['median'], 1) for k, v in sorted(d.items())
+            if v.get('+3s', {}).get('n')}
+
+
+_RUNGS = _load_rungs()
 LADDERS = {
     'late': dict(cfg='mtr+pose_data_cross_attn_pe_with_map_oracledir{}_fixdata',
                  tag='MS_oracledir{key}_s{seed}', rungs=_RUNGS,
@@ -69,10 +89,36 @@ LADDERS = {
                 out='detection_floor_25k.json',
                 label='cross-attention pose branch, 25k scenes'),
 }
+def _units() -> dict:
+    """Where the real channels sit, read from facing_error_ladder_units.py's output.
+
+    These were four hardcoded literals, and one of them (box heading, 3.884 deg) was
+    carried as 3.8 in two places while the paper said 3.9. Reading the artifact removes
+    that class of mismatch. The dependency runs one way only: this script's statistics
+    do not use these numbers, it only reports where the channels fall relative to the
+    bracket it computed, so there is no circularity with that script reading the bracket
+    back out of detection_floor.json.
+    """
+    f = os.path.join(REPO, 'experiments', 'facing_error_ladder_units.json')
+    if not os.path.exists(f):
+        return {}
+    u = json.load(open(f))
+    t = u['targets']
+    g = lambda k, d: t.get(k, {}).get(d)                                 # noqa: E731
+    return dict(box=g('+3 s displacement bearing', 'box_med'),
+                smpl=g('+3 s displacement bearing', 'smpl_med'),
+                box_stat=g('+3 s / stationary (<0.3 m/s)', 'box_med'),
+                smpl_stat=g('+3 s / stationary (<0.3 m/s)', 'smpl_med'),
+                smpl_above_hi=g('+3 s displacement bearing', 'smpl_frac_above_hi'))
+
+
+_U = _units()
 # ladder units (pooled over all predicted pedestrians), from facing_error_ladder_units.py
-BOX_HEADING_DEG, SMPL_FACING_DEG = 3.9, 12.3
+BOX_HEADING_DEG = _U.get('box') or 3.9
+SMPL_FACING_DEG = _U.get('smpl') or 12.3
 # the same two channels on the stationary subset, the population pose was meant to serve
-BOX_STATIONARY_DEG, SMPL_STATIONARY_DEG = 24.7, 41.2
+BOX_STATIONARY_DEG = _U.get('box_stat') or 24.7
+SMPL_STATIONARY_DEG = _U.get('smpl_stat') or 41.2
 FINAL_EPOCH = 30
 
 # map_nopose_fix_s404 = 0.4954 is a ~2 SD outlier for its cell (others 0.4428-0.4584) although
@@ -139,6 +185,54 @@ def stats_for(rel: np.ndarray) -> dict:
                 loo_rel=([float(np.delete(rel, i).mean()) for i in range(n)]
                          if n >= 4 else []),
                 per_seed_rel=[float(x) for x in rel])
+
+
+def fit_decay(rows) -> dict:
+    """Fit Delta_minADE(theta) = -A * exp(-theta / tau) to the ladder.
+
+    The paper's Eq. (1) and its "amplitudes of 12-20%, half-lives of 3.3-8.1 deg" came
+    from a fit carried as three hardcoded parameter pairs in another script. Refitting
+    here keeps the law tied to the rungs it describes, which matters because the rung
+    labels themselves were corrected on 2026-10-26 and a hardcoded fit would have gone
+    on describing the old ones.
+
+    A pooled fit over rung means, plus one fit per seed so the paper can report the
+    spread rather than a single curve. tau is the e-folding scale; the half-life the
+    paper quotes is tau * ln 2.
+    """
+    from scipy.optimize import curve_fit
+
+    def model(th, A, tau):
+        return -A * np.exp(-th / np.maximum(tau, 1e-6))
+
+    def one(th, y):
+        if len(th) < 3:
+            return None
+        try:
+            (A, tau), _ = curve_fit(model, np.asarray(th, float), np.asarray(y, float),
+                                    p0=(16.0, 8.0), maxfev=20000,
+                                    bounds=([0.0, 0.1], [100.0, 200.0]))
+        except Exception:
+            return None
+        return dict(amplitude_pct=float(A), tau_deg=float(tau),
+                    half_life_deg=float(tau * np.log(2.0)))
+
+    order = sorted(rows, key=lambda r: r['median_err_deg'])
+    pooled = one([r['median_err_deg'] for r in order], [r['rel'] for r in order])
+    per_seed = {}
+    for sd in SEEDS:
+        th = [r['median_err_deg'] for r in order if sd in r['seeds']]
+        y = [r['per_seed_rel'][r['seeds'].index(sd)] for r in order if sd in r['seeds']]
+        f = one(th, y)
+        if f:
+            per_seed[str(sd)] = f
+    out = dict(pooled=pooled, per_seed=per_seed)
+    if per_seed:
+        out['amplitude_range_pct'] = [min(f['amplitude_pct'] for f in per_seed.values()),
+                                      max(f['amplitude_pct'] for f in per_seed.values())]
+        out['half_life_range_deg'] = [min(f['half_life_deg'] for f in per_seed.values()),
+                                      max(f['half_life_deg'] for f in per_seed.values())]
+    return out
 
 
 def infer_bracket(rows, sig_of=lambda r: r['hi'] < 0) -> dict:
@@ -287,9 +381,22 @@ def main() -> int:
                         ('SMPL facing  (stationary)', SMPL_STATIONARY_DEG)):
             print(f'  {lab} {th:>5.1f} deg : {verdict(th)}')
         print('  NB a median is not a rung: a rung corrupts every agent uniformly, while SMPL')
-        print("     is a heavy tail: 43.5% of agents sit above the bracket's upper edge.")
+        if _U.get('smpl_above_hi') is not None:
+            print(f"     is a heavy tail: {100 * _U['smpl_above_hi']:.1f}% of agents sit "
+                  "above the bracket's upper edge.")
 
-    json.dump(dict(ladder=which, pathway=L['label'], rungs=rows,
+    decay = fit_decay(rows)
+    if decay.get('pooled'):
+        d = decay['pooled']
+        print(f"\ndecay law fitted to this ladder: "
+              f"{-d['amplitude_pct']:.1f}% * exp(-theta / {d['tau_deg']:.1f} deg)"
+              f"   (half-life {d['half_life_deg']:.1f} deg)")
+        if decay.get('amplitude_range_pct'):
+            a, b = decay['amplitude_range_pct']; c, e = decay['half_life_range_deg']
+            print(f'  per-seed fits: amplitudes {a:.1f}-{b:.1f}%, '
+                  f'half-lives {c:.1f}-{e:.1f} deg (n={len(decay["per_seed"])} seeds)')
+
+    json.dump(dict(ladder=which, pathway=L['label'], rungs=rows, decay_fit=decay,
                    floor_bracket_deg=[primary['lo'], primary['hi']],
                    floor_brackets=brackets, bracket_edge_stable=(len(edges) <= 1),
                    primary_denominator=PRIMARY[0],

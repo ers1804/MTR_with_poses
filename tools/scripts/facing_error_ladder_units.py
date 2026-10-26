@@ -30,6 +30,13 @@ RESULT = ('output/waymo/mtr+pose_data_no_pose_with_map_fixdata/'
 POSE = '/home/erik/big1/waymo_motion_poses/final_10fps'   # corrected re-export
 OUT = os.path.join(REPO, 'experiments', 'facing_error_ladder_units.json')
 
+# The bracket edges come from the ladder itself, so a relabelled rung cannot leave this
+# script measuring the share above a number the ladder no longer reports. The keys are
+# named for their role, not their value, for the same reason: 'smpl_frac_above_14_6'
+# would still have looked right after 14.6 became 15.1.
+_FLOOR = json.load(open(os.path.join(REPO, 'experiments', 'detection_floor.json')))
+LO, HI = _FLOOR['floor_bracket_deg']
+
 CUR, VALID, HEAD = 10, 9, 6
 H3, H8 = CUR + 30, CUR + 80          # +3 s and +8 s at 10 Hz
 MIN_DISP = 0.5                        # m; bearing is undefined for a still agent
@@ -130,20 +137,20 @@ def main() -> int:
                          for q in (25, 50, 75, 90, 95)},
             'box_pct': {str(q): float(np.percentile(e_b, q))
                         for q in (25, 50, 75, 90, 95)},
-            'smpl_frac_outside_bracket': float(np.mean(e_p > 10.2)),
-            'box_frac_outside_bracket': float(np.mean(e_b > 10.2)),
-            'smpl_frac_above_14_6': float(np.mean(e_p > 14.6)),
-            'box_frac_above_14_6': float(np.mean(e_b > 14.6)),
+            'smpl_frac_above_lo': float(np.mean(e_p > LO)),
+            'box_frac_above_lo': float(np.mean(e_b > LO)),
+            'smpl_frac_above_hi': float(np.mean(e_p > HI)),
+            'box_frac_above_hi': float(np.mean(e_b > HI)),
             'smpl_vs_box_med': float(np.median(angdiff(pose_yaw[m], box[m])))}
         print(f'{lab:<34}{int(m.sum()):>7}{np.median(e_p):>8.1f}°'
               f'{np.median(e_b):>8.1f}°{100*np.mean(e_p < 45):>7.1f}%')
         print('    percentiles  ' + '  '.join(
             f'p{q}: SMPL {np.percentile(e_p, q):.1f}° box {np.percentile(e_b, q):.1f}°'
             for q in (50, 75, 90)))
-        print(f'    above 10.2°: SMPL {100*np.mean(e_p > 10.2):.1f}%'
-              f'  box {100*np.mean(e_b > 10.2):.1f}%')
-        print(f'    above 14.6°: SMPL {100*np.mean(e_p > 14.6):.1f}%'
-              f'  box {100*np.mean(e_b > 14.6):.1f}%')
+        print(f'    above {LO}°: SMPL {100*np.mean(e_p > LO):.1f}%'
+              f'  box {100*np.mean(e_b > LO):.1f}%')
+        print(f'    above {HI}°: SMPL {100*np.mean(e_p > HI):.1f}%'
+              f'  box {100*np.mean(e_b > HI):.1f}%')
 
     # the moving/stationary split matters: for movers the pipeline snaps root
     # orientation to the direction of travel, which flatters pose
@@ -159,8 +166,14 @@ def main() -> int:
         print(f'  {lab:<24} n={int(m.sum()):>6}  SMPL {np.median(e_p):>5.1f}°  '
               f'box {np.median(e_b):>5.1f}°')
 
-    # what the floor model predicts at the measured accuracy
-    pars = [(16.70, 5.98), (19.58, 4.72), (11.69, 11.75)]   # per-seed ladder fits
+    # What the floor model predicts at the measured accuracy. The per-seed fits used to
+    # sit here as three hardcoded pairs; they are now read from the ladder that produced
+    # them, so a relabelled rung refits the law instead of leaving this prediction
+    # describing rungs that no longer exist.
+    pars = [(f['amplitude_pct'], f['tau_deg'])
+            for f in _FLOOR.get('decay_fit', {}).get('per_seed', {}).values()]
+    if not pars:
+        raise SystemExit('detection_floor.json has no decay_fit; re-run detection_floor.py')
     th = res['targets']['+3 s displacement bearing']['smpl_med']
     pred = [A * np.exp(-th / t) for A, t in pars]
     print(f'\nat {th:.1f} deg the per-seed ladder fits predict a gain of '

@@ -33,7 +33,7 @@
     },
     {
       "rung": "05",
-      "median_err_deg": 5.5,
+      "median_err_deg": 5.0,
       "seeds": [
         101,
         202,
@@ -62,7 +62,7 @@
     },
     {
       "rung": "10",
-      "median_err_deg": 10.2,
+      "median_err_deg": 10.0,
       "seeds": [
         101,
         202,
@@ -103,7 +103,7 @@
     },
     {
       "rung": "15",
-      "median_err_deg": 14.6,
+      "median_err_deg": 15.1,
       "seeds": [
         101,
         202,
@@ -144,7 +144,7 @@
     },
     {
       "rung": "25",
-      "median_err_deg": 27.2,
+      "median_err_deg": 24.9,
       "seeds": [
         101,
         202,
@@ -173,7 +173,7 @@
     },
     {
       "rung": "35",
-      "median_err_deg": 37.9,
+      "median_err_deg": 35.7,
       "seeds": [
         101,
         202,
@@ -202,7 +202,7 @@
     },
     {
       "rung": "45",
-      "median_err_deg": 45.0,
+      "median_err_deg": 44.4,
       "seeds": [
         101,
         202,
@@ -231,7 +231,7 @@
     },
     {
       "rung": "60",
-      "median_err_deg": 57.4,
+      "median_err_deg": 60.1,
       "seeds": [
         101,
         202,
@@ -259,32 +259,64 @@
       ]
     }
   ],
+  "decay_fit": {
+    "pooled": {
+      "amplitude_pct": 15.728453472357673,
+      "tau_deg": 7.718712607661285,
+      "half_life_deg": 5.350203881552923
+    },
+    "per_seed": {
+      "101": {
+        "amplitude_pct": 16.652214852946642,
+        "tau_deg": 5.74825273237254,
+        "half_life_deg": 3.984385174590028
+      },
+      "202": {
+        "amplitude_pct": 19.53813285892028,
+        "tau_deg": 4.503353965174899,
+        "half_life_deg": 3.121487104024431
+      },
+      "303": {
+        "amplitude_pct": 11.652328257102214,
+        "tau_deg": 11.49493060212587,
+        "half_life_deg": 7.96767873759578
+      }
+    },
+    "amplitude_range_pct": [
+      11.652328257102214,
+      19.53813285892028
+    ],
+    "half_life_range_deg": [
+      3.121487104024431,
+      7.96767873759578
+    ]
+  },
   "floor_bracket_deg": [
-    10.2,
-    14.6
+    10.0,
+    15.1
   ],
   "floor_brackets": {
     "all seeds": {
-      "lo": 5.5,
-      "hi": 10.2,
+      "lo": 5.0,
+      "hi": 10.0,
       "anomalies": [],
       "note": "bracketed"
     },
     "without s404": {
-      "lo": 10.2,
-      "hi": 14.6,
+      "lo": 10.0,
+      "hi": 15.1,
       "anomalies": [],
       "note": "bracketed"
     },
     "s404 resampled": {
-      "lo": 10.2,
-      "hi": 14.6,
+      "lo": 10.0,
+      "hi": 15.1,
       "anomalies": [],
       "note": "bracketed"
     },
     "s404 both draws": {
-      "lo": 10.2,
-      "hi": 14.6,
+      "lo": 10.0,
+      "hi": 15.1,
       "anomalies": [],
       "note": "bracketed"
     }
@@ -301,9 +333,9 @@
     404,
     505
   ],
-  "box_heading_deg": 3.9,
-  "smpl_facing_deg": 12.3,
-  "box_stationary_deg": 24.7,
-  "smpl_stationary_deg": 41.2,
+  "box_heading_deg": 3.8841476946587963,
+  "smpl_facing_deg": 12.269965992567208,
+  "box_stationary_deg": 24.686161471880325,
+  "smpl_stationary_deg": 41.17560678655936,
   "note": "direction-only oracle; rungs labelled by measured median bearing error; paired t over seeds against map_nopose_fix; bracket inferred from the first monotone significant->n.s. transition, not max/min"
 }

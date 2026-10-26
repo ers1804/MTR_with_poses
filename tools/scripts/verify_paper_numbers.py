@@ -73,10 +73,16 @@ RETIRED = [
          why='only valid as the stationary-onset measurement, never as "the" facing error',
          instead='12.3 deg pooled in the ladder units, 41.2 deg stationary',
          allow=r'onset'),
-    dict(pat=r'\[5\.5\^',
-         why='the superseded floor bracket; three of four denominators give [10.2, 14.6]',
-         instead='[10.2, 14.6], with [5.5, 10.2] cited only as the single-draw sensitivity',
+    dict(pat=r'\[5\.0\^',
+         why='the superseded floor bracket; three of four denominators give [10.0, 15.1]',
+         instead='[10.0, 15.1], with [5.0, 10.0] cited only as the single-draw sensitivity',
          allow=r'original draw|single original'),
+    dict(pat=r'14\.6\^\\circ|10\.2\^\\circ|27\.2\^\\circ|37\.9\^\\circ|57\.4\^\\circ',
+         why='rung labels from the original ad hoc calibration, wrong by up to 2.7 deg; a '
+             'rung delivers rung_key/0.6745 * 0.6745 = its key by construction, confirmed '
+             'over 11,328 scored agents',
+         instead='the measured labels in experiments/oracle_rung_calibration.json: '
+                 '5.0, 10.0, 15.1, 24.9, 35.7, 44.4, 60.1'),
 ]
 
 
@@ -120,19 +126,20 @@ def main() -> int:
             (g, 'SMPL p25', t3['smpl_pct']['25'], '5.5'),
             (g, 'SMPL p75', t3['smpl_pct']['75'], '23.9'),
             (g, 'SMPL p90', t3['smpl_pct']['90'], '45.9'),
-            # the bracket's UPPER edge moved to 14.6 when its two rungs went to n=5,
-            # so the share above 14.6 is the figure the argument now turns on
-            (g, 'SMPL above 14.6 +3 s', 100 * t3['smpl_frac_above_14_6'], '43.5'),
-            (g, 'SMPL above 14.6 +8 s', 100 * t8['smpl_frac_above_14_6'], '51.1'),
-            (g, 'box above 14.6 +3 s', 100 * t3['box_frac_above_14_6'], '14.9'),
-            (g, 'SMPL above 10.2 +3 s', 100 * t3['smpl_frac_outside_bracket'], '56.8'),
+            # the share above the bracket's UPPER edge is the figure the argument turns
+            # on; the keys are role-named because 'smpl_frac_above_14_6' would still have
+            # looked right after the edge was corrected to 15.1
+            (g, 'SMPL above bracket hi +3 s', 100 * t3['smpl_frac_above_hi'], '42.2'),
+            (g, 'SMPL above bracket hi +8 s', 100 * t8['smpl_frac_above_hi'], '50.0'),
+            (g, 'box above bracket hi +3 s', 100 * t3['box_frac_above_hi'], '14.2'),
+            (g, 'SMPL above bracket lo +3 s', 100 * t3['smpl_frac_above_lo'], '57.5'),
             (g, 'SMPL vs box median', t3['smpl_vs_box_med'], '10.0'),
             (g, 'movers median', mv['smpl_med'], '11.9'),
             (g, 'stationary median', st['smpl_med'], '41.2'),
             (g, 'stationary n', st['n'], '262'),
             (g, 'movers share of scored', 100 * mv['n'] / (mv['n'] + st['n']), '95.5'),
-            (g, 'floor prediction low', F['floor_prediction_pct'][0], '1.5'),
-            (g, 'floor prediction high', F['floor_prediction_pct'][1], '4.1'),
+            (g, 'floor prediction low', F['floor_prediction_pct'][0], '1.3'),
+            (g, 'floor prediction high', F['floor_prediction_pct'][1], '4.0'),
         ]
 
     D = load('detection_floor.json')
@@ -153,9 +160,29 @@ def main() -> int:
         if b.get('note') == 'bracketed':
             checks += [(g, 'bracket low', b['lo'], f'{b["lo"]:.1f}'),
                        (g, 'bracket high', b['hi'], f'{b["hi"]:.1f}')]
+        # Eq. (1) and the per-seed spread, refitted from this ladder rather than carried
+        # as hardcoded constants in another script
+        fit = D.get('decay_fit', {})
+        if fit.get('pooled'):
+            checks += [(g, 'decay tau (Eq. 1)', fit['pooled']['tau_deg'], '7.7'),
+                       (g, 'decay amplitude', fit['pooled']['amplitude_pct'], '15.7')]
+        if fit.get('half_life_range_deg'):
+            lo, hi = fit['half_life_range_deg']
+            checks += [(g, 'half-life low', lo, '3.1'), (g, 'half-life high', hi, '8.0')]
         if not D.get('bracket_edge_stable', True):
             print('NOTE: detection_floor.json reports the bracket edge as NOT stable across\n'
                   '      denominators -- the paper should not state a single edge yet.\n')
+
+    C = load('oracle_rung_calibration.json')
+    if C and D:
+        g = 'rung calibration'
+        # the labels the table prints must be the delivered medians, not an older
+        # estimate of them; both come from JSON, so this is artifact-against-artifact
+        meas = {k: round(v['+3s']['median'], 1) for k, v in C.items() if v.get('+3s', {}).get('n')}
+        for r in sorted(D['rungs'], key=lambda r: r['median_err_deg']):
+            m = meas.get(r['rung'])
+            if m is not None:
+                checks.append((g, f"rung {r['rung']} label", r['median_err_deg'], f'{m:.1f}'))
 
     bad, group = [], None
     for g, label, val, written in checks:

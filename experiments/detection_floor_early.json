@@ -33,7 +33,7 @@
     },
     {
       "rung": "05",
-      "median_err_deg": 5.5,
+      "median_err_deg": 5.0,
       "seeds": [
         101,
         202,
@@ -62,7 +62,7 @@
     },
     {
       "rung": "10",
-      "median_err_deg": 10.2,
+      "median_err_deg": 10.0,
       "seeds": [
         101,
         202,
@@ -90,6 +90,38 @@
       ]
     }
   ],
+  "decay_fit": {
+    "pooled": {
+      "amplitude_pct": 4.545002301883766,
+      "tau_deg": 2.9565427759826046,
+      "half_life_deg": 2.0493192893772165
+    },
+    "per_seed": {
+      "101": {
+        "amplitude_pct": 13.786408013814123,
+        "tau_deg": 4.509600495020094,
+        "half_life_deg": 3.125816868574912
+      },
+      "202": {
+        "amplitude_pct": 5.963609754913929e-10,
+        "tau_deg": 0.1000000001386763,
+        "half_life_deg": 0.06931471815211761
+      },
+      "303": {
+        "amplitude_pct": 0.41330338835260416,
+        "tau_deg": 4.0674448771366265,
+        "half_life_deg": 2.819337948670246
+      }
+    },
+    "amplitude_range_pct": [
+      5.963609754913929e-10,
+      13.786408013814123
+    ],
+    "half_life_range_deg": [
+      0.06931471815211761,
+      3.125816868574912
+    ]
+  },
   "floor_bracket_deg": [
     null,
     0.0
@@ -132,9 +164,9 @@
     404,
     505
   ],
-  "box_heading_deg": 3.9,
-  "smpl_facing_deg": 12.3,
-  "box_stationary_deg": 24.7,
-  "smpl_stationary_deg": 41.2,
+  "box_heading_deg": 3.8841476946587963,
+  "smpl_facing_deg": 12.269965992567208,
+  "box_stationary_deg": 24.686161471880325,
+  "smpl_stationary_deg": 41.17560678655936,
   "note": "direction-only oracle; rungs labelled by measured median bearing error; paired t over seeds against map_nopose_fix; bracket inferred from the first monotone significant->n.s. transition, not max/min"
 }

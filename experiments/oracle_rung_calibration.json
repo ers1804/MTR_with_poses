@@ -1,0 +1,122 @@
+{
+  "00": {
+    "cfg": "mtr+pose_data_cross_attn_pe_with_map_oracledir00_fixdata.yaml",
+    "sigma_deg": 0.0,
+    "asymptotic_deg": 0.0,
+    "+3s": {
+      "n": 11328,
+      "median": 0.0,
+      "p90": 4.26886799687054e-07
+    },
+    "+8s": {
+      "n": 11905,
+      "median": 0.0,
+      "p90": 8.53773599374108e-07
+    }
+  },
+  "05": {
+    "cfg": "mtr+pose_data_cross_attn_pe_with_map_oracledir05_fixdata.yaml",
+    "sigma_deg": 7.4,
+    "asymptotic_deg": 4.99,
+    "+3s": {
+      "n": 11328,
+      "median": 5.024157524108887,
+      "p90": 12.237636184692384
+    },
+    "+8s": {
+      "n": 11905,
+      "median": 5.007570266723633,
+      "p90": 12.218884658813478
+    }
+  },
+  "10": {
+    "cfg": "mtr+pose_data_cross_attn_pe_with_map_oracledir10_fixdata.yaml",
+    "sigma_deg": 14.8,
+    "asymptotic_deg": 9.98,
+    "+3s": {
+      "n": 11328,
+      "median": 9.998482704162598,
+      "p90": 24.443991088867193
+    },
+    "+8s": {
+      "n": 11905,
+      "median": 10.008916854858398,
+      "p90": 24.42529296875
+    }
+  },
+  "15": {
+    "cfg": "mtr+pose_data_cross_attn_pe_with_map_oracledir15_fixdata.yaml",
+    "sigma_deg": 22.2,
+    "asymptotic_deg": 14.97,
+    "+3s": {
+      "n": 11328,
+      "median": 15.105860710144043,
+      "p90": 36.341616058349615
+    },
+    "+8s": {
+      "n": 11905,
+      "median": 15.097790718078613,
+      "p90": 36.30571212768555
+    }
+  },
+  "25": {
+    "cfg": "mtr+pose_data_cross_attn_pe_with_map_oracledir25_fixdata.yaml",
+    "sigma_deg": 37.1,
+    "asymptotic_deg": 25.02,
+    "+3s": {
+      "n": 11328,
+      "median": 24.922649383544922,
+      "p90": 60.36457138061524
+    },
+    "+8s": {
+      "n": 11905,
+      "median": 24.8762149810791,
+      "p90": 60.47842102050782
+    }
+  },
+  "35": {
+    "cfg": "mtr+pose_data_cross_attn_pe_with_map_oracledir35_fixdata.yaml",
+    "sigma_deg": 51.9,
+    "asymptotic_deg": 35.01,
+    "+3s": {
+      "n": 11328,
+      "median": 35.683349609375,
+      "p90": 86.52438735961914
+    },
+    "+8s": {
+      "n": 11905,
+      "median": 35.789127349853516,
+      "p90": 86.41149139404297
+    }
+  },
+  "45": {
+    "cfg": "mtr+pose_data_cross_attn_pe_with_map_oracledir45_fixdata.yaml",
+    "sigma_deg": 66.7,
+    "asymptotic_deg": 44.99,
+    "+3s": {
+      "n": 11328,
+      "median": 44.42481994628906,
+      "p90": 108.17240600585941
+    },
+    "+8s": {
+      "n": 11905,
+      "median": 44.42205810546875,
+      "p90": 108.32381591796877
+    }
+  },
+  "60": {
+    "cfg": "mtr+pose_data_cross_attn_pe_with_map_oracledir60_fixdata.yaml",
+    "sigma_deg": 89.0,
+    "asymptotic_deg": 60.03,
+    "+3s": {
+      "n": 11328,
+      "median": 60.07221221923828,
+      "p90": 140.48544158935547
+    },
+    "+8s": {
+      "n": 11905,
+      "median": 59.863033294677734,
+      "p90": 140.14098205566407
+    }
+  }
+}
