@@ -135,22 +135,21 @@ work on pedestrian datasets~\cite{rasouli2019pie,fang2018pedestrian} targets
 crossing decisions rather than metric trajectories.
 
 \textbf{Relation to prior positive results.} Pose conditioning has reported real
-gains, and our mechanism predicts where they come from rather than contradicting
-them. Social-Transmotion~\cite{saadatnejad2024socialtransmotion} lowers ADE on
+gains; our mechanism predicts where they come from rather than contradicting them. Social-Transmotion~\cite{saadatnejad2024socialtransmotion} lowers ADE on
 the synthetic JTA dataset from $0.99$ to $0.89$ with \emph{ground-truth} 3D pose,
 and---the harder case for us---from $0.40$ to $0.36$ on JRDB with
 \emph{estimated} pose. Social-Pose~\cite{gao2025socialpose} reports about $25\%$
 on JTA ($1.20{\to}0.90$) and on JRDB. Salzmann et al.~\cite{salzmann2023robots}
 report ${\approx}10\%$ from onboard-estimated keypoints at ranges up to $7$\,m,
 specifically for agents with little position history, which is also our best
-hypothesis.
+hypothesis; Le et al.~\cite{le2026legsoverarms} localise that gain to
+\emph{lower-body} 3D keypoints ($13\%$ ADE on JRDB).
 
 The most informative comparison is within Social-Pose itself. Alongside JTA it
 evaluates on Pedestrians and Cyclists in Road Traffic, the one vehicle-captured
-dataset in that study, and there---with \emph{ground-truth} 3D pose---ADE moves
-from $0.58$ to $0.57$\,m, and by $0.01$\,m or less for every one of the five
-architectures tested, against the ${\approx}25\%$ the same encoder delivers on
-JTA. The authors attribute this to the shorter horizon and the absence of
+dataset there, and---with \emph{ground-truth} 3D pose---ADE moves from $0.58$ to
+$0.57$\,m, by $0.01$\,m or less for all five architectures tested, against the
+${\approx}25\%$ the same encoder delivers on JTA. The authors attribute this to the shorter horizon and the absence of
 interacting neighbours; our measurements suggest an additional reason that
 travels with the sensor rather than the horizon. Either way, the closest
 published setting to ours already reports approximately our result.
@@ -163,17 +162,15 @@ $75$\,m and often return a few dozen LiDAR points. \emph{The baseline:} those
 predictors consume positions, not a tracker's box heading, so body facing is new
 information there and partly duplicated here. On controls, none reports a
 shuffled-pose arm---though the confound differs by design. Social-Transmotion
-trains one network with modality masking and reads both input sets off the same
-weights, so no extra parameters are involved there; architectures that add a
-dedicated pose branch do pay the capacity cost we measure ($+1.7\%$ \minADE),
-which is the same order as the smaller reported gains. Our contribution is not
-an architecture but a controlled measurement of whether the modality pays in an
-AV setting, with the reason it does not.
+masks modalities within one network, so no extra parameters are involved there,
+whereas a dedicated pose branch pays the capacity cost we measure ($+1.7\%$
+\minADE)---the same order as the smaller reported gains.
 
 
 \begin{figure*}[t]
 \centering
-\input{fig_architecture}
+% scaled to hold the 8-page allowance; the figure is vector and loses no legibility
+\resizebox{0.92\textwidth}{!}{\input{fig_architecture}}
 \caption{The two arms differ only in \emph{whose} body enters the model. The
 content-test switch~(1) feeds the predictor either the pedestrian's own SMPL
 sequence or another pedestrian's, holding parameters, optimiser and input
@@ -787,7 +784,7 @@ holds across scale, representation, integration, a directed search and a
 pre-registered confirmation; an oracle through the same branch rules out a dead
 pathway. It also has a quantitative mechanism: an oracle ladder shows this
 integration path converts a bearing cue into accuracy at $10^\circ$ but no longer
-by $15^\circ$, and body facing falls above that bracket for roughly half of
+by $15^\circ$, and body facing falls above that bracket for two in five
 pedestrians---by a factor of three for the stationary ones the cue was introduced
 to serve. Fusing the same cue early removes the branch's capacity cost but does
 not rescue it: that pathway fails to exploit even an uncorrupted bearing on two
