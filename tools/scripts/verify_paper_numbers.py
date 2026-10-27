@@ -173,6 +173,30 @@ def main() -> int:
             print('NOTE: detection_floor.json reports the bracket edge as NOT stable across\n'
                   '      denominators -- the paper should not state a single edge yet.\n')
 
+    J = load('per_joint_recoverability_mpjpe_eval113.json')
+    if J:
+        g = 'per-joint recovery (Table V)'
+        by = {r['joint']: r for r in J['per_joint']}
+        LEG = ('LEFT_KNEE', 'RIGHT_KNEE', 'LEFT_ANKLE', 'RIGHT_ANKLE')
+        ARM = ('LEFT_ELBOW', 'RIGHT_ELBOW', 'LEFT_WRIST', 'RIGHT_WRIST')
+        # Sec. II differentiates this paper from Le et al. by saying the lower-body
+        # keypoints they find most useful are the ones our sensor recovers worst, and
+        # that the leg motion we do recover is damped. Both claims are quoted as ranges,
+        # so check the endpoints rather than a single joint.
+        legs_skill = [by[j]['skill'] for j in LEG if j in by]
+        legs_sr = [by[j]['spread_ratio'] for j in LEG if j in by]
+        arms_sr = [by[j]['spread_ratio'] for j in ARM if j in by]
+        elbows = [by[j]['skill'] for j in ('LEFT_ELBOW', 'RIGHT_ELBOW') if j in by]
+        if legs_skill:
+            checks += [(g, 'knee/ankle skill low', min(legs_skill), '0.46'),
+                       (g, 'knee/ankle skill high', max(legs_skill), '0.49'),
+                       (g, 'elbow skill low', min(elbows), '0.63'),
+                       (g, 'elbow skill high', max(elbows), '0.64'),
+                       (g, 'leg spread ratio low', 100 * min(legs_sr), '84'),
+                       (g, 'leg spread ratio high', 100 * max(legs_sr), '91'),
+                       (g, 'arm spread ratio low', 100 * min(arms_sr), '96'),
+                       (g, 'arm spread ratio high', 100 * max(arms_sr), '99')]
+
     C = load('oracle_rung_calibration.json')
     if C and D:
         g = 'rung calibration'
@@ -193,7 +217,12 @@ def main() -> int:
         if isinstance(val, int):
             rounded_ok = written.replace('{,}', '') == str(val)
         else:
-            rounded_ok = f'{val:.1f}' == written
+            # Round to the precision the PAPER uses, not to a fixed one decimal. A
+            # hardcoded '%.1f' cannot express a two-decimal skill (0.46) or a whole
+            # percentage (84), and reported both as mismatches when they were right.
+            plain = written.replace('{,}', '')
+            dp = len(plain.split('.')[1]) if '.' in plain else 0
+            rounded_ok = f'{val:.{dp}f}' == plain
         present = written in tex
         status = ('OK' if rounded_ok and present else
                   'ROUNDS TO ' + (f'{val:.1f}' if not isinstance(val, int) else str(val))

@@ -142,8 +142,21 @@ and---the harder case for us---from $0.40$ to $0.36$ on JRDB with
 on JTA ($1.20{\to}0.90$) and on JRDB. Salzmann et al.~\cite{salzmann2023robots}
 report ${\approx}10\%$ from onboard-estimated keypoints at ranges up to $7$\,m,
 specifically for agents with little position history, which is also our best
-hypothesis; Le et al.~\cite{le2026legsoverarms} localise that gain to
-\emph{lower-body} 3D keypoints ($13\%$ ADE on JRDB).
+hypothesis.
+
+Le et al.~\cite{le2026legsoverarms} reach the opposite conclusion on JRDB and, in
+doing so, say the most useful thing about ours: they localise the gain to
+\emph{lower-body} 3D keypoints ($13\%$ ADE, a further $1$--$4\%$ from derived
+biomechanical cues). Their cue is our weakest channel. Of the twelve limb joints
+in Table~\ref{tab:skill} the knees and ankles that carry gait sit at the bottom
+of the range---\textsc{skill} $+0.46$ to $+0.49$, against $+0.63$ and $+0.64$ for
+the elbows---and what leg motion we do recover is damped: predicted knee and
+ankle spread is $84$--$91\%$ of ground truth, where elbows and wrists reach
+$96$--$99\%$. A panoramic camera at a few metres resolves a swinging leg; a few
+dozen LiDAR returns at $40$\,m recover its mean position and lose much of its
+amplitude. So the two results do not conflict---theirs is what this cue is worth
+above the detection floor of Sec.~\ref{sec:floor}, ours is what it is worth
+below.
 
 The most informative comparison is within Social-Pose itself. Alongside JTA it
 evaluates on Pedestrians and Cyclists in Road Traffic, the one vehicle-captured
