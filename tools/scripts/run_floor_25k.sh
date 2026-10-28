@@ -46,6 +46,15 @@
 # epochs x 12 runs. The 579 ladder read them off the NFS mount, which is fine for
 # a 52 min run and a 667 MiB working set, but a mount hiccup eight days into this
 # queue is not worth risking. HELMA did the same thing with node-local NVMe.
+#
+# LAUNCH IT WITH setsid:
+#     setsid nohup bash tools/scripts/run_floor_25k.sh > /tmp/floor_25k_wrapper.log 2>&1 &
+# nohup alone is NOT enough. On 2026-10-28 the controlling Claude Code session crashed
+# and took the whole process group with it, killing a run 8 h 26 m into epoch 18 and
+# leaving the GPU idle for eight hours before anyone noticed. setsid makes this script a
+# session leader, so it outlives whatever started it. Recovery is cheap either way --
+# train.py globs ckpt/, skips best_model.pth and reloads the newest checkpoint, so a
+# relaunched run resumes instead of restarting -- but only if something relaunches it.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE/.."                       # tools/
