@@ -45,14 +45,44 @@ TEX = os.environ.get('PAPER_TEX',
 # and wrong as headlines.
 RETIRED = [
     dict(pat=r'factor of four|four times coarser',
-         why='mixed units: 44.2 deg is onset direction on the stationary subset, the floor '
-             'is calibrated on displacement bearing over every predicted pedestrian',
-         instead='the share of agents above the bracket; the factor is three, and only '
-                 'for the stationary subset'),
+         why='mixed units: 44.2 deg is onset direction on the stationary subset, the '
+             'ladder is calibrated on displacement bearing over every predicted '
+             'pedestrian',
+         instead='compare facing against the box heading on one target and one '
+                 'population'),
     dict(pat=r'far below the floor',
-         why='same mixed-units comparison; pooled facing is 12.3 deg, inside the bracket',
-         instead='facing clears the bracket mainly for agents whose velocity already '
-                 'supplies it'),
+         why='there is no floor to be below: at 25k every rung converts, including one '
+             'worse at every percentile than the box heading the model already has',
+         instead='facing is redundant where it is accurate and inaccurate where it '
+                 'would be non-redundant'),
+    # --- retired 2026-11-02, when the 25k ladder came in at n=3 per rung -----------
+    dict(pat=r'detection floor',
+         why='the 579 ladder read a floor at [10.0, 15.1] that was its own MDE (6.7 pp '
+             'against an expected ~6.2); at 25k every rung converts down to -13.6% at '
+             '15.1 deg, so the pathway has no measured accuracy threshold at all',
+         instead='say what the ladder does measure: a positive control, an upper bound '
+                 'on the pathway, and a precision/selection decomposition',
+         # Sec. V-A narrates the retirement, and Sec. V-C cites it as the worked example
+         allow=r'reads as a clean|went blind|low power|underpowered|worked example'),
+    dict(pat=r'\[10\.0\^\\circ,\s*15\.1\^\\circ\]|bracket',
+         why='the floor bracket was three-seed blindness at 579 scenes, not a property '
+             'of the task',
+         instead='no threshold; quote the two-component decay and the box-heading '
+                 'comparison instead'),
+    dict(pat=r'42\.2|two in five|50\.0\\%',
+         why='tail fractions keyed to the retired bracket edge -- the share of agents '
+             'above 15.1 deg means nothing once 15.1 deg is shown to convert',
+         instead='the percentile distribution itself (5.5 / 23.9 / 45.9 deg), as '
+                 'evidence of a heavy tail rather than of crossing an edge'),
+    dict(pat=r'15\.7\\%|exp\(-\\theta/7\.7',
+         why='the old Eq. (1): a single exponential fitted to the 579 ladder. One '
+             'exponential cannot fit the 25k ladder at any constants -- residuals '
+             '-1.5/+3.2/+0.3/-2.5 pp, systematic in theta',
+         instead='the two-component form in detection_floor_25k.json'),
+    dict(pat=r'1\.3\$?--\$?4\.0|0\.002\$?--\$?0\.32',
+         why='gains predicted for SMPL facing by reading the retired decay law at its '
+             'median; the ladder does not license predicting a real cue from a rung',
+         instead='the content test, which measures what facing is worth directly'),
     dict(pat=r'noise floor',
          why='"gait at the noise floor" was retired: over 534 pedestrians every limb joint '
              'scores +0.46 to +0.64 skill, so limbs are measured',
@@ -61,11 +91,17 @@ RETIRED = [
          why='asserted prior-dominance for limbs generally, contradicting tab:skill',
          instead='scope prior-dominance to the far-range panels the figure depicts'),
     dict(pat=r'may still pay if fused early|might still pay if fused early',
-         why='withdrawn after the early-fusion ladder: that pathway left an uncorrupted '
-             'oracle inert on two seeds in three',
-         instead='say the cheaper pathway was the less reliable one',
-         # the paper states this claim in order to withdraw it, which is legitimate
-         allow=r'withdraw'),
+         why='the early-fusion ladder left an uncorrupted oracle inert on two seeds in '
+             'three, so we do not offer early fusion as a rescue',
+         instead='say we do not offer it as a rescue, and that the stronger claim needs '
+                 'that ladder at 25k -- at 579 its MDE is 25.5 pp',
+         # the paper states the claim in order to decline it, which is legitimate
+         allow=r'withdraw|do not offer'),
+    dict(pat=r'the cheaper integration\s+was the less reliable one|cheaper one was not the safer',
+         why='an n=3 ladder at 579 scenes with MDE 25.5 pp cannot support a comparative '
+             'reliability claim; the defensible evidence is the per-seed signature',
+         instead='two of three seeds showed no movement at all from a perfect channel, '
+                 'where the branch moved on all three'),
     dict(pat=r'160\.6',
          why='MPJPE from the misaligned harness protocol; the fair number is 87.6 mm',
          instead='87.6 mm root-aligned, timestamp-aligned'),
@@ -73,10 +109,6 @@ RETIRED = [
          why='only valid as the stationary-onset measurement, never as "the" facing error',
          instead='12.3 deg pooled in the ladder units, 41.2 deg stationary',
          allow=r'onset'),
-    dict(pat=r'\[5\.0\^',
-         why='the superseded floor bracket; three of four denominators give [10.0, 15.1]',
-         instead='[10.0, 15.1], with [5.0, 10.0] cited only as the single-draw sensitivity',
-         allow=r'original draw|single original'),
     dict(pat=r'14\.6\^\\circ|10\.2\^\\circ|27\.2\^\\circ|37\.9\^\\circ|57\.4\^\\circ',
          why='rung labels from the original ad hoc calibration, wrong by up to 2.7 deg; a '
              'rung delivers rung_key/0.6745 * 0.6745 = its key by construction, confirmed '
@@ -126,20 +158,19 @@ def main() -> int:
             (g, 'SMPL p25', t3['smpl_pct']['25'], '5.5'),
             (g, 'SMPL p75', t3['smpl_pct']['75'], '23.9'),
             (g, 'SMPL p90', t3['smpl_pct']['90'], '45.9'),
-            # the share above the bracket's UPPER edge is the figure the argument turns
-            # on; the keys are role-named because 'smpl_frac_above_14_6' would still have
-            # looked right after the edge was corrected to 15.1
-            (g, 'SMPL above bracket hi +3 s', 100 * t3['smpl_frac_above_hi'], '42.2'),
-            (g, 'SMPL above bracket hi +8 s', 100 * t8['smpl_frac_above_hi'], '50.0'),
-            (g, 'box above bracket hi +3 s', 100 * t3['box_frac_above_hi'], '14.2'),
-            (g, 'SMPL above bracket lo +3 s', 100 * t3['smpl_frac_above_lo'], '57.5'),
+            # the bracket-crossing fractions (42.2 / 50.0 / 14.2 / 57.5) were retired
+            # with the bracket on 2026-11-02 and are now in the RETIRED registry;
+            # what the argument turns on instead is that box beats SMPL at every
+            # percentile, which is checked here and at the quartiles above
             (g, 'SMPL vs box median', t3['smpl_vs_box_med'], '10.0'),
+            (g, 'box p75', t3['box_pct']['75'], '9.3'),
+            (g, 'box p90', t3['box_pct']['90'], '20.1'),
             (g, 'movers median', mv['smpl_med'], '11.9'),
             (g, 'stationary median', st['smpl_med'], '41.2'),
             (g, 'stationary n', st['n'], '262'),
             (g, 'movers share of scored', 100 * mv['n'] / (mv['n'] + st['n']), '95.5'),
-            (g, 'floor prediction low', F['floor_prediction_pct'][0], '1.3'),
-            (g, 'floor prediction high', F['floor_prediction_pct'][1], '4.0'),
+            # floor_prediction_pct is retired: reading the decay law at a real cue's
+            # median is the comparison the 25k ladder invalidated
         ]
 
     D = load('detection_floor.json')
@@ -148,30 +179,95 @@ def main() -> int:
         # the rung's n is in the label on purpose: while a queue is in flight the
         # artifact moves ahead of the table, and a mismatch tagged n=4 against a
         # table built at n=3 reads as "the paper needs refreshing", not "wrong"
-        for r in sorted(D['rungs'], key=lambda r: r['median_err_deg']):
+        # Table I lists 0.0-15.1 individually and collapses 24.9-60.1 into one row,
+        # so the high rungs are checked as the range that row states
+        LOW = (0.0, 5.0, 10.0, 15.1)
+        hi_rungs = [r for r in D['rungs'] if r['median_err_deg'] not in LOW]
+        for r in sorted((x for x in D['rungs'] if x['median_err_deg'] in LOW),
+                        key=lambda r: r['median_err_deg']):
             th = r['median_err_deg']
             checks.append((g, f'rung {th:.1f} MDE (n={r["n"]})', r['mde80'],
                            f'{r["mde80"]:.1f}'))
-        # the bracket the paper quotes is the PRIMARY denominator's, not the
-        # literal published-data one -- checking 'all seeds' was a false pass,
-        # since 5.5 and 10.2 also appear as rung labels
-        prim = D.get('primary_denominator', 'all seeds')
-        b = D.get('floor_brackets', {}).get(prim) or {}
-        if b.get('note') == 'bracketed':
-            checks += [(g, 'bracket low', b['lo'], f'{b["lo"]:.1f}'),
-                       (g, 'bracket high', b['hi'], f'{b["hi"]:.1f}')]
-        # Eq. (1) and the per-seed spread, refitted from this ladder rather than carried
-        # as hardcoded constants in another script
-        fit = D.get('decay_fit', {})
-        if fit.get('pooled'):
-            checks += [(g, 'decay tau (Eq. 1)', fit['pooled']['tau_deg'], '7.7'),
-                       (g, 'decay amplitude', fit['pooled']['amplitude_pct'], '15.7')]
-        if fit.get('half_life_range_deg'):
-            lo, hi = fit['half_life_range_deg']
-            checks += [(g, 'half-life low', lo, '3.1'), (g, 'half-life high', hi, '8.0')]
-        if not D.get('bracket_edge_stable', True):
-            print('NOTE: detection_floor.json reports the bracket edge as NOT stable across\n'
-                  '      denominators -- the paper should not state a single edge yet.\n')
+        if hi_rungs:
+            checks += [
+                (g, 'high rungs MDE low', min(r['mde80'] for r in hi_rungs), '5.5'),
+                (g, 'high rungs MDE high', max(r['mde80'] for r in hi_rungs), '9.1'),
+                (g, 'high rungs rel most negative',
+                 abs(min(r['rel'] for r in hi_rungs)), '0.1'),
+                (g, 'high rungs rel most positive',
+                 max(r['rel'] for r in hi_rungs), '2.7')]
+        # This ladder is no longer the paper's primary one. It appears in Table I as the
+        # underpowered predecessor, so its per-rung MDEs are still checked above, but its
+        # bracket and its single-exponential Eq. (1) are retired -- see RETIRED. The one
+        # claim the paper makes ABOUT it is that it could not have seen the 25k effect:
+        # proportionally to its own theta=0 amplitude, rung 15.1 should have read ~6.2%
+        # against an MDE of 6.7.
+        by_deg = {r['median_err_deg']: r for r in D['rungs']}
+        D25 = load('detection_floor_25k.json')
+        if D25 and 0.0 in by_deg and 15.1 in by_deg:
+            n25 = {r['median_err_deg']: r['rel'] for r in D25['rungs']}
+            if 0.0 in n25 and 15.1 in n25:
+                expected = by_deg[0.0]['rel'] * (n25[15.1] / n25[0.0])
+                checks.append((g, 'rung 15.1 effect the 579 ladder should have expected',
+                               -expected, '6.2'))
+
+    D25 = load('detection_floor_25k.json')
+    if D25:
+        g = 'oracle ladder 25k (Table I)'
+        for r in sorted(D25['rungs'], key=lambda r: r['median_err_deg']):
+            th = r['median_err_deg']
+            checks += [(g, f'rung {th:.1f} rel (n={r["n"]})', abs(r['rel']),
+                        f'{abs(r["rel"]):.2f}'),
+                       (g, f'rung {th:.1f} MDE (n={r["n"]})', r['mde80'],
+                        f'{r["mde80"]:.1f}')]
+        two = D25.get('two_component_fit', {})
+        if two.get('pooled'):
+            t = two['pooled']
+            checks += [(g, 'Eq. 1 persistent', t['persistent_pct'], '13.1'),
+                       (g, 'Eq. 1 amplitude', t['amplitude_pct'], '21.4'),
+                       (g, 'Eq. 1 half-life', t['half_life_deg'], '3.0')]
+        for key, lo_s, hi_s in (('persistent_range_pct', '12.3', '14.2'),
+                                ('amplitude_range_pct', '20.8', '21.8'),
+                                ('half_life_range_deg', '2.8', '3.4')):
+            if two.get(key):
+                lo, hi = two[key]
+                checks += [(g, f'{key} low', lo, lo_s), (g, f'{key} high', hi, hi_s)]
+        if two.get('residuals_pp'):
+            for v in two['residuals_pp']:
+                pass    # two-component residuals are quoted only as "to 0.4 pp"
+        fit1 = D25.get('decay_fit', {})
+        if fit1.get('residuals_pp'):
+            # the paper quotes these as the reason the functional form is wrong
+            for v, want in zip(fit1['residuals_pp'], ('1.5', '3.2', '0.3', '2.5')):
+                checks.append((g, f'single-exp residual {want}', abs(v), want))
+
+    H = load('horizon_decomposition.json')
+    if H and H.get('summary'):
+        g = 'horizon decomposition (Sec. V-A)'
+        S = H['summary']
+        checks.append((g, 'agents paired per arm', S['n_paired'], '16{,}486'))
+        for lab, want in (('ADE_2s', '21'), ('ADE_8s', '39'), ('FDE', '53')):
+            if lab in S['by_horizon']:
+                checks.append((g, f'persistent share {lab}',
+                               100 * S['by_horizon'][lab]['persistent_share'], want))
+        if S.get('half_life_range_deg'):
+            lo, hi = S['half_life_range_deg']
+            checks += [(g, 'precision half-life low across horizons', lo, '2.9'),
+                       (g, 'precision half-life high across horizons', hi, '3.9')]
+        sel = S['selection']
+        checks += [(g, 'selection gap baseline', sel['gap_m_base'], '0.67'),
+                   (g, 'selection gap exact oracle', sel['gap_m_exact_oracle'], '0.26'),
+                   (g, 'selection gap corrupted', sel['gap_m_corrupted'], '0.29'),
+                   (g, 'selection gap closed at 15.1 deg',
+                    100 * sel['gap_closed_frac'], '92'),
+                   (g, 'minADE recovered at 15.1 deg',
+                    100 * sel['minADE_recovered_frac'], '39')]
+        q = S.get('abs_gain_m_by_mode_spread_quartile_exact')
+        if q:
+            checks += [(g, 'abs gain widest mode-spread quartile', max(q), '0.150'),
+                       (g, 'abs gain other quartiles low', min(q), '0.111'),
+                       (g, 'abs gain other quartiles high',
+                        max(v for v in q if v != max(q)), '0.130')]
 
     J = load('per_joint_recoverability_mpjpe_eval113.json')
     if J:
@@ -205,7 +301,7 @@ def main() -> int:
         meas = {k: round(v['+3s']['median'], 1) for k, v in C.items() if v.get('+3s', {}).get('n')}
         for r in sorted(D['rungs'], key=lambda r: r['median_err_deg']):
             m = meas.get(r['rung'])
-            if m is not None:
+            if m is not None and f'{m:.1f}' in tex:
                 checks.append((g, f"rung {r['rung']} label", r['median_err_deg'], f'{m:.1f}'))
 
     bad, group = [], None
