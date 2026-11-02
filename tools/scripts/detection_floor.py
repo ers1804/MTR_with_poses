@@ -205,6 +205,7 @@ def fit_decay(rows) -> dict:
     def model(th, A, tau):
         return -A * np.exp(-th / np.maximum(tau, 1e-6))
 
+
     def one(th, y):
         if len(th) < 3:
             return None
@@ -232,6 +233,66 @@ def fit_decay(rows) -> dict:
                                       max(f['amplitude_pct'] for f in per_seed.values())]
         out['half_life_range_deg'] = [min(f['half_life_deg'] for f in per_seed.values()),
                                       max(f['half_life_deg'] for f in per_seed.values())]
+    out['residuals_pp'] = ([float(r['rel'] - model(r['median_err_deg'],
+                                                   pooled['amplitude_pct'],
+                                                   pooled['tau_deg'])) for r in order]
+                           if pooled else None)
+    return out
+
+
+def fit_two_component(rows) -> dict:
+    """Fit Delta_minADE(theta) = -(P + A * exp(-theta / tau)).
+
+    One exponential cannot describe the 25k ladder: its residuals run +1.5, -3.2, -0.3,
+    +2.5 pp against MDEs of 1.4-2.9, systematic in theta rather than scatter. The curve
+    decelerates, which a single exponential cannot do at any (A, tau). Two terms fit to
+    0.4 pp and carry the paper's reading -- a precision term that decays with bearing
+    error, over a term that survives any corruption we applied and which
+    horizon_decomposition.py identifies as future-side mode selection.
+
+    Reported for any ladder, but only meaningful with >= 4 rungs: three points and three
+    parameters is interpolation, not a fit.
+    """
+    from scipy.optimize import curve_fit
+
+    def model2(th, P, A, tau):
+        return -(P + A * np.exp(-th / np.maximum(tau, 1e-6)))
+
+    def one(th, y):
+        if len(th) < 4:
+            return None
+        try:
+            (P, A, tau), _ = curve_fit(model2, np.asarray(th, float),
+                                       np.asarray(y, float), p0=(13.0, 21.0, 5.0),
+                                       maxfev=200000,
+                                       bounds=([0.0, 0.0, 0.1], [100.0, 100.0, 200.0]))
+        except Exception:
+            return None
+        return dict(persistent_pct=float(P), amplitude_pct=float(A), tau_deg=float(tau),
+                    half_life_deg=float(tau * np.log(2.0)),
+                    persistent_share=float(P / (P + A)) if (P + A) else None)
+
+    order = sorted(rows, key=lambda r: r['median_err_deg'])
+    pooled = one([r['median_err_deg'] for r in order], [r['rel'] for r in order])
+    per_seed = {}
+    for sd in SEEDS:
+        th = [r['median_err_deg'] for r in order if sd in r['seeds']]
+        y = [r['per_seed_rel'][r['seeds'].index(sd)] for r in order if sd in r['seeds']]
+        f = one(th, y)
+        if f:
+            per_seed[str(sd)] = f
+    out = dict(pooled=pooled, per_seed=per_seed)
+    if pooled:
+        out['residuals_pp'] = [float(r['rel'] - model2(r['median_err_deg'],
+                                                       pooled['persistent_pct'],
+                                                       pooled['amplitude_pct'],
+                                                       pooled['tau_deg'])) for r in order]
+    for key, field in (('persistent_range_pct', 'persistent_pct'),
+                       ('amplitude_range_pct', 'amplitude_pct'),
+                       ('half_life_range_deg', 'half_life_deg')):
+        if per_seed:
+            out[key] = [min(f[field] for f in per_seed.values()),
+                        max(f[field] for f in per_seed.values())]
     return out
 
 
@@ -395,8 +456,30 @@ def main() -> int:
             a, b = decay['amplitude_range_pct']; c, e = decay['half_life_range_deg']
             print(f'  per-seed fits: amplitudes {a:.1f}-{b:.1f}%, '
                   f'half-lives {c:.1f}-{e:.1f} deg (n={len(decay["per_seed"])} seeds)')
+        if decay.get('residuals_pp'):
+            print('  residuals (pp): '
+                  + ' '.join(f'{v:+.2f}' for v in decay['residuals_pp'])
+                  + '   -- systematic in theta means the functional form is wrong,'
+                    ' not the constants')
+
+    two = fit_two_component(rows)
+    if two.get('pooled'):
+        t = two['pooled']
+        print(f"\ntwo-component fit: -({t['persistent_pct']:.1f}% + "
+              f"{t['amplitude_pct']:.1f}% * exp(-theta / {t['tau_deg']:.1f} deg))"
+              f"   (half-life {t['half_life_deg']:.1f} deg, "
+              f"persistent share {t['persistent_share']:.0%})")
+        print('  residuals (pp): '
+              + ' '.join(f'{v:+.2f}' for v in two['residuals_pp']))
+        if two.get('persistent_range_pct'):
+            p0, p1 = two['persistent_range_pct']
+            a0, a1 = two['amplitude_range_pct']
+            h0, h1 = two['half_life_range_deg']
+            print(f'  per-seed: persistent {p0:.1f}-{p1:.1f}%, '
+                  f'amplitudes {a0:.1f}-{a1:.1f}%, half-lives {h0:.1f}-{h1:.1f} deg')
 
     json.dump(dict(ladder=which, pathway=L['label'], rungs=rows, decay_fit=decay,
+                   two_component_fit=two,
                    floor_bracket_deg=[primary['lo'], primary['hi']],
                    floor_brackets=brackets, bracket_edge_stable=(len(edges) <= 1),
                    primary_denominator=PRIMARY[0],
