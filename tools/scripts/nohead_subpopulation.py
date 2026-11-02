@@ -30,6 +30,8 @@ from scipy import stats
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 OUT_ROOT = os.path.join(REPO, 'output', 'waymo')
 DYN = os.path.join(REPO, 'experiments', 'val_agent_dynamics_25k.pkl')
+# per-agent turn angles, written by facing_error_ladder_units.py
+TURN = os.path.join(REPO, 'experiments', 'val_agent_turn.pkl')
 OUT_JSON = os.path.join(REPO, 'experiments', 'nohead_subpopulation.json')
 # Seeds are discovered from disk rather than fixed, so the extension to n=8 needs no edit.
 SEEDS = tuple(int(x) for x in os.environ.get(
@@ -106,7 +108,32 @@ def main() -> int:
         'ALL': np.ones(len(common), bool),
         'stationary': sp < STATIONARY,
         'standing_then_moves': (sp < STATIONARY) & (dp > ONSET_DISP),
+        'movers': sp >= STATIONARY,
     }
+
+    # Movers stratified by TURN: the angle by which the +3 s displacement bearing departs
+    # from the current box heading. This is the stratum where the heading ablation is
+    # actually informative. For a mover, deleting the heading channel does not delete the
+    # direction of travel -- velocity stays in the input -- so a null there is expected
+    # whether or not facing is redundant. Where the agent turns, neither velocity nor
+    # heading states the future bearing, and body facing could in principle. Note
+    # box_err3s == turn3s by construction: the box heading's 3.9 deg median "accuracy" IS
+    # the fact that pedestrians mostly keep going straight.
+    if os.path.exists(TURN):
+        turn = {(str(k[0]), str(k[1])): v for k, v in pickle.load(open(TURN, 'rb')).items()}
+        tv = np.array([turn[a]['turn3s_deg'] if a in turn else np.nan for a in common])
+        known = np.isfinite(tv)
+        mv = (sp >= STATIONARY) & known
+        if mv.sum() > 100:
+            q75, q90 = np.percentile(tv[mv], [75, 90])
+            subs['movers_turn_q4'] = mv & (tv >= q75)
+            subs['movers_turn_top10'] = mv & (tv >= q90)
+            subs['movers_turn_q1'] = mv & (tv < np.percentile(tv[mv], 25))
+            print(f'\n  turn3s among movers: q75={q75:.1f} deg, q90={q90:.1f} deg '
+                  f'(n={int(mv.sum())} with a turn measured)')
+    else:
+        print(f'\n  NOTE: {TURN} missing -- run facing_error_ladder_units.py for the '
+              'turn strata')
     print(f'\nagents common to all runs: {len(common)}')
     for k, m in subs.items():
         print(f'  {k:<22} n={int(m.sum())}')
@@ -149,6 +176,46 @@ def main() -> int:
                     lo=float(per.mean()-h), hi=float(per.mean()+h),
                     per_seed=[float(x) for x in per], sd_pp=float(sd))
 
+    def did_agentwise(mask, label):
+        """The same DiD, but with the agent as the unit and seeds averaged first.
+
+        WHY BOTH. The seed-level test above is the one that generalises: a new training
+        run is a new draw, so the seed is the replication unit for "would this hold if
+        you retrained". But its df is 7, and in a high-turn stratum where minADE is
+        ~1.1 m the seed spread swamps a few pp -- the turn strata come back at +/-10 to
+        18 pp, which is the same blindness that manufactured a detection floor at 579
+        scenes. Averaging the eight runs per agent first cuts run noise by ~sqrt(8) and
+        then tests over agents, which answers the narrower question actually at issue:
+        on these runs, is there a population of agents for whom pose content pays once
+        the heading channel is gone? It does NOT license a claim about retraining, so it
+        is reported as a sensitivity analysis beside the seed-level test, never instead
+        of it.
+        """
+        idx = np.flatnonzero(mask)
+        if len(idx) < 30:
+            return None
+        A = {c: np.stack([np.array([runs[c][s][a] for a in common])[mask]
+                          for s in usable]).mean(0)
+             for c in ('nohead_pose', 'nohead_shuf', 'head_pose', 'head_shuf')}
+        # per agent, in metres: content effect without heading minus content effect with
+        d = ((A['nohead_pose'] - A['nohead_shuf'])
+             - (A['head_pose'] - A['head_shuf']))
+        n = len(d)
+        t, p = stats.ttest_1samp(d, 0.0)
+        sd = d.std(ddof=1)
+        h = stats.t.ppf(0.975, n - 1) * sd / np.sqrt(n)
+        # express as pp of the with-heading shuffled baseline, so it is comparable
+        # to the seed-level DiD above
+        denom = A['head_shuf'].mean()
+        print(f'  {label:<42} n={n} DiD={d.mean():+.4f} m '
+              f'({100*d.mean()/denom:+.2f}pp) t={t:+6.2f} p={p:.4f} '
+              f'CI=[{100*(d.mean()-h)/denom:+.2f},{100*(d.mean()+h)/denom:+.2f}]pp')
+        return dict(n_agents=n, did_m=float(d.mean()),
+                    did_pp=float(100 * d.mean() / denom),
+                    t=float(t), p=float(p),
+                    lo_pp=float(100 * (d.mean() - h) / denom),
+                    hi_pp=float(100 * (d.mean() + h) / denom))
+
     res = {}
     for sub, mask in subs.items():
         print(f'\n=== {sub} (n={int(mask.sum())}) ===')
@@ -162,11 +229,13 @@ def main() -> int:
             'heading_cost': paired('nohead_nopose', 'head_nopose', mask,
                                    'cost of removing heading (baseline)'),
             'did': did(mask, 'DiD: does removing heading help pose?'),
+            'did_agentwise': did_agentwise(
+                mask, 'DiD, agent-level (seeds averaged first)'),
         }
     res['_meta'] = dict(n_common_agents=len(common), seeds=list(SEEDS),
                         subpopulation_sizes={k: int(v.sum()) for k, v in subs.items()},
                         stationary_speed=STATIONARY, onset_disp=ONSET_DISP,
-                        note='best-epoch per-agent metrics; paired t over seeds')
+                        note='best-epoch per-agent metrics; paired t over seeds, plus an agent-level sensitivity analysis with seeds averaged first')
     json.dump(res, open(OUT_JSON, 'w'), indent=2)
     print(f'\nwrote {OUT_JSON}')
     return 0

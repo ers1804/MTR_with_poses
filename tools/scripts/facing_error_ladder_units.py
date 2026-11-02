@@ -117,6 +117,22 @@ def main() -> int:
     res = {'n_population': len(recs), 'n_scored': len(keep),
            'calibration_vs_box_deg': med_box, 'targets': {}}
 
+    # Per-agent side dump, so a subpopulation analysis can stratify on the same
+    # quantities this script aggregates instead of recomputing them from scenarios.
+    # turn3s is the angle by which the future bearing departs from the CURRENT box
+    # heading: where it is small the trajectory already states where the agent is
+    # going, and body facing has nothing to add whether or not the heading channel
+    # is present. Additive -- `res` is untouched, so the checked JSON cannot move.
+    per_agent = {(r['scene'], r['oid']): dict(
+        turn3s_deg=float(angdiff(np.array([r['box']]), np.array([r['b3']]))[0]),
+        smpl_err3s_deg=float(angdiff(pose_yaw[i:i + 1], b3[i:i + 1])[0]),
+        box_err3s_deg=float(angdiff(box[i:i + 1], b3[i:i + 1])[0]),
+        disp3s=float(r['n3']), speed0=float(r['speed0']))
+        for i, r in enumerate(keep)}
+    pa_out = os.path.join(REPO, 'experiments', 'val_agent_turn.pkl')
+    pickle.dump(per_agent, open(pa_out, 'wb'))
+    print(f'wrote {pa_out}  ({len(per_agent)} agents)')
+
     print(f'\n{"target":<34}{"n":>7}{"SMPL":>9}{"box":>9}{"<45":>8}')
     print('-' * 68)
     for lab, bearing, disp in (('+3 s displacement bearing', b3, n3),

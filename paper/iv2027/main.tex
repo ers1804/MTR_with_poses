@@ -651,20 +651,29 @@ $24.9$--$60.1^\circ$ & 3 & $-0.1$ to $+2.7\%$ & $\ge0.24$ & --- & $5.5$--$9.1$ \
 \end{table}
 
 
-\textbf{What this does not establish.} Redundancy says why little is left for
-facing to add; it is not by itself a mechanism that blocks conversion, and we
-tested the implied counterfactual directly. Removing the heading channel entirely
-and repeating the content test changes it by $-0.6$\,pp in the stationary
-subpopulation ($n{=}8$, $p{=}0.65$, CI $[-3.5,+2.3]$): no effect. That is what
-the second and third properties above predict---facing is the worse estimate
-\emph{there} too, at $41.2^\circ$ against the heading's $25.2^\circ$, so deleting
-its competitor cannot rescue it---but the corresponding test on movers is unrun,
-and with it the possibility that facing would pay for a forecaster with no heading
-input. The reading we cannot exclude, and which the content test's own bound
-asserts, is that pose carries nothing this forecaster can use at any level of
-redundancy. At $n{=}3$ this same comparison read $-4.1$\,pp with all three seeds
-agreeing in sign---the third multi-percent effect here to dissolve under more
-seeds.
+\textbf{Removing the redundant input does not rescue it.} Redundancy says why
+little is left for facing to add; it is not by itself a mechanism that blocks
+conversion. So we tested the implied counterfactual: delete the box-heading
+channel, retrain all six cells, and repeat the content test, at the $579$-scene
+rung and eight seeds. Nothing appears, anywhere. The difference in content effect
+between the two conditions is $+2.9$\,pp on the $13{,}006$ moving
+agents---\emph{the wrong sign} for a benefit that redundancy had been
+masking---and $-0.6$\,pp on the stationary ones ($p{=}0.65$). Seed-level
+intervals at this scale are wide (${\pm}2$ to ${\pm}18$\,pp, widest exactly where
+\minADE is largest), so we also average the eight runs per agent and test over
+agents, which cuts run noise without licensing a claim about retraining: that
+gives $[+2.4,+3.3]$\,pp on movers, $[-1.5,+0.2]$ on the stationary subset, and
+$-1.2$\,pp with $[-2.6,+0.2]$ in the top decile of turning, the stratum where
+neither velocity nor heading states the future bearing. The two analyses agree to
+within $0.15$\,pp on every stratum.
+
+We can also say how much this ablation could ever have shown: deleting the heading
+channel costs the no-pose baseline only $1.5\%$ on movers, because velocity stays
+in the input, so there was never much room for facing to fill. What remains
+unexcluded is the reading the content test's own bound asserts---that pose carries
+nothing this forecaster can use at any level of redundancy. At $n{=}3$ this
+comparison read $-4.1$\,pp with all three seeds agreeing in sign: the third
+multi-percent effect here to dissolve under more seeds.
 
 \subsection{The cheaper pathway does not rescue it}
 \label{sec:earlyfloor}
@@ -829,9 +838,9 @@ every way a cue can enter a model, and only the late-fusion ladder is resolved a
 $25$k---the early-fusion one remains at $579$ scenes, where this paper's own
 power argument applies to it (Sec.~\ref{sec:earlyfloor}). The redundancy
 counterfactual---deleting the heading channel to see whether facing then
-pays---is run only on the stationary subpopulation, where facing is also the worse
-estimate, so we cannot say what a forecaster without a heading input would do with
-pose on movers. WOMD ships camera data only as
+pays---is run at the $579$-scene rung rather than at $25$k, and its seed-level
+intervals there are wide enough that the agent-level analysis carries the turn
+strata. WOMD ships camera data only as
 quantised tokens, so a camera-based pose or gaze estimate cannot be tested at
 this scale; on Waymo Perception, where raw imagery exists, an RGB estimator
 (HMR2.0) reaches $106.2$\,mm root-aligned MPJPE against LiDAR-HMR's $87.6$\,mm

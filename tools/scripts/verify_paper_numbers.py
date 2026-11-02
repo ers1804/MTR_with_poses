@@ -241,6 +241,32 @@ def main() -> int:
             for v, want in zip(fit1['residuals_pp'], ('1.5', '3.2', '0.3', '2.5')):
                 checks.append((g, f'single-exp residual {want}', abs(v), want))
 
+    N = load('nohead_subpopulation.json')
+    if N:
+        g = 'heading-removal counterfactual (Sec. V-B)'
+        mv, stt, hi = N.get('movers'), N.get('stationary'), N.get('movers_turn_top10')
+        if mv:
+            checks += [(g, 'movers n agents', mv['did']['n'] and
+                        N['_meta']['subpopulation_sizes']['movers'], '13{,}006'),
+                       (g, 'movers DiD (seeds)', abs(mv['did']['did_pp']), '2.9')]
+            if mv.get('did_agentwise'):
+                a = mv['did_agentwise']
+                checks += [(g, 'movers DiD agent-level low', a['lo_pp'], '2.4'),
+                           (g, 'movers DiD agent-level high', a['hi_pp'], '3.3')]
+            checks.append((g, 'cost of removing heading on movers',
+                           mv['heading_cost']['rel'], '1.5'))
+        if stt:
+            checks.append((g, 'stationary DiD (seeds)', abs(stt['did']['did_pp']), '0.6'))
+            if stt.get('did_agentwise'):
+                a = stt['did_agentwise']
+                checks += [(g, 'stationary DiD agent-level low', a['lo_pp'], '-1.5'),
+                           (g, 'stationary DiD agent-level high', a['hi_pp'], '0.2')]
+        if hi and hi.get('did_agentwise'):
+            a = hi['did_agentwise']
+            checks += [(g, 'top-decile turn DiD agent-level', abs(a['did_pp']), '1.2'),
+                       (g, 'top-decile turn agent-level low', a['lo_pp'], '-2.6'),
+                       (g, 'top-decile turn agent-level high', a['hi_pp'], '0.2')]
+
     H = load('horizon_decomposition.json')
     if H and H.get('summary'):
         g = 'horizon decomposition (Sec. V-A)'
