@@ -49,8 +49,8 @@ receives. What the oracle sells is knowledge of which future occurred, and no
 sensor supplies that. Body facing is instead a noisier copy of that heading
 ($12.3^\circ$ against $3.9^\circ$), worst where it would be non-redundant:
 $41.2^\circ$ for pedestrians stationary at prediction time. Before integrating a
-modality, measure its error on the cue it must carry against the inputs the
-model already has.
+modality, measure how much of the cue it must carry it explains beyond the
+inputs the model already has.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -63,7 +63,8 @@ Predicting where a pedestrian will go is a safety-critical function of an
 automated vehicle, and body pose is an obvious candidate input. A person's stance,
 gait phase and facing direction plausibly reveal intent before their position
 changes, and modern perception stacks already produce human mesh or keypoint
-estimates. Several recent systems condition trajectory forecasts on pose.
+estimates. Several recent systems condition trajectory forecasts on
+pose~\cite{saadatnejad2024socialtransmotion,gao2025socialpose,salzmann2023robots,kress2022pose}.
 
 This paper reports that, on the Waymo Open Motion Dataset (WOMD), pose
 conditioning does not measurably improve pedestrian trajectory accuracy. More
@@ -76,12 +77,15 @@ We make three contributions.
 control: the same architecture receiving a different pedestrian's body motion.
 This isolates information content from the capacity cost of an extra branch, and
 it is the comparison a practitioner should demand before adopting any auxiliary
-modality. The control is null at three training scales; across six pose
-encodings ($6$D joint rotations, 3D joint positions, root-orientation-free,
-agent-frame root, constant-pose and eight frame-invariant descriptors) and two
-encoder architectures (GRU and cross-attention); under two integration styles,
-a directed architecture search, and a pre-registered eight-seed confirmation on a
-held-out split. An oracle arm, which
+modality. The control is null at three training scales; across the three pose
+encodings we run it against on the corrected export ($6$D joint rotations,
+agent-frame root, and eight frame-invariant descriptors), with constant-pose as
+a capacity control; under two integration styles, a directed architecture
+search, and a pre-registered eight-seed confirmation on a held-out split. Two
+further encodings (3D joint positions and a root-orientation-free variant) and a
+GRU encoder predate the export fix of Sec.~\ref{sec:setup} and were run against
+no-pose rather than against a stranger's pose, so we neither count them as
+controlled nulls nor quote numbers from them. An oracle arm, which
 replaces the body with a signal encoding the agent's own future, improves
 \minADE by $34.8\%$ through the same branch, so the null is a property of pose,
 not of the plumbing.
@@ -91,7 +95,7 @@ with a controlled angular error to ask what kind of information the branch turns
 into accuracy. Every accuracy we trained converts, including one uniformly worse
 than an input the model already has, so the ladder does not set an accuracy a
 cue must reach; it separates a precision term with a $3.0^\circ$ half-life from a
-corruption-invariant term that is future-side mode selection. Body facing
+slowly decaying term that is future-side mode selection. Body facing
 supplies neither: it is a noisier copy of the box heading where pedestrians move,
 and reaches $41.2^\circ$ where they do not, which is exactly the case velocity
 cannot cover.
@@ -118,7 +122,13 @@ representative and strong. Human mesh recovery from LiDAR is
 maturing~\cite{fan2023lidarhmr}, with motion priors used to complete sparse
 observations~\cite{rempe2021humor,he2022nemf,mahmood2019amass}. Intent-focused
 work on pedestrian datasets~\cite{rasouli2019pie,fang2018pedestrian} targets
-crossing decisions rather than metric trajectories.
+crossing decisions rather than metric trajectories. Kress
+et al.~\cite{kress2022pose} report pose-based gains for vulnerable road users
+from a research vehicle, at close range and with camera-derived pose.
+Methodologically our closest precedent is Makansi
+et al.~\cite{makansi2022walkalone}, who find by feature attribution that
+trajectory predictors draw almost nothing from an input the field had assumed
+was central.
 
 \textbf{Relation to prior positive results.} Pose conditioning has reported real
 gains; our mechanism predicts where they come from rather than contradicting them. Social-Transmotion~\cite{saadatnejad2024socialtransmotion} lowers ADE on
@@ -141,8 +151,10 @@ ankle spread is $84$--$91\%$ of ground truth, where elbows and wrists reach
 $96$--$99\%$. A panoramic camera at a few metres resolves a swinging leg; a few
 dozen LiDAR returns at $40$\,m recover its mean position and lose much of its
 amplitude. So the two results do not conflict: theirs is what this cue is worth when the
-limbs are resolved, ours what it is worth when they are a few dozen returns and
-the trajectory already carries the body's direction.
+limbs are resolved and the predictor has no heading input, ours what it is worth
+when the trajectory already carries the body's direction. Sparsity alone does not
+account for the difference, since our content test is null even on the
+best-resolved agents (Sec.~\ref{sec:hide}).
 
 The most informative comparison is within Social-Pose itself. Alongside JTA it
 evaluates on Pedestrians and Cyclists in Road Traffic, the one vehicle-captured
@@ -432,6 +444,7 @@ therefore a statement about what SMPL pose contains, not about whether the
 architecture can use what it is given.
 
 \subsection{Where a benefit could still hide}
+\label{sec:hide}
 On the confirmation runs the content test is null at every horizon and least
 favourable at the shortest ($+0.48\%$ at $2$\,s, $-0.04\%$ at $8$\,s); null in
 all $20$ tests across quartiles and top deciles of constant-velocity residual,
@@ -440,6 +453,14 @@ standing-then-moving pedestrians, the subpopulation built to favour it
 ($n{=}1{,}809$ pedestrians, $+0.38\%$, epoch-$30$ checkpoints on an expanded
 validation split; $p{=}0.80$ by a pedestrian-resampling bootstrap, the one place
 we quote one, because this subpopulation is defined per pedestrian).
+
+It is also null where the body is best measured, which is where a
+pose-quality explanation predicts an effect should appear. Stratifying the $25$k
+content test by LiDAR return count gives $-0.37\%$ ($[-1.87,+1.14]$) on the
+$2{,}372$ agents with at least $200$ returns and $-0.08\%$ on the $10{,}902$
+with at least $30$; stratifying by range gives $-0.14\%$ ($[-1.61,+1.33]$)
+inside $10$\,m. Nine strata, no effect, at $n{=}5$ throughout. Whatever the null
+is, it is not only sparsity at range.
 
 Across the roughly forty content tests this study reports, one reaches
 $p{<}0.05$: in the stationary subpopulation of the heading ablation, correct
@@ -500,8 +521,13 @@ it to $0.4$\,pp:
 \Delta\minADE(\theta) \;\approx\; -\big[\,13.1\% + 21.4\%\cdot e^{-\theta/4.4^\circ}\,\big],
 \label{eq:floor}
 \end{equation}
-a precision term with a half-life of $3.0^\circ$ over a term that survives every
-corruption we applied. The seeds agree closely: $12.3$--$14.2\%$ persistent,
+a precision term with a half-life of $3.0^\circ$ over a term the corruptions in
+this ladder do not resolve. That term is slow, not permanent: it is flat to
+$15.1^\circ$ here, while the same ladder at $579$ scenes reads $-0.1$ to
+$+2.7\%$ from $24.9^\circ$ outward, with intervals that exclude the
+${\approx}6\%$ a persistent term scaled from that ladder's own $\theta{=}0$
+amplitude would predict (Table~\ref{tab:floor}). It must decay somewhere beyond
+our rungs, since a $60^\circ$ median error is close to uniform on the circle. The seeds agree closely: $12.3$--$14.2\%$ persistent,
 amplitudes $20.8$--$21.8\%$, half-lives $2.8$--$3.4^\circ$.
 
 \textbf{The angular axis is not an acceptance threshold.} It is tempting to read
@@ -538,11 +564,22 @@ quartile where the baseline's own modes disagree most at the endpoint
 future bearing says which way the agent went; only a precise one refines where
 along that way, and that refinement is what $3^\circ$ of error destroys.
 
+\minADE takes the best of six modes whatever their rank, so selection reaches it
+only through the decoder's scoring step, which keeps six of $64$ intention
+queries by predicted likelihood: a better ranking changes which six survive.
+That is also where a pose effect could hide from our headline metric, so we
+scored the ranking columns directly on the $25$k arms. They are null as well:
+against a stranger's pose, top-$1$ ADE is $-2.07\%$ ($p{=}0.11$, MDE
+$3.7$\,pp), best-mode rank $-0.93\%$ ($p{=}0.22$) and endpoint mode spread
+$+0.17\%$ ($p{=}0.53$), over the same $16{,}486$ agents.
+
 The ladder is therefore a positive control and an upper bound on what any
 direction channel through this branch could buy \emph{if it knew the future},
 and (\ref{eq:floor}) says how much of that bound is precision rather
-than selection. Selection is not available to any observation-time cue at any
-accuracy, because it is knowledge of which future occurred.
+than selection. An observation-time cue buys selection only to the extent that
+it predicts the realised mode beyond what the model's existing inputs already
+predict; the oracle's advantage is that it does not predict the future mode but
+reads it.
 
 \textbf{A null at low power looks like a threshold.} We first ran this ladder at
 $579$ scenes, where it reads as a clean detection floor: significant at
@@ -715,8 +752,11 @@ explanation.}
 \end{figure}
 
 \subsection{The complementary cue is barely measured}
-Gaze precedes locomotion, so head yaw relative to the torso is a plausible
-\emph{independent} cue, and it is very nearly not recoverable here. In the
+Gaze precedes locomotion, and head orientation is an established intent cue for
+vehicle-based pedestrian path
+prediction~\cite{kooij2014context,flohr2015orientation}, so head yaw relative to
+the torso is a plausible \emph{independent} cue. It is very nearly not
+recoverable here. In the
 fitted meshes head-versus-torso yaw has a standard deviation of $3.8^\circ$,
 while against the ground-truth 3D keypoints released with Waymo
 Perception~\cite{sun2020waymoperception,zheng2022keypoints} ($n{=}8{,}234$) the
@@ -774,8 +814,9 @@ downstream stack.
 
 \subsection{A general condition}
 Two results locate where pose could have helped. At $2$\,s, \minADE is
-$0.091$\,m, about $3\%$ of the displacement, so little error is left for an
-extra input to remove. This is a property of the forecaster's own residual, not
+$0.091$\,m, and a perfect future-direction oracle through the same branch removes
+only $1.4$\,cm of it ($-14.7\%$): relative headroom exists at short horizons, but
+in absolute terms there is almost nothing for any cue to win. This is a property of the forecaster's own residual, not
 of constant velocity: single-mode constant-velocity
 extrapolation~\cite{scholler2020constant} gives $0.310$\,m at $2$\,s on the same
 set, so short-horizon forecasting is \emph{not} CV-saturated (a comparison that
@@ -785,21 +826,30 @@ displacement. At long horizons the residual is dominated by destination and
 intent, which body configuration does not disclose; stratifying by how badly
 constant velocity fails still yields no effect.
 
-In general form: \emph{an auxiliary modality improves a forecast only where the
-baseline is neither saturated nor dominated by intent the modality cannot
-observe, and where the modality measures the cue it is meant to carry more
-accurately than the inputs the model already receives.} All three clauses must
-hold. The third is the cheapest to check, being a measurement on the dataset
-with no training at all, and the one most often skipped. For pose on WOMD it is
-the one that fails: the box heading carries the same bearing three times more
-accurately, and on the stationary pedestrians where it does not, facing is worse
-still.
+In general form, and offered as a hypothesis from one modality on one dataset
+rather than a law: \emph{an auxiliary modality improves a forecast only where the
+baseline's own residual leaves room in absolute terms, where that residual is not
+dominated by intent the modality cannot observe, and where the modality carries
+information about the cue that the model's existing inputs do not already carry.}
+All three clauses must hold. The third is not a comparison of marginal
+accuracies, and this paper is the reason to state it that way:
+Sec.~\ref{sec:floor} converts a channel less accurate at every percentile than an
+input the model already has, so being the noisier estimate is not by itself
+disqualifying. What disqualifies facing is that its error is \emph{shared} with
+the input it would supplement. It is calibrated against the box heading, snapped
+to the direction of travel for the $95.5\%$ of agents that move, and recovered
+from the same returns, so where it is accurate it is redundant and where it would
+be independent it is worst (Sec.~\ref{sec:belowfloor}). The check this licenses
+is still cheap and still skipped, and it is still a measurement on the dataset
+with no training: how much of the target does the candidate cue explain that the
+existing inputs do not?
 
 \section{What This Means in Practice}
 For an AV stack, four consequences follow. First, before integrating an
-auxiliary modality, measure its error on the cue it is meant to carry
-\emph{against the inputs the model already receives}. That costs no training and
-it is what decides pose here. Second, an oracle ladder is still worth its handful
+auxiliary modality, measure not only its error on the cue it is meant to carry
+but how much of that cue it explains \emph{beyond the inputs the model already
+receives}. That costs no training, and for pose it is the measurement that would
+have predicted the outcome. Second, an oracle ladder is still worth its handful
 of runs, as a positive control and as an upper bound on the pathway, but size it
 so its MDE is below the effect you would act on, and do not read its angular axis
 as an acceptance threshold: ours converts a channel less accurate than an input
@@ -841,17 +891,17 @@ path converts a direction channel at every accuracy we trained, including one
 uniformly worse than the tracker heading the model already receives, so the
 pathway is not the obstacle and no attainable pose accuracy is the remedy. What
 the oracle sells is knowledge of which future occurred: half its endpoint gain is
-mode selection that survives arbitrary angular corruption, against a fifth at
+mode selection that no corruption in our ladder resolves, against a fifth at
 $2$\,s, and a channel corrupted to $15.1^\circ$ still closes $92\%$ of the
 selection gap. Body facing cannot supply that at any accuracy, and as a bearing
 it is a noisier copy of one the model already has, and worst, at $41.2^\circ$, on
 the stationary pedestrians the cue was introduced to serve. Fusing the same cue early removes the branch's capacity cost but does
 not rescue it: that pathway fails to exploit even an uncorrupted bearing on two
 seeds in three, so both integration routes fail, for different and identifiable
-reasons. The lesson generalises past pose. Measure a modality's error on the cue it is
-meant to carry against the inputs the model already receives, before integrating
-it, and make sure any ladder you judge it against can resolve the effect you would
-act on.
+reasons. The lesson generalises past pose. Before integrating a modality, measure
+how much of the cue it is meant to carry it explains beyond the model's existing
+inputs, and make sure any ladder you judge it against can resolve the effect you
+would act on.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}

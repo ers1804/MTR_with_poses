@@ -79,6 +79,34 @@ RETIRED = [
              'exponential cannot fit the 25k ladder at any constants -- residuals '
              '-1.5/+3.2/+0.3/-2.5 pp, systematic in theta',
          instead='the two-component form in detection_floor_25k.json'),
+    # --- retired 2026-11-04, after a full-paper review -----------------------------
+    dict(pat=r'six pose\s+encodings|across six pose',
+         why='two of the six (3D joint positions, root-orientation-free) predate the '
+             'export fix and have no shuffled-pose arm, so the control was never run '
+             'against them; before the fix every pose arm was already a shuffled arm',
+         instead='the three encodings with a shuffled control on the corrected export, '
+                 'with constant-pose named as a capacity control'),
+    dict(pat=r'corruption-invariant|survives every\s+corruption|survives arbitrary angular',
+         why='the persistent term is slow, not permanent: the 579 ladder reads -0.1 to '
+             '+2.7% from 24.9 deg outward, with intervals excluding the ~6% a scaled '
+             'persistent term predicts, and a 60 deg median is near-uniform on the circle',
+         instead='a slowly decaying term that the corruptions in this ladder do not resolve'),
+    dict(pat=r'Selection is not available to any observation-time',
+         why='Sec. V-B measures observation-time cues that do carry partial mode '
+             'information (box heading 25.2 deg, SMPL 44.2 deg against 90 deg chance), '
+             'so selection is not categorically unavailable, only never perfect',
+         instead='a cue buys selection to the extent it predicts the realised mode '
+                 'beyond what the existing inputs already predict'),
+    dict(pat=r'about \$3\\%\$ of the displacement, so little error',
+         why='the 2 s residual is not relatively saturated: a perfect oracle still cuts '
+             'it by 14.7%. The binding limit is absolute, 1.4 cm',
+         instead='the absolute form: even an ideal cue is worth 1.4 cm at 2 s'),
+    dict(pat=r'measures the cue it is meant to carry more\s+accurately than the inputs',
+         why='the marginal-accuracy form of clause 3 is refuted by the paper itself: '
+             'the 15.1 deg rung is less accurate at every percentile than an existing '
+             'input and still converts',
+         instead='the shared-information form: the modality must carry information about '
+                 'the cue that the existing inputs do not already carry'),
     dict(pat=r'1\.3\$?--\$?4\.0|0\.002\$?--\$?0\.32',
          why='gains predicted for SMPL facing by reading the retired decay law at its '
              'median; the ladder does not license predicting a real cue from a rung',
@@ -329,6 +357,52 @@ def main() -> int:
             m = meas.get(r['rung'])
             if m is not None and f'{m:.1f}' in tex:
                 checks.append((g, f"rung {r['rung']} label", r['median_err_deg'], f'{m:.1f}'))
+
+    T1 = load('top1_content_25k.json')
+    if T1:
+        g = 'ranking columns at 25k (Sec. V-A)'
+        # minADE is carried in this artifact purely as a sanity check: it must
+        # reproduce the content test's own +0.04%, which is what licenses reading
+        # the three ranking columns off the same pairing.
+        for col, lab, how in (
+                ('top1_ADE', 'top-1 ADE content', '-2.07'),
+                ('best_mode_rank', 'best-mode rank content', '-0.93'),
+                ('mode_spread_endpoint', 'mode spread content', '0.17'),
+                ('minADE', 'minADE (reproduces content test)', '0.04')):
+            pr = T1['metrics'][col]['pairs']['shuf->pose']
+            checks.append((g, lab, pr['rel_pct'], how))
+        checks.append((g, 'top-1 ADE MDE',
+                       T1['metrics']['top1_ADE']['pairs']['shuf->pose']['mde80_pct'],
+                       '3.7'))
+        checks.append((g, 'paired agents', T1['metrics']['minADE']['n_agents'],
+                       '16{,}486'))
+
+    PC = load('pointcount_stratified_content.json')
+    if PC:
+        g = 'stratified nulls (Sec. IV-E)'
+        for key, how, hown in (('>=200 pts', '-0.37', '2{,}372'),
+                               ('>=30 pts', '-0.08', '10{,}902')):
+            st = PC['strata'].get(key)
+            if st:
+                checks.append((g, f'{key} content', st['content']['rel'], how))
+                checks.append((g, f'{key} n', st['n'], hown))
+
+    RG = load('range_stratified_content.json')
+    if RG:
+        g = 'stratified nulls (Sec. IV-E)'
+        st = RG['strata'].get('<10m')
+        if st:
+            checks.append((g, '<10 m content', st['content']['rel'], '-0.14'))
+
+    HZ = load('horizon_decomposition.json')
+    if HZ:
+        g = '2 s headroom (Sec. V-F)'
+        r0 = HZ['rungs'][0]['per_seed']
+        rel2 = sum(x['minADE_2s']['rel_pct'] for x in r0) / len(r0)
+        gain = (sum(x['minADE_2s']['base'] - x['minADE_2s']['arm'] for x in r0)
+                / len(r0))
+        checks.append((g, '2 s oracle relative', abs(rel2), '14.7'))
+        checks.append((g, '2 s oracle absolute (cm)', gain * 100.0, '1.4'))
 
     bad, group = [], None
     for g, label, val, written in checks:
