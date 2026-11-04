@@ -30,3 +30,7 @@ texput.log
 # Track experiment configs despite the blanket *.yaml ignore above:
 # a fresh clone must be able to run every cell in tools/scripts/run_multiseed_matrix.sh.
 !tools/cfgs/**/*.yaml
+
+# latexmk dependency databases (same class as *.aux/*.log)
+*.fls
+*.fdb_latexmk
