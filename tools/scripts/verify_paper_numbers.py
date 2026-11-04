@@ -79,6 +79,17 @@ RETIRED = [
              'exponential cannot fit the 25k ladder at any constants -- residuals '
              '-1.5/+3.2/+0.3/-2.5 pp, systematic in theta',
          instead='the two-component form in detection_floor_25k.json'),
+    # --- removed 2026-11-04 from the submission ------------------------------------
+    # Not wrong, but no longer reported: the directed integration search and the
+    # pre-registered eight-seed confirmation that killed its one acceptance are out of
+    # the paper, so no claim may lean on them. The null now rests on scale, encoding,
+    # integration and the oracle controls.
+    dict(pat=r'coding agent|directed architecture search|directed search',
+         why='the search is not reported in the submission',
+         instead='the controlled null across scale, encoding and integration'),
+    dict(pat=r'eight-seed confirmation|acceptance floor|development half|-1\.21',
+         why='these all describe the removed search and its confirmation arms',
+         instead='nothing -- the evidence they supported is simply not claimed'),
     # --- retired 2026-11-04, when the early-fusion ladder landed at 25k -------------
     # Sec. V-C still NARRATES the 579 reading before overturning it, so these patterns
     # target the conclusions that reading supported, not the reading itself.

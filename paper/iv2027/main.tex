@@ -80,8 +80,7 @@ it is the comparison a practitioner should demand before adopting any auxiliary
 modality. The control is null at three training scales; across the three pose
 encodings we run it against on the corrected export ($6$D joint rotations,
 agent-frame root, and eight frame-invariant descriptors), with constant-pose as
-a capacity control; under two integration styles, a directed architecture
-search, and a pre-registered eight-seed confirmation on a held-out split. Two
+a capacity control; and under two integration styles. Two
 further encodings (3D joint positions and a root-orientation-free variant) and a
 GRU encoder predate the export fix of Sec.~\ref{sec:setup} and were run against
 no-pose rather than against a stranger's pose, so we neither count them as
@@ -258,10 +257,8 @@ learning rate at epochs $10$, $20$ and $25$; the decoder predicts $K{=}6$ modes.
 The learning rate is chosen per rung from a grid run separately for each arm:
 $1{\times}10^{-4}$ at $579$ scenes, $5{\times}10^{-5}$ at $5$k and
 $2.5{\times}10^{-5}$ at $25$k, where every arm peaks at the same interior
-optimum. Validation is fixed at $5{,}171$ scenes and $16{,}486$ pedestrians; the
-directed search of Sec.~\ref{sec:search} splits it once into a development half
-($2{,}617$ scenes, $8{,}445$ agents) and a held-out half ($2{,}554$ scenes,
-$8{,}041$ agents). Headline numbers are taken at each run's best validation epoch
+optimum. Validation is fixed at $5{,}171$ scenes and $16{,}486$ pedestrians. Headline
+numbers are taken at each run's best validation epoch
 over a fixed evaluation schedule, and Sec.~\ref{sec:real} reports what changes
 under a fixed-epoch rule. Official WOMD mAP and gated miss rate need the full
 retained prediction set, which our per-epoch evaluation does not store, so we
@@ -340,8 +337,8 @@ sensitive, and we state what each one
 could have seen: at $80\%$ power the minimum detectable content effect is
 $3.5\%$ at $579$ scenes ($n{=}5$), $7.6\%$ at $5$k ($n{=}3$) and $2.2\%$ at
 $25$k ($n{=}5$). The $5$k rung is therefore weak evidence on its own and we do
-not count it as an independent null; the weight falls on $25$k and on the
-eight-seed confirmation of Sec.~\ref{sec:search}. At $25$k the paired seed-level
+not count it as an independent null; the weight falls on the $25$k rung, which
+is both the largest scale and the most sensitive. At $25$k the paired seed-level
 interval on the content difference is $[-1.59\%,+1.70\%]$, so at the largest
 scale we train the data exclude a content effect beyond roughly $1.7\%$ in either
 direction, a bound tighter than the $1.6\%$ cost of the branch that would carry
@@ -396,26 +393,6 @@ $-0.90\%$, n.s. Across the $25$k grid the learning rate moves \minADE by up to
 $16.7\%$ against a content signal of ${\sim}0.05\%$: a pose-versus-baseline
 comparison that does not tune each arm separately is a claim about the learning
 rate.
-
-\subsection{Search and confirmation}
-\label{sec:search}
-Hand-designed integrations sample a small space, so we ran a directed search in
-which a coding agent rewrote the pose-integration code against a frozen training
-repository, scoring on a development split and never seeing the held-out split.
-Round one scored $13$ candidates and accepted none. Round two produced one
-acceptance: a stationary-gated body-facing plus foot-contact descriptor that beat
-the incumbent on $5/5$ seeds and reached $-1.21\%$ content on the held-out split,
-clearing the pre-set $0.8\%$ acceptance floor, but under a truncated $12$-epoch
-proxy recipe.
-
-Because that acceptance rested on a truncated recipe, we pre-registered a
-confirmation before running it: three arms, eight seeds, $30$ epochs, primary
-endpoint the held-out split at the fixed last epoch. It returned $-0.04\%$,
-$t(7){=}-0.11$, $p{=}0.92$. The proxy signal was a convergence-rate artifact.
-The arms differ in how fast they train, not in where they end, and a truncated
-proxy cannot settle a sub-$1\%$ effect. We report the acceptance rather than only the
-confirmation because the search behaved honestly: it found the best candidate the
-representation admits, and pre-registration is what removed it.
 
 \subsection{The branch is not inert}
 \label{sec:poscontrol}
@@ -888,8 +865,8 @@ here. We do not model pose--pose interaction.
 \section{Conclusion}
 Body pose, recovered from LiDAR, does not improve pedestrian trajectory
 forecasting on WOMD. The null is controlled against a shuffled-pose baseline and
-holds across scale, representation, integration, a directed search and a
-pre-registered confirmation; an oracle through the same branch rules out a dead
+holds across scale, representation and integration; an oracle through the same
+branch rules out a dead
 pathway. It also has a quantitative mechanism. An oracle ladder shows this integration
 path converts a direction channel at every accuracy we trained, including one
 uniformly worse than the tracker heading the model already receives, so the
