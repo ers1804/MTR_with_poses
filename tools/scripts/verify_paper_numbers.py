@@ -79,6 +79,24 @@ RETIRED = [
              'exponential cannot fit the 25k ladder at any constants -- residuals '
              '-1.5/+3.2/+0.3/-2.5 pp, systematic in theta',
          instead='the two-component form in detection_floor_25k.json'),
+    # --- retired 2026-11-04, when the early-fusion ladder landed at 25k -------------
+    # Sec. V-C still NARRATES the 579 reading before overturning it, so these patterns
+    # target the conclusions that reading supported, not the reading itself.
+    dict(pat=r'does not rescue it: that pathway fails|do not offer early fusion as a rescue',
+         why='at 25k the early-fusion pathway converts an uncorrupted direction channel '
+             'on every seed (-31.5%, p=0.011); the 579 per-seed signature was a power '
+             'artifact, at MDE 25.5 pp',
+         instead='both pathways read what they are given, and neither finds anything in '
+                 'the body to read'),
+    dict(pat=r'partly illusory|partly by\s+not reading the channel',
+         why='the free-carriage result means what it appears to mean: early fusion '
+             'integrates the channel at no capacity cost, shown by an oracle through '
+             'that pathway at 25k',
+         instead='the freedom is real, and the oracle through early fusion is what '
+                 'establishes it'),
+    dict(pat=r'converts it on only one\s+of three seeds',
+         why='that count is the 579 ladder at MDE 25.5 pp; at 25k it is every seed',
+         instead='converts an uncorrupted oracle on every seed at 25k scenes'),
     # --- retired 2026-11-04, after a full-paper review -----------------------------
     dict(pat=r'six pose\s+encodings|across six pose',
          why='two of the six (3D joint positions, root-orientation-free) predate the '
@@ -403,6 +421,20 @@ def main() -> int:
                 / len(r0))
         checks.append((g, '2 s oracle relative', abs(rel2), '14.7'))
         checks.append((g, '2 s oracle absolute (cm)', gain * 100.0, '1.4'))
+
+    EF = load('detection_floor_ef25k.json')
+    if EF and EF.get('rungs'):
+        g = 'early-fusion ladder at 25k (Sec. V-C)'
+        r0 = min(EF['rungs'], key=lambda r: r['median_err_deg'])
+        # n is in the label on purpose: this queue is in flight, so when the third
+        # seed lands these four values move and the mismatch is the signal to
+        # refresh Sec. V-C rather than evidence that it is wrong.
+        checks += [
+            (g, f'theta=0 rel (n={r0["n"]})', abs(r0['rel']), '31.5'),
+            (g, f'theta=0 p (n={r0["n"]})', r0['p'], '0.011'),
+            (g, f'theta=0 CI lo (n={r0["n"]})', abs(r0['lo']), '38.2'),
+            (g, f'theta=0 CI hi (n={r0["n"]})', abs(r0['hi']), '24.8'),
+        ]
 
     bad, group = [], None
     for g, label, val, written in checks:

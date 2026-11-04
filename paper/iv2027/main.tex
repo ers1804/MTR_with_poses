@@ -189,9 +189,9 @@ dimensionality fixed; everything downstream is shared. Blue: MTR, unchanged;
 orange: added for pose. The agent-history strip shows that the tracker's box
 heading is \emph{already} an input. Solid orange~(2): the pose branch (late
 fusion), which costs ${\approx}1.6\%$ \minADE whether it carries the right body
-or the wrong one; dashed~(3): early fusion, which removes that cost and still
-yields no benefit, and which, fed an uncorrupted oracle, converts it on only one
-of three seeds (Sec.~\ref{sec:earlyfloor}).}
+or the wrong one; dashed~(3): early fusion, which removes that cost, still
+yields no benefit from pose, and converts an uncorrupted oracle on every seed at
+$25$k scenes (Sec.~\ref{sec:earlyfloor}).}
 \label{fig:arch}
 \end{figure*}
 
@@ -382,9 +382,9 @@ does not arise. Replacing the $144$-d branch with eight frame-invariant descript
 fused into the existing agent channels removes the cost ($-0.01\%$ versus
 no-pose, $p{=}0.99$; $-1.67\%$ versus the branch, $p{=}0.12$ at $n{=}3$) without
 creating a benefit: pose can be carried for free, and still does not pay. That
-freedom turns out to be partly illusory. Sec.~\ref{sec:earlyfloor} shows this
-pathway fails to exploit even an uncorrupted oracle on two seeds in three, so a
-channel it costs nothing to carry is also a channel it largely does not read. We
+freedom is real, and Sec.~\ref{sec:earlyfloor} is what establishes it: fed an
+uncorrupted oracle at $25$k scenes this pathway converts it on every seed, so a
+channel it costs nothing to carry is still a channel it reads. We
 quote the seed-level $p$ here for consistency with the rest of the paper; a
 pedestrian-resampling bootstrap makes the branch contrast look decisive
 ($p{=}0.006$), which is exactly the unit error Sec.~\ref{sec:setup} warns
@@ -696,7 +696,7 @@ nothing this forecaster can use at any level of redundancy. At $n{=}3$ this
 comparison read $-4.1$\,pp with all three seeds agreeing in sign: the third
 multi-percent effect here to dissolve under more seeds.
 
-\subsection{The cheaper pathway does not rescue it}
+\subsection{The cheaper pathway converts a bearing, and still not pose}
 \label{sec:earlyfloor}
 Early fusion removes the branch tax (Sec.~\ref{sec:real}), which makes it the
 pathway worth recommending, so we ran the same ladder through it, carrying the
@@ -704,32 +704,34 @@ oracle in the per-timestep agent channels instead of the branch. At a given rung
 the six channels equal the branch's six inputs bit for bit, so the rungs keep
 their measured-error labels.
 
-No rung is significant here, \emph{including the uncorrupted one}: $-4.5\%$ at
-$\theta{=}0$ ($p{=}0.44$), $-1.0\%$ at $5.0^\circ$ ($p{=}0.53$) and $+0.2\%$ at
-$10.0^\circ$ ($p{=}0.94$), at $n{=}3$ throughout. We do not read a floor, or its
-absence, into that: the MDE at $\theta{=}0$ is $25.5$\,pp, and
-Sec.~\ref{sec:floor} is a worked example of what an MDE that size does to a
-ladder. At this power the significance column cannot separate a pathway that
-ignores the channel from one that converts it.
+At $579$ scenes this ladder reads as a dead pathway. No rung is significant,
+\emph{including the uncorrupted one}: $-4.5\%$ at $\theta{=}0$ ($p{=}0.44$),
+$-1.0\%$ at $5.0^\circ$ ($p{=}0.53$) and $+0.2\%$ at $10.0^\circ$ ($p{=}0.94$),
+and the per-seed pattern looks like a mechanism rather than noise. The side
+branch converts the uncorrupted channel on all three seeds ($-16.5\%$,
+$-19.3\%$, $-11.5\%$) while early fusion converts it on one ($-14.0\%$, against
+$+0.7\%$ and $-0.3\%$), with the two failing seeds sitting at their no-pose level
+rather than scattering about it. A difference in \emph{how many seeds move at
+all} does not look like something a wide interval explains away.
 
-The per-seed pattern can, and it is the evidence we rest on. At $\theta{=}0$ the
-channel is the agent's own future bearing; the side branch converts it on all
-three seeds ($-16.5\%$, $-19.3\%$, $-11.5\%$) while early fusion converts it on
-one ($-14.0\%$, against $+0.7\%$ and $-0.3\%$), and the two failing seeds sit at
-their no-pose level from $\theta{=}0$ onward rather than scattering about it. A
-difference in \emph{how many seeds move at all} is not something a wide interval
-explains away.
+It was. The MDE at $\theta{=}0$ is $25.5$\,pp, and we re-ran the rung at $25$k
+scenes, where the branch ladder's MDE was $1.4$--$2.9$\,pp. Early fusion converts
+the uncorrupted channel there on \emph{every} seed, by $-31.5\%$
+($p{=}0.011$, $95\%$ CI $[-38.2,-24.8]$), against the branch's $-34.5\%$ at the
+same rung and denominator. So the $579$ reading was the same power artifact
+twice over: once in the significance column, and once in a per-seed signature we
+trusted because it was not a $p$-value. Three runs at $579$ scenes cannot tell a
+pathway that ignores a channel from one that converts it by a third.
 
-This bears on the free-carriage result of Sec.~\ref{sec:real}. ``No tax, no
-benefit'' admits two readings: that early fusion integrates pose at no capacity
-cost, or that it largely ignores the appended channels, in which case there is
-nothing to cost and nothing to gain. A perfect channel separates them: the first
-predicts a large gain, the second none. Two seeds in three show none. We
-therefore do not offer early fusion as a rescue for a cue that fails through the
-branch. We stop short of the stronger claim that it cannot convert one: that
-needs this ladder at $25$k, where the branch ladder's MDE was $1.4$--$2.9$\,pp at
-the same $n{=}3$. Caveats: $n{=}3$, and the free-carriage result was measured at
-$25$k scenes while this ladder runs at $579$.
+This also settles the free-carriage result of Sec.~\ref{sec:real} the other way.
+``No tax, no benefit'' admitted two readings: that early fusion integrates pose
+at no capacity cost, or that it largely ignores the appended channels, so that
+there is nothing to cost and nothing to gain. A perfect channel separates them,
+and at the scale where we can resolve the difference the first reading is
+correct. Early fusion reads what it is given. Pose through that pathway is
+therefore a cue that arrives, is used when it carries something, and still buys
+nothing, which removes the last place the null could have been an artifact of
+integration rather than a property of the cue.
 
 
 \begin{figure}[t]
@@ -857,8 +859,9 @@ the model already has, because an oracle knows which future occurred and no
 sensor does (Sec.~\ref{sec:floor}). Third, the
 capacity cost of an extra branch is real (${\sim}1.6\%$ here, at the best-epoch
 operating point) and is easily mistaken for a modality effect in either
-direction; early fusion avoids it, though on our evidence it does so partly by
-not reading the channel, and a shuffled-pose control separates the two. Fourth, do not accept a pose estimator on aggregate MPJPE alone: check
+direction; early fusion avoids it while still reading the channel, which an
+oracle through that pathway is what demonstrates, and a shuffled-pose control
+separates a benefit from a capacity effect either way. Fourth, do not accept a pose estimator on aggregate MPJPE alone: check
 per-joint skill, because the joints an aggregate flatters may be the ones
 carrying a prior.
 
@@ -869,8 +872,9 @@ ${\approx}1.25\%$ at $80\%$ power, and the ladders run at $n{=}3$ per rung
 (Table~\ref{tab:floor}). We test one forecaster, one dataset and one pose
 estimator. We ladder two integration pathways rather than one, but two is not
 every way a cue can enter a model, and only the late-fusion ladder is resolved at
-$25$k; the early-fusion one remains at $579$ scenes, where this paper's own
-power argument applies to it (Sec.~\ref{sec:earlyfloor}). The redundancy
+$25$k at every rung; the early-fusion ladder is resolved at $25$k only at
+$\theta{=}0$, and its corrupted rungs remain at $579$ scenes, where this paper's
+own power argument applies to them (Sec.~\ref{sec:earlyfloor}). The redundancy
 counterfactual, which deletes the heading channel to see whether facing then
 pays, is run at the $579$-scene rung rather than at $25$k, and its seed-level
 intervals there are wide enough that the agent-level analysis carries the turn
@@ -895,10 +899,11 @@ mode selection that no corruption in our ladder resolves, against a fifth at
 $2$\,s, and a channel corrupted to $15.1^\circ$ still closes $92\%$ of the
 selection gap. Body facing cannot supply that at any accuracy, and as a bearing
 it is a noisier copy of one the model already has, and worst, at $41.2^\circ$, on
-the stationary pedestrians the cue was introduced to serve. Fusing the same cue early removes the branch's capacity cost but does
-not rescue it: that pathway fails to exploit even an uncorrupted bearing on two
-seeds in three, so both integration routes fail, for different and identifiable
-reasons. The lesson generalises past pose. Before integrating a modality, measure
+the stationary pedestrians the cue was introduced to serve. Fusing the same cue early removes the branch's capacity cost and does
+not rescue it either, and the reason is not that the cheaper pathway ignores its
+input: fed an uncorrupted bearing it converts it on every seed, by a third. Both
+integration routes read what they are given, and neither finds anything in the
+body to read. The lesson generalises past pose. Before integrating a modality, measure
 how much of the cue it is meant to carry it explains beyond the model's existing
 inputs, and make sure any ladder you judge it against can resolve the effect you
 would act on.

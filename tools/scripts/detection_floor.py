@@ -30,7 +30,7 @@ argument. 579 is a cheap iteration rung (~52 min a run), not a data limit. The 2
 a far tighter denominator -- no-pose sd 0.0027 over five seeds against a 0.4428-0.4954 spread
 at 579 -- so n=3 there should resolve more than n=5 did here.
 
-Usage: python tools/scripts/detection_floor.py [late|early|25k]
+Usage: python tools/scripts/detection_floor.py [late|early|25k|ef25k]
 """
 from __future__ import annotations
 
@@ -79,6 +79,14 @@ LADDERS = {
                   baseline_cell='map_nopose_fix', watch=True,
                   out='detection_floor_early.json',
                   label='early fusion, per-timestep agent channels, 579 scenes'),
+    'ef25k': dict(cfg='mtr+pose_data_early_oracledir{}_scale25k',
+                  tag='MS_earlyoracle{key}_25k_s{seed}',
+                  rungs={k: _RUNGS[k] for k in ('00', '05', '10')},
+                  # same denominator as the late 25k ladder, so the two pathways are
+                  # compared against one baseline rather than two.
+                  baseline_cell='scale25k_nopose', watch=False,
+                  out='detection_floor_ef25k.json',
+                  label='early fusion, per-timestep agent channels, 25k scenes'),
     '25k': dict(cfg='mtr+pose_data_cross_attn_pe_with_map_oracledir{}_scale25k',
                 tag='MS_oracledir{key}_25k_s{seed}',
                 rungs={k: _RUNGS[k] for k in ('00', '05', '10', '15')},
