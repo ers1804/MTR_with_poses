@@ -34,19 +34,19 @@ erik.schuetz@gmx.de}}
 Gait and facing appear to encode pedestrian intent that a position history
 lacks, making body pose an attractive forecasting input. On the Waymo Open
 Motion Dataset, with SMPL poses recovered from LiDAR, we find no measurable
-benefit. The decisive comparison is not pose against no pose---which confounds
-body information with an extra branch's capacity---but correct pose against the
+benefit. The decisive comparison is not pose against no pose, which confounds
+body information with an extra branch's capacity, but correct pose against the
 same architecture fed \emph{another pedestrian's} pose. At our largest scale it
 returns $+0.04\%$ ($p{=}0.93$), and the data bound the content effect to
 $\pm1.7\%$.
 
 An oracle control rules out a dead pathway: the same branch fed the agent's own
 future improves \minADE by $34.8\%$. Corrupting that oracle with controlled
-angular error shows what the pathway converts: the gain stays large at every
-accuracy we trained---$-13.6\%$ even at $15.1^\circ$ median bearing error,
-worse at every percentile than the box heading the model \emph{already}
-receives---because the oracle pays for knowing which future occurred, which no
-sensor supplies. Body facing is instead a noisier copy of that heading
+angular error shows what the pathway converts. The gain stays large at every
+accuracy we trained, reaching $-13.6\%$ even at $15.1^\circ$ median bearing
+error, worse at every percentile than the box heading the model \emph{already}
+receives. What the oracle sells is knowledge of which future occurred, and no
+sensor supplies that. Body facing is instead a noisier copy of that heading
 ($12.3^\circ$ against $3.9^\circ$), worst where it would be non-redundant:
 $41.2^\circ$ for pedestrians stationary at prediction time. Before integrating a
 modality, measure its error on the cue it must carry against the inputs the
@@ -66,8 +66,8 @@ changes, and modern perception stacks already produce human mesh or keypoint
 estimates. Several recent systems condition trajectory forecasts on pose.
 
 This paper reports that, on the Waymo Open Motion Dataset (WOMD), pose
-conditioning does not measurably improve pedestrian trajectory accuracy---and,
-more usefully for practitioners, identifies a specific reason that can be
+conditioning does not measurably improve pedestrian trajectory accuracy. More
+usefully for practitioners, it also identifies a specific reason that can be
 checked quantitatively, and cheaply, before a modality is integrated at all.
 
 We make three contributions.
@@ -83,7 +83,7 @@ encoder architectures (GRU and cross-attention); under two integration styles,
 a directed architecture search, and a pre-registered eight-seed confirmation on a
 held-out split. An oracle arm, which
 replaces the body with a signal encoding the agent's own future, improves
-\minADE by $34.8\%$ through the same branch---so the null is a property of pose,
+\minADE by $34.8\%$ through the same branch, so the null is a property of pose,
 not of the plumbing.
 
 \textbf{What the pathway converts, and what it does not.} We corrupt that oracle
@@ -93,7 +93,8 @@ than an input the model already has, so the ladder does not set an accuracy a
 cue must reach; it separates a precision term with a $3.0^\circ$ half-life from a
 corruption-invariant term that is future-side mode selection. Body facing
 supplies neither: it is a noisier copy of the box heading where pedestrians move,
-and where they do not---the case velocity cannot cover---it reaches $41.2^\circ$.
+and reaches $41.2^\circ$ where they do not, which is exactly the case velocity
+cannot cover.
 We also show the same ladder run at $579$ scenes reports a clean accuracy
 threshold that $25$k scenes removes, so an underpowered ladder manufactures a
 floor where there is none.
@@ -108,7 +109,7 @@ importing a prior.
 
 We also report, as a cautionary note, that our first attempt at this study was
 invalidated by an export bug that silently substituted other pedestrians'
-bodies---a failure any pose pipeline keyed by object identity can reproduce.
+bodies, a failure any pose pipeline keyed by object identity can reproduce.
 
 \section{Related Work}
 Trajectory forecasting on WOMD is dominated by anchor- and query-based
@@ -122,7 +123,7 @@ crossing decisions rather than metric trajectories.
 \textbf{Relation to prior positive results.} Pose conditioning has reported real
 gains; our mechanism predicts where they come from rather than contradicting them. Social-Transmotion~\cite{saadatnejad2024socialtransmotion} lowers ADE on
 the synthetic JTA dataset from $0.99$ to $0.89$ with \emph{ground-truth} 3D pose,
-and---the harder case for us---from $0.40$ to $0.36$ on JRDB with
+and, in the harder case for us, from $0.40$ to $0.36$ on JRDB with
 \emph{estimated} pose. Social-Pose~\cite{gao2025socialpose} reports about $25\%$
 on JTA ($1.20{\to}0.90$) and on JRDB. Salzmann et al.~\cite{salzmann2023robots}
 report ${\approx}10\%$ from onboard-estimated keypoints at ranges up to $7$\,m,
@@ -134,18 +135,18 @@ doing so, say the most useful thing about ours: they localise the gain to
 \emph{lower-body} 3D keypoints ($13\%$ ADE, a further $1$--$4\%$ from derived
 biomechanical cues). Their cue is our weakest channel. Of the twelve limb joints
 in Table~\ref{tab:skill} the knees and ankles that carry gait sit at the bottom
-of the range---\textsc{skill} $+0.46$ to $+0.49$, against $+0.63$ and $+0.64$ for
-the elbows---and what leg motion we do recover is damped: predicted knee and
+of the range (\textsc{skill} $+0.46$ to $+0.49$, against $+0.63$ and $+0.64$ for
+the elbows), and what leg motion we do recover is damped: predicted knee and
 ankle spread is $84$--$91\%$ of ground truth, where elbows and wrists reach
 $96$--$99\%$. A panoramic camera at a few metres resolves a swinging leg; a few
 dozen LiDAR returns at $40$\,m recover its mean position and lose much of its
-amplitude. So the two results do not conflict---theirs is what this cue is worth when the
+amplitude. So the two results do not conflict: theirs is what this cue is worth when the
 limbs are resolved, ours what it is worth when they are a few dozen returns and
 the trajectory already carries the body's direction.
 
 The most informative comparison is within Social-Pose itself. Alongside JTA it
 evaluates on Pedestrians and Cyclists in Road Traffic, the one vehicle-captured
-dataset there, and---with \emph{ground-truth} 3D pose---ADE moves from $0.58$ to
+dataset there, and, with \emph{ground-truth} 3D pose, ADE moves from $0.58$ to
 $0.57$\,m, by $0.01$\,m or less for all five architectures tested, against the
 ${\approx}25\%$ the same encoder delivers on JTA. The authors attribute this to the shorter horizon and the absence of
 interacting neighbours; our measurements suggest an additional reason that
@@ -159,10 +160,10 @@ and pose is camera-derived, whereas WOMD pedestrians are observed from $2$ to
 $75$\,m and often return a few dozen LiDAR points. \emph{The baseline:} those
 predictors consume positions, not a tracker's box heading, so body facing is new
 information there and partly duplicated here. On controls, none reports a
-shuffled-pose arm---though the confound differs by design. Social-Transmotion
+shuffled-pose arm, though the confound differs by design. Social-Transmotion
 masks modalities within one network, so no extra parameters are involved there,
 whereas a dedicated pose branch pays the capacity cost we measure ($+1.7\%$
-\minADE)---the same order as the smaller reported gains.
+\minADE), the same order as the smaller reported gains.
 
 
 \begin{figure*}[t]
@@ -177,7 +178,7 @@ orange: added for pose. The agent-history strip shows that the tracker's box
 heading is \emph{already} an input. Solid orange~(2): the pose branch (late
 fusion), which costs ${\approx}1.6\%$ \minADE whether it carries the right body
 or the wrong one; dashed~(3): early fusion, which removes that cost and still
-yields no benefit---and which, fed an uncorrupted oracle, converts it on only one
+yields no benefit, and which, fed an uncorrupted oracle, converts it on only one
 of three seeds (Sec.~\ref{sec:earlyfloor}).}
 \label{fig:arch}
 \end{figure*}
@@ -210,7 +211,7 @@ every training sequence carried another pedestrian's body. A per-scene re-export
 ($299{,}220$ scenes, $1.81$M sequences) cut the median error between root heading
 and travel direction from $41.5^\circ$ to $11.4^\circ$ and raised the
 gait--speed correlation from $r{=}0.26$ to $0.58$. We report it because the
-failure is silent---training converges, losses look normal---and identity-keyed
+failure is silent (training converges, losses look normal) and identity-keyed
 joins are common in pose pipelines. Every number here is from the corrected
 export.
 
@@ -229,7 +230,7 @@ as decisive. Relative differences are $(A-B)/B$; negative favours $A$.
 
 Inference is over \emph{seeds}, which is the unit the treatment is applied to:
 every comparison between trained arms is a paired $t$-test on per-seed
-differences. The two exceptions are flagged where they occur---per-pedestrian
+differences. The two exceptions are flagged where they occur: per-pedestrian
 subpopulation tests and the per-joint intervals of Table~\ref{tab:skill}, which
 resample pedestrians. We also report a hierarchical bootstrap that resamples seeds and
 then pedestrians, and it agrees; we do not quote a percentile bootstrap
@@ -321,7 +322,7 @@ Pose     & $.364\ .372\ .371\ .374\ .373$ & $0.3708 \pm 0.0040$ & $+0.88\%$ \\
 Table~\ref{tab:ladder} trains all three arms at three scales. Data alone improves
 the baseline by $19.2\%$; the content test is null at every rung, in \minADE and
 in \minFDE alike, and in miss rate at $2$\,m, where the content test is
-$+2.3\%$ at $25$k ($p{=}0.21$) and $+4.5\%$ fine-tuned ($p{=}0.19$)---null, and
+$+2.3\%$ at $25$k ($p{=}0.21$) and $+4.5\%$ fine-tuned ($p{=}0.19$): null, and
 with its sign against pose on all three metrics. The rungs are not equally
 sensitive, and we state what each one
 could have seen: at $80\%$ power the minimum detectable content effect is
@@ -331,7 +332,7 @@ not count it as an independent null; the weight falls on $25$k and on the
 eight-seed confirmation of Sec.~\ref{sec:search}. At $25$k the paired seed-level
 interval on the content difference is $[-1.59\%,+1.70\%]$, so at the largest
 scale we train the data exclude a content effect beyond roughly $1.7\%$ in either
-direction---a bound tighter than the $1.6\%$ cost of the branch that would carry
+direction, a bound tighter than the $1.6\%$ cost of the branch that would carry
 it. The
 pedestrian-resampling bootstrap gives a visibly narrower interval
 ($[-0.0040,+0.0047]$\,m, ${\approx}\pm1.2\%$); with five clusters it undercovers,
@@ -363,13 +364,13 @@ fixed late-epoch rule, where the no-pose arm has degraded further by then
 ($+8.0\%$ in favour of pose at epoch $30$, $n{=}3$; $+0.9\%$ at $n{=}8$, both
 n.s. and neither resolved at these seed counts). What is stable is that the
 comparison moves with the stopping rule, so we never compare architecturally
-different arms at a fixed late epoch. The \emph{content} test---whose two arms have identical input
-dimensionality, and for which this asymmetry does not arise---is null under
-either rule. Replacing the $144$-d branch with eight frame-invariant descriptors
+different arms at a fixed late epoch. The \emph{content} test is null under
+either rule: its two arms have identical input dimensionality, so this asymmetry
+does not arise. Replacing the $144$-d branch with eight frame-invariant descriptors
 fused into the existing agent channels removes the cost ($-0.01\%$ versus
 no-pose, $p{=}0.99$; $-1.67\%$ versus the branch, $p{=}0.12$ at $n{=}3$) without
 creating a benefit: pose can be carried for free, and still does not pay. That
-freedom turns out to be partly illusory---Sec.~\ref{sec:earlyfloor} shows this
+freedom turns out to be partly illusory. Sec.~\ref{sec:earlyfloor} shows this
 pathway fails to exploit even an uncorrupted oracle on two seeds in three, so a
 channel it costs nothing to carry is also a channel it largely does not read. We
 quote the seed-level $p$ here for consistency with the rest of the paper; a
@@ -392,15 +393,15 @@ repository, scoring on a development split and never seeing the held-out split.
 Round one scored $13$ candidates and accepted none. Round two produced one
 acceptance: a stationary-gated body-facing plus foot-contact descriptor that beat
 the incumbent on $5/5$ seeds and reached $-1.21\%$ content on the held-out split,
-clearing the pre-set $0.8\%$ acceptance floor---under a truncated $12$-epoch
+clearing the pre-set $0.8\%$ acceptance floor, but under a truncated $12$-epoch
 proxy recipe.
 
 Because that acceptance rested on a truncated recipe, we pre-registered a
 confirmation before running it: three arms, eight seeds, $30$ epochs, primary
 endpoint the held-out split at the fixed last epoch. It returned $-0.04\%$,
-$t(7){=}-0.11$, $p{=}0.92$. The proxy signal was a convergence-rate artifact---the
-arms differ in how fast they train, not in where they end---and a truncated proxy
-cannot settle a sub-$1\%$ effect. We report the acceptance rather than only the
+$t(7){=}-0.11$, $p{=}0.92$. The proxy signal was a convergence-rate artifact.
+The arms differ in how fast they train, not in where they end, and a truncated
+proxy cannot settle a sub-$1\%$ effect. We report the acceptance rather than only the
 confirmation because the search behaved honestly: it found the best candidate the
 representation admits, and pre-registration is what removed it.
 
@@ -416,14 +417,14 @@ place.
 
 We therefore ran the positive control. The \emph{oracle} arm replaces the SMPL
 features with a six-channel encoding of the agent's own future displacement at
-$3$ and $8$\,s --- genuinely predictive by construction --- keeping the branch,
-its parameter count, its input dimensionality and its per-frame validity masks
-exactly as the pose arm has them, so the oracle is visible only where a real pose
-would have been.
+$3$ and $8$\,s, which is genuinely predictive by construction. It keeps the
+branch, its parameter count, its input dimensionality and its per-frame validity
+masks exactly as the pose arm has them, so the oracle is visible only where a
+real pose would have been.
 
 Over three seeds the oracle arm reaches $0.2945$ against no-pose's $0.4514$ on
-the same seeds---$-34.8\%$, $t(2){=}-81.4$, $p{=}1.5{\times}10^{-4}$---and
-$-35.6\%$ against the shuffled arm. The oracle is of course not a usable model,
+the same seeds, a change of $-34.8\%$ ($t(2){=}-81.4$,
+$p{=}1.5{\times}10^{-4}$), and $-35.6\%$ against the shuffled arm. The oracle is of course not a usable model,
 since it reads the future; its only job is to calibrate the pathway. It does so
 emphatically: the branch converts information into accuracy at roughly twenty
 times the magnitude of the bound our content test places on pose. The null is
@@ -457,7 +458,7 @@ contain no surprise.
 (seed $101$, epoch $30$, the epoch for which full trajectory dumps were
 retained). Scenes are picked by percentile of the \emph{no-pose} arm's \minADE
 ($60$th, $76$th, $92$nd) among agents with a full $8$\,s future and more than
-$3$\,m of travel---selection is on the baseline alone, never on the treatment.
+$3$\,m of travel. Selection is on the baseline alone, never on the treatment.
 Thin lines are the six predicted modes, thick the best of them, dashed the
 ground truth, grey the observed past. Fed the agent's own future bearing, the
 oracle bends its modes onto the true path through the \emph{same} branch that
@@ -478,8 +479,8 @@ what \emph{kind} of information this pathway turns into accuracy. We measured
 that by degrading the oracle.
 
 Each rung of Table~\ref{tab:floor} feeds the branch the same direction-only
-oracle---the bearing of the agent's own future displacement at $3$ and
-$8$\,s---corrupted by a fixed angular error, and is labelled by the median
+oracle, the bearing of the agent's own future displacement at $3$ and $8$\,s,
+corrupted by a fixed angular error. Each is labelled by the median
 bearing error actually delivered: $0.6745\sigma$ by construction, since the
 corruption is a fixed per-agent rotation, and measured to within $0.7^\circ$ of
 it on $11{,}328$ scored agents. Displacement magnitude is withheld, so the
@@ -504,12 +505,12 @@ corruption we applied. The seeds agree closely: $12.3$--$14.2\%$ persistent,
 amplitudes $20.8$--$21.8\%$, half-lives $2.8$--$3.4^\circ$.
 
 \textbf{The angular axis is not an acceptance threshold.} It is tempting to read
-$\theta$ as the accuracy a cue must reach---feed the branch a channel whose
+$\theta$ as the accuracy a cue must reach: feed the branch a channel whose
 bearing error is $\theta$, expect the gain at rung $\theta$. The ladder refutes
 that reading itself. The baseline already receives the tracker's box heading, as
 a per-timestep sine--cosine pair for every agent (Fig.~\ref{fig:arch}), and that
 heading estimates the \emph{same} future displacement bearing at $3.9^\circ$ in
-median---better than the $15.1^\circ$ rung's channel at every percentile
+median, better than the $15.1^\circ$ rung's channel at every percentile
 ($9.3^\circ$ against $25.8^\circ$ at the third quartile, $20.1^\circ$ against
 $36.8^\circ$ at the ninetieth). A channel uniformly less accurate than an input
 the model already has still buys $-13.6\%$. Nor does the branch pay for merely
@@ -528,7 +529,7 @@ gain rises from $21\%$ of the $2$\,s error reduction to $39\%$ at $8$\,s and
 $53\%$ at the endpoint. The selection reading predicts exactly that, and it
 predicts more: corrupting the bearing should barely affect \emph{which} of the
 six modes is right. It does not. The gap between the top-ranked mode and the best
-of six---what the forecaster loses by choosing wrongly---falls from $0.67$\,m to
+of six, which is what the forecaster loses by choosing wrongly, falls from $0.67$\,m to
 $0.26$\,m with an exact oracle, and still to $0.29$\,m at $15.1^\circ$: the
 corrupted channel closes $92\%$ of the perfect oracle's selection gap while
 recovering $39\%$ of its \minADE. The absolute gain is also largest in the
@@ -537,9 +538,9 @@ quartile where the baseline's own modes disagree most at the endpoint
 future bearing says which way the agent went; only a precise one refines where
 along that way, and that refinement is what $3^\circ$ of error destroys.
 
-The ladder is therefore a positive control and an upper bound---what any
-direction channel through this branch could buy \emph{if it knew the
-future}---and (\ref{eq:floor}) says how much of that bound is precision rather
+The ladder is therefore a positive control and an upper bound on what any
+direction channel through this branch could buy \emph{if it knew the future},
+and (\ref{eq:floor}) says how much of that bound is precision rather
 than selection. Selection is not available to any observation-time cue at any
 accuracy, because it is knowledge of which future occurred.
 
@@ -566,27 +567,27 @@ future displacement bearing at $3.9^\circ$ ($+3$\,s) and $7.1^\circ$ ($+8$\,s)
 in median; SMPL facing reaches $12.3^\circ$ ($n{=}5{,}824$) and $15.1^\circ$
 ($n{=}6{,}206$). Box heading is the better estimate at every percentile we
 measured, the two differ by $10.0^\circ$ in per-agent median, and both derive
-from the same returns---indeed we calibrated the SMPL forward axis \emph{against}
-the box heading before measuring either.
+from the same returns. We calibrated the SMPL forward axis \emph{against} the
+box heading before measuring either.
 
 \emph{Most of its accuracy is the trajectory restated.} $95.5\%$ of the scored
 agents move, and for a mover the pipeline snaps root orientation to the direction
 of travel whenever the raw estimate deviates by more than $90^\circ$
 (Sec.~\ref{sec:setup}). Movers sit at $11.9^\circ$; the $262$ stationary
-agents---the only ones whose facing their velocity does not already imply---sit
+agents, the only ones whose facing their velocity does not already imply, sit
 at $41.2^\circ$. The pooled median largely measures the snapping, and the
 distribution is heavy either way: $5.5^\circ$ at the first quartile, $23.9^\circ$
 at the third, $45.9^\circ$ at the ninetieth percentile.
 
 \emph{Where it would be non-redundant, it is worst.} On the one case where
-velocity carries no directional information---which way a stationary pedestrian
-steps off---SMPL facing predicts onset direction at roughly twice chance over
+velocity carries no directional information (which way a stationary pedestrian
+steps off), SMPL facing predicts onset direction at roughly twice chance over
 $19{,}939$ validation pedestrians: median error $44.2^\circ$, $50.6\%$ within
 $45^\circ$ (chance $90^\circ$, $25\%$). Informative, consistent with the
 $41.2^\circ$ above, and not an artifact of our axis fitting: the box heading
 estimates the same quantity at $25.2^\circ$, and paired on the same events SMPL
 is $7.3^\circ$ worse in median (Wilcoxon $p{=}2.6{\times}10^{-43}$). Nor does
-pose take over where perception degrades---over $1{,}705$ onset events the gap
+pose take over where perception degrades: over $1{,}705$ onset events the gap
 favours the box heading in all ten testable strata ($p<10^{-5}$ each) and
 \emph{widens} with range, to $+32.9^\circ$ at $41$--$75$\,m, because both derive
 from the same returns.
@@ -594,7 +595,7 @@ from the same returns.
 Facing is therefore redundant where it is accurate and inaccurate where it would
 be non-redundant, and neither half of that squeeze is the selection signal the
 oracle trades on. What survives it is what the content test measures directly: at
-$25$k scenes $+0.04\%$, with the data bounding it to $\pm1.7\%$---inside the
+$25$k scenes $+0.04\%$, with the data bounding it to $\pm1.7\%$, inside the
 ${\sim}1.6\%$ cost of the branch that would carry it.
 
 \begin{table}[t]
@@ -602,10 +603,10 @@ ${\sim}1.6\%$ cost of the branch that would carry it.
 per-agent angular error, each rung labelled by the median bearing error actually
 delivered; paired $t$ against each seed's own no-pose run, negative favours the
 oracle. MDE is the minimum effect a rung could detect at $80\%$ power given its
-realised spread. At $25$k scenes every rung converts---including $15.1^\circ$,
+realised spread. At $25$k scenes every rung converts, including $15.1^\circ$,
 which is worse at every percentile than the box heading the model already
-receives---so the ladder bounds what a direction channel could buy rather than
-setting an accuracy a cue must reach (Sec.~\ref{sec:floor}). The same ladder at
+receives. The ladder therefore bounds what a direction channel could buy rather
+than setting an accuracy a cue must reach (Sec.~\ref{sec:floor}). The same ladder at
 $579$ scenes reports a floor at $15.1^\circ$ that is its own MDE: proportionally
 to its $\theta{=}0$ amplitude it should have read ${\approx}6.2\%$ there, and it
 could resolve $6.7$.}
@@ -640,8 +641,8 @@ conversion. So we tested the implied counterfactual: delete the box-heading
 channel, retrain all six cells, and repeat the content test, at the $579$-scene
 rung and eight seeds. Nothing appears, anywhere. The difference in content effect
 between the two conditions is $+2.9$\,pp on the $13{,}006$ moving
-agents---\emph{the wrong sign} for a benefit that redundancy had been
-masking---and $-0.6$\,pp on the stationary ones ($p{=}0.65$). Seed-level
+agents, \emph{the wrong sign} for a benefit that redundancy had been masking,
+and $-0.6$\,pp on the stationary ones ($p{=}0.65$). Seed-level
 intervals at this scale are wide (${\pm}2$ to ${\pm}18$\,pp, widest exactly where
 \minADE is largest), so we also average the eight runs per agent and test over
 agents, which cuts run noise without licensing a claim about retraining: that
@@ -653,7 +654,7 @@ within $0.15$\,pp on every stratum.
 We can also say how much this ablation could ever have shown: deleting the heading
 channel costs the no-pose baseline only $1.5\%$ on movers, because velocity stays
 in the input, so there was never much room for facing to fill. What remains
-unexcluded is the reading the content test's own bound asserts---that pose carries
+unexcluded is the reading the content test's own bound asserts: that pose carries
 nothing this forecaster can use at any level of redundancy. At $n{=}3$ this
 comparison read $-4.1$\,pp with all three seeds agreeing in sign: the third
 multi-percent effect here to dissolve under more seeds.
@@ -661,7 +662,7 @@ multi-percent effect here to dissolve under more seeds.
 \subsection{The cheaper pathway does not rescue it}
 \label{sec:earlyfloor}
 Early fusion removes the branch tax (Sec.~\ref{sec:real}), which makes it the
-pathway worth recommending---so we ran the same ladder through it, carrying the
+pathway worth recommending, so we ran the same ladder through it, carrying the
 oracle in the per-timestep agent channels instead of the branch. At a given rung
 the six channels equal the branch's six inputs bit for bit, so the rungs keep
 their measured-error labels.
@@ -685,8 +686,8 @@ explains away.
 This bears on the free-carriage result of Sec.~\ref{sec:real}. ``No tax, no
 benefit'' admits two readings: that early fusion integrates pose at no capacity
 cost, or that it largely ignores the appended channels, in which case there is
-nothing to cost and nothing to gain. A perfect channel separates them---the first
-predicts a large gain, the second none---and two seeds in three show none. We
+nothing to cost and nothing to gain. A perfect channel separates them: the first
+predicts a large gain, the second none. Two seeds in three show none. We
 therefore do not offer early fusion as a rescue for a cue that fails through the
 branch. We stop short of the stronger claim that it cannot convert one: that
 needs this ladder at $25$k, where the branch ladder's MDE was $1.4$--$2.9$\,pp at
@@ -704,7 +705,7 @@ for its range band over the validation segments: $300$, $100$, $38$ and $12$
 points. Past ${\approx}40$\,m a pedestrian is a few dozen returns, mostly on
 head and torso, while the mesh over them still has fully articulated limbs: at
 that range the articulation is largely the AMASS prior. That applies to the far
-panels only---scored against ground-truth keypoints across all ranges, every
+panels only. Scored against ground-truth keypoints across all ranges, every
 limb joint carries real skill, and it is the \emph{head} the pipeline emits from
 its prior (Table~\ref{tab:skill}). Sparsity at range is therefore one
 contributor to the facing error of Sec.~\ref{sec:belowfloor}, where the
@@ -715,7 +716,7 @@ explanation.}
 
 \subsection{The complementary cue is barely measured}
 Gaze precedes locomotion, so head yaw relative to the torso is a plausible
-\emph{independent} cue---and it is very nearly not recoverable here. In the
+\emph{independent} cue, and it is very nearly not recoverable here. In the
 fitted meshes head-versus-torso yaw has a standard deviation of $3.8^\circ$,
 while against the ground-truth 3D keypoints released with Waymo
 Perception~\cite{sun2020waymoperception,zheng2022keypoints} ($n{=}8{,}234$) the
@@ -760,10 +761,10 @@ below zero mean the estimator contributes nothing at that joint.
 
 Evaluated on Waymo Perception against ground-truth keypoints ($1{,}789$ frames,
 $534$ pedestrians), every limb joint scores $+0.457$ to $+0.639$ (Table~\ref{tab:skill}). The head
-scores $+0.045$---yet its MPJPE ($111.6$\,mm) is \emph{better} than either wrist
+scores $+0.045$, yet its MPJPE ($111.6$\,mm) is \emph{better} than either wrist
 ($118.3$/$125.4$\,mm). Its error is flattering not because it is well estimated
 but because it barely improves on its own mean-pose baseline ($116.9$\,mm),
-whereas the hips---whose ground-truth spread is \emph{smaller} at $97.9$\,mm---are
+whereas the hips, whose ground-truth spread is \emph{smaller} at $97.9$\,mm, are
 predicted at $39.8$\,mm. Across the thirteen joints MPJPE and skill are
 essentially uncorrelated (Spearman $\rho{=}-0.11$, $p{=}0.72$): the aggregate is
 not merely a noisy proxy for information content but carries almost none of it,
@@ -773,7 +774,7 @@ downstream stack.
 
 \subsection{A general condition}
 Two results locate where pose could have helped. At $2$\,s, \minADE is
-$0.091$\,m---about $3\%$ of the displacement---so little error is left for an
+$0.091$\,m, about $3\%$ of the displacement, so little error is left for an
 extra input to remove. This is a property of the forecaster's own residual, not
 of constant velocity: single-mode constant-velocity
 extrapolation~\cite{scholler2020constant} gives $0.310$\,m at $2$\,s on the same
@@ -788,8 +789,8 @@ In general form: \emph{an auxiliary modality improves a forecast only where the
 baseline is neither saturated nor dominated by intent the modality cannot
 observe, and where the modality measures the cue it is meant to carry more
 accurately than the inputs the model already receives.} All three clauses must
-hold. The third is the cheapest to check---it is a measurement on the dataset,
-with no training at all---and the one most often skipped. For pose on WOMD it is
+hold. The third is the cheapest to check, being a measurement on the dataset
+with no training at all, and the one most often skipped. For pose on WOMD it is
 the one that fails: the box heading carries the same bearing three times more
 accurately, and on the stationary pedestrians where it does not, facing is worse
 still.
@@ -799,7 +800,7 @@ For an AV stack, four consequences follow. First, before integrating an
 auxiliary modality, measure its error on the cue it is meant to carry
 \emph{against the inputs the model already receives}. That costs no training and
 it is what decides pose here. Second, an oracle ladder is still worth its handful
-of runs, as a positive control and as an upper bound on the pathway---but size it
+of runs, as a positive control and as an upper bound on the pathway, but size it
 so its MDE is below the effect you would act on, and do not read its angular axis
 as an acceptance threshold: ours converts a channel less accurate than an input
 the model already has, because an oracle knows which future occurred and no
@@ -818,10 +819,10 @@ ${\approx}1.25\%$ at $80\%$ power, and the ladders run at $n{=}3$ per rung
 (Table~\ref{tab:floor}). We test one forecaster, one dataset and one pose
 estimator. We ladder two integration pathways rather than one, but two is not
 every way a cue can enter a model, and only the late-fusion ladder is resolved at
-$25$k---the early-fusion one remains at $579$ scenes, where this paper's own
+$25$k; the early-fusion one remains at $579$ scenes, where this paper's own
 power argument applies to it (Sec.~\ref{sec:earlyfloor}). The redundancy
-counterfactual---deleting the heading channel to see whether facing then
-pays---is run at the $579$-scene rung rather than at $25$k, and its seed-level
+counterfactual, which deletes the heading channel to see whether facing then
+pays, is run at the $579$-scene rung rather than at $25$k, and its seed-level
 intervals there are wide enough that the agent-level analysis carries the turn
 strata. WOMD ships camera data only as
 quantised tokens, so a camera-based pose or gaze estimate cannot be tested at
@@ -843,11 +844,11 @@ the oracle sells is knowledge of which future occurred: half its endpoint gain i
 mode selection that survives arbitrary angular corruption, against a fifth at
 $2$\,s, and a channel corrupted to $15.1^\circ$ still closes $92\%$ of the
 selection gap. Body facing cannot supply that at any accuracy, and as a bearing
-it is a noisier copy of one the model already has---worst, at $41.2^\circ$, on
+it is a noisier copy of one the model already has, and worst, at $41.2^\circ$, on
 the stationary pedestrians the cue was introduced to serve. Fusing the same cue early removes the branch's capacity cost but does
 not rescue it: that pathway fails to exploit even an uncorrupted bearing on two
 seeds in three, so both integration routes fail, for different and identifiable
-reasons. The lesson generalises past pose---measure a modality's error on the cue it is
+reasons. The lesson generalises past pose. Measure a modality's error on the cue it is
 meant to carry against the inputs the model already receives, before integrating
 it, and make sure any ladder you judge it against can resolve the effect you would
 act on.
