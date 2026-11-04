@@ -31,43 +31,26 @@ erik.schuetz@gmx.de}}
 \maketitle
 
 \begin{abstract}
-Body pose is an intuitively attractive input for pedestrian trajectory
-forecasting: gait, stance and facing appear to encode intent that a position
-history does not. We test this on the Waymo Open Motion Dataset with SMPL poses
-recovered from LiDAR, and find no measurable benefit. The decisive comparison is
-not pose against no pose---which confounds body information with the capacity of
-an extra input branch---but correct pose against the same architecture fed
-\emph{another pedestrian's} pose. On that control the effect is
-$+0.66\%$ ($p{=}0.52$) from scratch, $+0.88\%$ ($p{=}0.18$) after full-dataset
-pretraining, $-1.02\%$ ($p{=}0.56$) at an intermediate scale and $+0.04\%$
-($p{=}0.93$) at $43\times$ more training scenes, while the baseline improves
-$19\%$ from data alone; at the largest scale the data bound the content effect to
-$\pm1.7\%$. A directed search over the integration code accepted one of $22$
-candidates under a truncated proxy, and the pre-registered eight-seed
-confirmation that followed returned $-0.04\%$ ($p{=}0.92$). An oracle control rules
-out a dead pathway: the same branch, fed the agent's own future instead of its
-body, improves \minADE by $34.8\%$.
-We then measure what that pathway converts. Corrupting the oracle with a
-controlled angular error leaves the gain large at every accuracy we trained:
-$-13.6\%$ even at a median bearing error of $15.1^\circ$, which is worse at every
-percentile than the tracker's box heading the model \emph{already} receives. The
-decay separates into a precision term with a $3.0^\circ$ half-life and a term
-that survives any corruption we applied, and the second is future-side mode
-selection: it supplies $53\%$ of the endpoint error reduction against $21\%$ at
-$2$\,s, and a channel corrupted to $15.1^\circ$ still closes $92\%$ of the
-perfect oracle's top-$1$-versus-best-of-six gap while recovering $39\%$ of its
-\minADE. So the oracle pays for knowing which future occurred, which no
-observation-time cue supplies at any accuracy. Body facing is instead a noisier
-copy of the box heading ($12.3^\circ$ against $3.9^\circ$ on the same bearing),
-inherited from the trajectory by a snapping step, and worst exactly where it
-would be non-redundant: $41.2^\circ$ for the pedestrians stationary at prediction
-time.
-Corroborating this, the tracker's box heading estimates the same quantity more
-accurately ($25.2^\circ$) and pose does not beat it in any range, occlusion or
-heading-jitter stratum. Finally, aggregate MPJPE is the wrong acceptance metric
-for pose in a perception stack: scored per joint against a mean-pose baseline,
-the head's MPJPE looks \emph{better} than either wrist while it carries a tenth
-of their skill.
+Gait and facing appear to encode pedestrian intent that a position history
+lacks, making body pose an attractive forecasting input. On the Waymo Open
+Motion Dataset, with SMPL poses recovered from LiDAR, we find no measurable
+benefit. The decisive comparison is not pose against no pose---which confounds
+body information with an extra branch's capacity---but correct pose against the
+same architecture fed \emph{another pedestrian's} pose. At our largest scale it
+returns $+0.04\%$ ($p{=}0.93$), and the data bound the content effect to
+$\pm1.7\%$.
+
+An oracle control rules out a dead pathway: the same branch fed the agent's own
+future improves \minADE by $34.8\%$. Corrupting that oracle with controlled
+angular error shows what the pathway converts: the gain stays large at every
+accuracy we trained---$-13.6\%$ even at $15.1^\circ$ median bearing error,
+worse at every percentile than the box heading the model \emph{already}
+receives---because the oracle pays for knowing which future occurred, which no
+sensor supplies. Body facing is instead a noisier copy of that heading
+($12.3^\circ$ against $3.9^\circ$), worst where it would be non-redundant:
+$41.2^\circ$ for pedestrians stationary at prediction time. Before integrating a
+modality, measure its error on the cue it must carry against the inputs the
+model already has.
 \end{abstract}
 
 \begin{IEEEkeywords}
