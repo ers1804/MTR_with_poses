@@ -1,0 +1,76 @@
+{
+ "n_scenes_with_pedestrians": 3268,
+ "n_timesteps": 954751,
+ "n_timesteps_moving": 674813,
+ "moving_threshold_ms": 0.5,
+ "velocity_residual_ms": {
+  "backward": {
+   "median": 0.0,
+   "p25": 0.0,
+   "p75": 0.0,
+   "mean": 0.0,
+   "n": 954751
+  },
+  "causal_extrap": {
+   "median": 0.10295963322245871,
+   "p25": 0.05904973936742102,
+   "p75": 0.17820593350483066,
+   "mean": 1115.4788032764366,
+   "n": 954751
+  },
+  "forward": {
+   "median": 0.20121986779620657,
+   "p25": 0.1171875,
+   "p75": 0.3376298019028157,
+   "mean": 0.3803766797852781,
+   "n": 954751
+  },
+  "centered": {
+   "median": 0.10060993389810328,
+   "p25": 0.05859375,
+   "p75": 0.16881490095140786,
+   "mean": 0.19018833989263906,
+   "n": 954751
+  }
+ },
+ "heading_residual_deg": {
+  "backward": {
+   "median": 3.486971402848999,
+   "p25": 1.5184031182153428,
+   "p75": 7.0153711085146355,
+   "mean": 10.243940473967989,
+   "n": 674813
+  },
+  "causal_extrap": {
+   "median": 5.786148530393618,
+   "p25": 2.467995550020379,
+   "p75": 11.840231017162909,
+   "mean": 14.888757985291868,
+   "n": 668408
+  },
+  "forward": {
+   "median": 3.3818767564168235,
+   "p25": 1.5048871407359,
+   "p75": 6.520831566358884,
+   "mean": 7.859950793632973,
+   "n": 644066
+  },
+  "centered": {
+   "median": 2.2033040625282307,
+   "p25": 0.9880726920956698,
+   "p75": 4.2217745528915795,
+   "mean": 5.6796977839661995,
+   "n": 644601
+  }
+ },
+ "best_stencil_velocity": "backward",
+ "best_stencil_heading": "centered",
+ "velocity_is_exact_backward_difference": true,
+ "heading_future_vs_best_causal_deg": {
+  "best_causal": 3.486971402848999,
+  "centered": 2.2033040625282307,
+  "advantage": 1.2836673403207683,
+  "confounded": true,
+  "note": "centered also averages two steps of position noise, so this gap is an upper bound on any future-information effect, not a measurement of one"
+ }
+}

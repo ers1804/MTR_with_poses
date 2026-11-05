@@ -311,6 +311,18 @@ class WaymoPoseDataset(DatasetTemplate):
         # test of the paper's claim that pose is redundant *because* heading is present.
         self.zero_heading_channels = self.dataset_cfg.get('ZERO_HEADING_CHANNELS', False)
 
+        # Reviewer objection (Flohr, 2026-11-04): WOMD box states come from an offboard
+        # auto-labeller whose refinement net consumes every frame of a track, so the
+        # heading the baseline consumes is better than an onboard tracker could supply.
+        # Heading also reaches the model in FOUR places, not one: the sin/cos channel,
+        # the agent-centric frame, the intention anchors defined in that frame, and the
+        # pose root rotated into it. ZERO_HEADING_CHANNELS removes only the first, which
+        # is why its null says less than the paper claimed. This flag instead corrupts
+        # the heading ONCE, where center_objects is assembled, so all four inherit the
+        # same error. It models a systematic per-agent yaw error, which is what an
+        # onboard tracker has, rather than per-timestep jitter.
+        self.heading_noise_deg = float(self.dataset_cfg.get('HEADING_NOISE_DEG', 0.0))
+
         # Part 7 (pre-registered): mask-aware temporal Gaussian smoothing of the
         # encoder-input pose sequences (targets and validity masks untouched).
         self.denoise_poses = self.dataset_cfg.get('DENOISE_POSES', False)
@@ -799,6 +811,10 @@ class WaymoPoseDataset(DatasetTemplate):
             center_objects = center_objects[sel]
             track_index_to_predict = track_index_to_predict[sel]
 
+        if self.heading_noise_deg > 0:
+            center_objects = self._corrupt_center_heading(
+                center_objects, obj_ids, track_index_to_predict, scene_id)
+
         # Use the first valid pedestrian as a pseudo-SDC
         sdc_track_index = track_index_to_predict[0]
 
@@ -1051,6 +1067,27 @@ class WaymoPoseDataset(DatasetTemplate):
         center_objects = np.stack(center_objects_list, axis=0)  # (num_center_objects, 10)
         track_index_to_predict = np.array(track_index_to_predict_selected)
         return center_objects, track_index_to_predict
+
+    def _corrupt_center_heading(self, center_objects, obj_ids, track_index_to_predict, scene_id):
+        """One fixed heading error per pedestrian, deterministic in (scene, object).
+
+        Keyed on the OBJECT ID rather than the row index, so TRAIN_MAX_CENTERS
+        subsampling cannot hand the same pedestrian a different error between epochs.
+        crc32 is stable across workers and runs, which Python's salted hash() is not.
+
+        Returns a copy: center_objects is a view into obj_trajs_full, and writing
+        through it would corrupt the agent's own past trajectory as well.
+        """
+        import zlib
+        sig = np.deg2rad(self.heading_noise_deg)
+        tag = f'{scene_id}:{self.heading_noise_deg:g}'
+        ang = np.array([
+            np.random.default_rng(
+                zlib.crc32(f'{tag}:{obj_ids[int(i)]}'.encode()) & 0xffffffff
+            ).normal(0.0, sig) for i in track_index_to_predict], dtype=np.float32)
+        center_objects = center_objects.copy()
+        center_objects[:, 6] = center_objects[:, 6] + ang
+        return center_objects
 
     def create_agent_data_for_center_objects(
             self, center_objects, obj_trajs_past, obj_trajs_future, track_index_to_predict,
