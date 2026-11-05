@@ -422,9 +422,11 @@ architecture can use what it is given.
 
 \subsection{Where a benefit could still hide}
 \label{sec:hide}
-On the confirmation runs the content test is null at every horizon and least
-favourable at the shortest ($+0.48\%$ at $2$\,s, $-0.04\%$ at $8$\,s); null in
-all $20$ tests across quartiles and top deciles of constant-velocity residual,
+On an eight-seed replication of the content test at $30$ epochs, scored on a
+held-out half of validation ($6{,}764$ agents), it is null at every horizon and
+least favourable at the shortest ($+0.48\%$ at $2$\,s, $-0.04\%$ at $8$\,s);
+null in all $20$ tests across quartiles and top deciles of constant-velocity
+residual,
 heading variation, speed range and peak acceleration; and null for
 standing-then-moving pedestrians, the subpopulation built to favour it
 ($n{=}1{,}809$ pedestrians, $+0.38\%$, epoch-$30$ checkpoints on an expanded
@@ -693,8 +695,8 @@ all} does not look like something a wide interval explains away.
 
 It was. The MDE at $\theta{=}0$ is $25.5$\,pp, and we re-ran the rung at $25$k
 scenes, where the branch ladder's MDE was $1.4$--$2.9$\,pp. Early fusion converts
-the uncorrupted channel there on \emph{every} seed, by $-31.5\%$
-($p{=}0.011$, $95\%$ CI $[-38.2,-24.8]$), against the branch's $-34.5\%$ at the
+the uncorrupted channel there on \emph{every} seed, by $-31.2\%$
+($p{=}0.0002$, $95\%$ CI $[-32.9,-29.5]$), against the branch's $-34.5\%$ at the
 same rung and denominator. So the $579$ reading was the same power artifact
 twice over: once in the significance column, and once in a per-seed signature we
 trusted because it was not a $p$-value. Three runs at $579$ scenes cannot tell a

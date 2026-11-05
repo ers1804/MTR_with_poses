@@ -441,10 +441,10 @@ def main() -> int:
         # seed lands these four values move and the mismatch is the signal to
         # refresh Sec. V-C rather than evidence that it is wrong.
         checks += [
-            (g, f'theta=0 rel (n={r0["n"]})', abs(r0['rel']), '31.5'),
-            (g, f'theta=0 p (n={r0["n"]})', r0['p'], '0.011'),
-            (g, f'theta=0 CI lo (n={r0["n"]})', abs(r0['lo']), '38.2'),
-            (g, f'theta=0 CI hi (n={r0["n"]})', abs(r0['hi']), '24.8'),
+            (g, f'theta=0 rel (n={r0["n"]})', abs(r0['rel']), '31.2'),
+            (g, f'theta=0 p (n={r0["n"]})', r0['p'], '0.0002'),
+            (g, f'theta=0 CI lo (n={r0["n"]})', abs(r0['lo']), '32.9'),
+            (g, f'theta=0 CI hi (n={r0["n"]})', abs(r0['hi']), '29.5'),
         ]
 
     bad, group = [], None
