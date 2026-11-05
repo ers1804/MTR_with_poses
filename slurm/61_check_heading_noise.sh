@@ -16,7 +16,10 @@ WS=${WS:-/hnvme/workspace/v103fe12-mtr_smpl}
 RUNG=${RUNG:-25k}
 APPLY=${1:-}
 SWEEP="$(dirname "$0")/60_heading_noise.sh"
-RUNNING=" $(squeue -u "$USER" -h -o '%K' 2>/dev/null | tr '\n' ' ') "
+# -r expands a pending range like [12-26%12] into one row per index; without it the
+# pending tasks look dead and --apply would launch duplicates. Both modes share a job
+# name and index from 0, so the mode travels in the job comment (set at submission).
+QUEUE=$(squeue -u "$USER" -h -r -n mtr_headnoise -o '%k %K' 2>/dev/null)
 
 for mode in ladder lrcheck; do
   mapfile -t TASKS < <(sed -n "/^  ${mode}) TASKS=(/,/^  );/p" "$SWEEP" \
@@ -29,6 +32,7 @@ for mode in ladder lrcheck; do
     lrcheck) STATUS="$WS/logs/status_hn_lr.txt";;
   esac
 
+  RUNNING=" $(awk -v m="$mode" '$1 == m {print $2}' <<<"$QUEUE" | tr '\n' ' ') "
   missing=(); todo=()
   for i in "${!TASKS[@]}"; do
     spec=${TASKS[$i]}
@@ -46,7 +50,7 @@ for mode in ladder lrcheck; do
   if [ ${#todo[@]} -gt 0 ]; then
     list=$(IFS=,; echo "${todo[*]}")
     if [ "$APPLY" = "--apply" ]; then
-      cd "$WS/MTR_with_poses" && sbatch --array="$list" slurm/60_heading_noise.sh "$mode" \
+      cd "$WS/MTR_with_poses" && sbatch --array="$list" --comment="$mode" slurm/60_heading_noise.sh "$mode" \
         && echo "  resubmitted $mode indices $list"
     else
       echo "  would resubmit $mode indices $list (run with --apply)"

@@ -22,8 +22,10 @@
 # pose root all inherit the same per-agent error. This is what ZERO_HEADING_CHANNELS
 # did not do: it removed the sin/cos channel only, leaving the frame heading-aligned.
 #
-#   sbatch --array=0-26 slurm/60_heading_noise.sh          # the ladder, 3 sigma x 3 arms x 3 seeds
-#   sbatch --array=0-2  slurm/60_heading_noise.sh lrcheck  # LR re-tune at sigma=30, no-pose only
+#   sbatch --array=0-26 --comment=ladder  slurm/60_heading_noise.sh          # 3 sigma x 3 arms x 3 seeds
+#   sbatch --array=0-2  --comment=lrcheck slurm/60_heading_noise.sh lrcheck  # LR re-tune at sigma=30
+#
+# --comment is what lets the watchdog tell a queued ladder task 0 from lrcheck task 0.
 #
 # sigma=00 is included deliberately although the workstation already has those cells:
 # it keeps every comparison inside one platform, and it should reproduce the 25k
