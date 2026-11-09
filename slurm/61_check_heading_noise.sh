@@ -22,15 +22,17 @@ SWEEP="$(dirname "$0")/60_heading_noise.sh"
 # a running task's comment with its GPU bus id.
 QUEUE=$(squeue -u "$USER" -h -r -o '%j %K' 2>/dev/null)
 
-for mode in ladder lrcheck; do
+for mode in ladder lrcheck posladder standft; do
   mapfile -t TASKS < <(sed -n "/^  ${mode}) TASKS=(/,/^  );/p" "$SWEEP" \
     | grep -oE '"[^"]+\|[^"]+\|[0-9]+"' | tr -d '"')
   if [ ${#TASKS[@]} -eq 0 ]; then
     echo "$mode: could not parse task list from $SWEEP" >&2; continue
   fi
   case "$mode" in
-    ladder)  STATUS="$WS/logs/status_hn.txt";;
-    lrcheck) STATUS="$WS/logs/status_hn_lr.txt";;
+    ladder)    STATUS="$WS/logs/status_hn.txt";    PFX=HN;;
+    lrcheck)   STATUS="$WS/logs/status_hn_lr.txt"; PFX=HN;;
+    posladder) STATUS="$WS/logs/status_pn.txt";    PFX=PN;;
+    standft)   STATUS="$WS/logs/status_ft.txt";    PFX=FT;;
   esac
 
   RUNNING=" $(awk -v m="mtr_hn_$mode" '$1 == m {print $2}' <<<"$QUEUE" | tr '\n' ' ') "
@@ -39,7 +41,7 @@ for mode in ladder lrcheck; do
     spec=${TASKS[$i]}
     cfg=${spec%%|*}; rest=${spec#*|}; lr=${rest%%|*}; seed=${rest##*|}
     lrtag=$(echo "$lr" | sed 's/0\.0*//')
-    tag="HN_${RUNG}_${cfg}_lr${lrtag}_s${seed}"
+    tag="${PFX}_${RUNG}_${cfg}_lr${lrtag}_s${seed}"
     out="$WS/MTR_with_poses/output/waymo/mtr+pose_data_${cfg}/$tag"
     [ -f "$out/DONE" ] && continue
     grep -q "$tag DONE" "$STATUS" 2>/dev/null && continue

@@ -323,6 +323,22 @@ class WaymoPoseDataset(DatasetTemplate):
         # onboard tracker has, rather than per-timestep jitter.
         self.heading_noise_deg = float(self.dataset_cfg.get('HEADING_NOISE_DEG', 0.0))
 
+        # Professor follow-up (2026-11-07): the same objection for POSITION. WOMD positions
+        # are offboard-refined too, and velocity is their exact backward difference. This
+        # replaces every observed state with what a causal onboard tracker would report:
+        # per-frame detection noise of this std (metres), then a forward-only constant-
+        # velocity Kalman filter. Heading is left clean, so this ladder is separate from
+        # the heading one. Future targets are untouched.
+        self.position_noise_m = float(self.dataset_cfg.get('POSITION_NOISE_M', 0.0))
+
+        # Stationary fine-tune (2026-11-07): train only on pedestrians standing at
+        # prediction time (label speed below this, m/s), the subpopulation whose facing
+        # the track does not imply. Training only: eval keeps every agent, and the subset
+        # is scored from the per-agent pickles with the same speed0 definition. Only ~38%
+        # of scenes hold such a pedestrian, too few for __getitem__'s ten redraws, so the
+        # scene index is cut to them at init and an epoch is one pass over that subset.
+        self.train_center_speed_max = float(self.dataset_cfg.get('TRAIN_CENTER_SPEED_MAX', 0.0))
+
         # Part 7 (pre-registered): mask-aware temporal Gaussian smoothing of the
         # encoder-input pose sequences (targets and validity masks untouched).
         self.denoise_poses = self.dataset_cfg.get('DENOISE_POSES', False)
@@ -381,6 +397,9 @@ class WaymoPoseDataset(DatasetTemplate):
         if self.pose_representation != '6d':
             self.logger.info(f'POSE_REPRESENTATION={self.pose_representation} '
                              f'(encoder input dim {self.pose_input_dim})')
+        # after the donor map, so a fine-tuned shuffled arm keeps its init's assignment
+        if self.training and self.train_center_speed_max > 0:
+            self.infos = self._standing_scenes(self.infos)
 
     def _build_scene_index(self):
         """Build an index of all scenes, each with all its pedestrian .npz files."""
@@ -409,6 +428,22 @@ class WaymoPoseDataset(DatasetTemplate):
         infos = infos[::sample_interval]
         self.logger.info(f'Total pedestrians across all scenes: {total_peds}')
         return infos
+
+    def _standing_scenes(self, infos):
+        """Scenes with a pedestrian valid and below TRAIN_CENTER_SPEED_MAX at prediction
+        time. Reads the same WOMD state create_scene_level_data filters on, which still
+        drops the moving centres inside each kept scene."""
+        t, kept = self.current_time_index, []
+        for info in infos:
+            trajs = self._load_scene_waymo_trajs(info['scenario_id']) or {}
+            for f in info['npz_files']:
+                tr = trajs.get(int(Path(f).stem))
+                if tr is not None and tr[t, 9] > 0 and np.hypot(tr[t, 7], tr[t, 8]) < self.train_center_speed_max:
+                    kept.append(info)
+                    break
+        self.logger.info(f'TRAIN_CENTER_SPEED_MAX={self.train_center_speed_max}: '
+                         f'{len(kept)}/{len(infos)} scenes have a standing pedestrian')
+        return kept
 
     def __len__(self):
         return len(self.infos)
@@ -775,6 +810,11 @@ class WaymoPoseDataset(DatasetTemplate):
         obj_types = np.array(['TYPE_PEDESTRIAN'] * num_objects)
         obj_ids = np.array(obj_ids)
 
+        # Before the split, so the past view, the center objects (and with them the frame
+        # origin) and center_gt_trajs_src all see the same tracked history.
+        if self.position_noise_m > 0:
+            self._track_past_causally(obj_trajs_full, obj_ids, scene_id)
+
         # Split into past and future
         obj_trajs_past = obj_trajs_full[:, :self.num_past]  # (num_objects, 11, 10)
         obj_trajs_future = obj_trajs_full[:, self.num_past:]  # (num_objects, 80, 10)
@@ -801,6 +841,14 @@ class WaymoPoseDataset(DatasetTemplate):
             current_time_index=self.current_time_index,
             obj_types=obj_types, scene_id=scene_id
         )
+
+        if self.training and self.train_center_speed_max > 0:
+            keep = np.hypot(center_objects[:, 7], center_objects[:, 8]) < self.train_center_speed_max
+            if not keep.any():
+                raise ValueError(f'{scene_id}: no pedestrian below '
+                                 f'{self.train_center_speed_max} m/s at prediction time')
+            center_objects = center_objects[keep]
+            track_index_to_predict = track_index_to_predict[keep]
 
         # Cap center objects per scene during training. The fixed export restores up to
         # 153 pedestrians in one scene (the buggy export had dropped all but ~1 per id),
@@ -1088,6 +1136,52 @@ class WaymoPoseDataset(DatasetTemplate):
         center_objects = center_objects.copy()
         center_objects[:, 6] = center_objects[:, 6] + ang
         return center_objects
+
+    def _track_past_causally(self, obj_trajs_full, obj_ids, scene_id, sigma_a=1.0, sigma_v0=1.5):
+        """Overwrite the observed positions and velocities with a causal tracker's output.
+
+        Detections are the labelled centres plus N(0, s^2) per frame and axis, the noise
+        deterministic per (scene, object) like the heading ladder's. A constant-velocity
+        Kalman filter (white-noise acceleration sigma_a m/s^2) runs forward over the 11
+        observed frames only, cold-started at each track's first valid frame with zero
+        velocity and a sigma_v0 m/s prior, which is what a tracker has at track birth.
+        Gaps are predicted through without an update.
+
+        In place on the past frames of obj_trajs_full, which is a fresh np.stack here;
+        heading, box size and the future are not touched.
+        """
+        import zlib
+        s, dt, T = self.position_noise_m, self.dt, self.num_past
+        n = obj_trajs_full.shape[0]
+        past = obj_trajs_full[:, :T]
+        valid = past[..., 9] > 0
+        tag = f'{scene_id}:pos{s:g}'
+        noise = np.stack([np.random.default_rng(
+            zlib.crc32(f'{tag}:{obj_ids[i]}'.encode()) & 0xffffffff).normal(0.0, s, (T, 2))
+            for i in range(n)])
+        z = past[..., 0:2].astype(np.float64) + noise
+
+        F = np.eye(4); F[0, 2] = F[1, 3] = dt
+        q = np.array([[dt ** 4 / 4, dt ** 3 / 2], [dt ** 3 / 2, dt ** 2]]) * sigma_a ** 2
+        Q = np.zeros((4, 4)); Q[np.ix_([0, 2], [0, 2])] = q; Q[np.ix_([1, 3], [1, 3])] = q
+        H = np.zeros((2, 4)); H[0, 0] = H[1, 1] = 1.0
+        R = np.eye(2) * s ** 2
+        x = np.zeros((n, 4)); P = np.zeros((n, 4, 4)); live = np.zeros(n, bool)
+        for t in range(T):
+            x[live] = x[live] @ F.T
+            P[live] = F @ P[live] @ F.T + Q
+            born = valid[:, t] & ~live
+            x[born] = np.concatenate([z[born, t], np.zeros((born.sum(), 2))], axis=1)
+            P[born] = np.diag([s ** 2, s ** 2, sigma_v0 ** 2, sigma_v0 ** 2])
+            upd = valid[:, t] & live
+            if upd.any():
+                S = H @ P[upd] @ H.T + R
+                K = P[upd] @ H.T @ np.linalg.inv(S)
+                x[upd] = x[upd] + (K @ (z[upd, t] - x[upd] @ H.T)[..., None])[..., 0]
+                P[upd] = (np.eye(4) - K @ H) @ P[upd]
+            live |= born
+            past[valid[:, t], t, 0:2] = x[valid[:, t], 0:2]
+            past[valid[:, t], t, 7:9] = x[valid[:, t], 2:4]
 
     def create_agent_data_for_center_objects(
             self, center_objects, obj_trajs_past, obj_trajs_future, track_index_to_predict,

@@ -24,6 +24,18 @@
 #
 #   sbatch --array=0-26 --job-name=mtr_hn_ladder  slurm/60_heading_noise.sh          # 3 sigma x 3 arms x 3 seeds
 #   sbatch --array=0-2  --job-name=mtr_hn_lrcheck slurm/60_heading_noise.sh lrcheck  # LR re-tune at sigma=30
+#   sbatch --array=0-17 --job-name=mtr_hn_posladder slurm/60_heading_noise.sh posladder
+#
+# posladder is the same question for POSITION (POSITION_NOISE_M: per-frame detection
+# noise through a causal constant-velocity Kalman filter, heading left clean). Its
+# clean rung is the ladder's sigma=0 cells, so only the two noisy rungs run here.
+#
+#   sbatch --array=0-8 --job-name=mtr_hn_standft slurm/60_heading_noise.sh standft
+#
+# standft fine-tunes each arm's sigma=0 model (its final epoch-30 checkpoint, same seed)
+# for 5 epochs on pedestrians STANDING at prediction time only (TRAIN_CENTER_SPEED_MAX),
+# to test whether full-dataset training drowns out a stationary-only pose benefit.
+# Eval stays on every agent; the stationary subset is scored from the pickles.
 #
 # The job name is what lets the watchdog tell a queued ladder task 0 from lrcheck task 0.
 #
@@ -79,6 +91,7 @@ echo "staging data to $TMPDIR ..."
 tar xf "$WS/data/poses_${RUNG}.tar"     -C "$TMPDIR"
 tar xf "$WS/data/scenarios_${RUNG}.tar" -C "$TMPDIR"
 
+PFX=HN
 case "$MODE" in
   ladder) TASKS=(
     "no_pose_with_map_headnoise00_scale25k|0.000025|101"
@@ -118,7 +131,52 @@ case "$MODE" in
     "no_pose_with_map_headnoise30_scale25k|0.00005|202"
     "no_pose_with_map_headnoise30_scale25k|0.00005|303"
   ); STATUS="$WS/logs/status_hn_lr.txt";;
-  *) echo "unknown mode: $MODE (expected ladder|lrcheck)" >&2; exit 2;;
+  posladder) TASKS=(
+    "no_pose_with_map_posnoise10_scale25k|0.000025|101"
+    "no_pose_with_map_posnoise10_scale25k|0.000025|202"
+    "no_pose_with_map_posnoise10_scale25k|0.000025|303"
+    "cross_attn_pe_with_map_posnoise10_scale25k|0.000025|101"
+    "cross_attn_pe_with_map_posnoise10_scale25k|0.000025|202"
+    "cross_attn_pe_with_map_posnoise10_scale25k|0.000025|303"
+    "cross_attn_pe_with_map_shufflepose_posnoise10_scale25k|0.000025|101"
+    "cross_attn_pe_with_map_shufflepose_posnoise10_scale25k|0.000025|202"
+    "cross_attn_pe_with_map_shufflepose_posnoise10_scale25k|0.000025|303"
+    "no_pose_with_map_posnoise30_scale25k|0.000025|101"
+    "no_pose_with_map_posnoise30_scale25k|0.000025|202"
+    "no_pose_with_map_posnoise30_scale25k|0.000025|303"
+    "cross_attn_pe_with_map_posnoise30_scale25k|0.000025|101"
+    "cross_attn_pe_with_map_posnoise30_scale25k|0.000025|202"
+    "cross_attn_pe_with_map_posnoise30_scale25k|0.000025|303"
+    "cross_attn_pe_with_map_shufflepose_posnoise30_scale25k|0.000025|101"
+    "cross_attn_pe_with_map_shufflepose_posnoise30_scale25k|0.000025|202"
+    "cross_attn_pe_with_map_shufflepose_posnoise30_scale25k|0.000025|303"
+    # 18-29 (2026-11-09): seeds 404/505, because n=3 put the first content effect
+    # in the project at 30 cm and an earlier 3-seed win did not survive n=5.
+    "no_pose_with_map_posnoise10_scale25k|0.000025|404"
+    "no_pose_with_map_posnoise10_scale25k|0.000025|505"
+    "cross_attn_pe_with_map_posnoise10_scale25k|0.000025|404"
+    "cross_attn_pe_with_map_posnoise10_scale25k|0.000025|505"
+    "cross_attn_pe_with_map_shufflepose_posnoise10_scale25k|0.000025|404"
+    "cross_attn_pe_with_map_shufflepose_posnoise10_scale25k|0.000025|505"
+    "no_pose_with_map_posnoise30_scale25k|0.000025|404"
+    "no_pose_with_map_posnoise30_scale25k|0.000025|505"
+    "cross_attn_pe_with_map_posnoise30_scale25k|0.000025|404"
+    "cross_attn_pe_with_map_posnoise30_scale25k|0.000025|505"
+    "cross_attn_pe_with_map_shufflepose_posnoise30_scale25k|0.000025|404"
+    "cross_attn_pe_with_map_shufflepose_posnoise30_scale25k|0.000025|505"
+  ); STATUS="$WS/logs/status_pn.txt"; PFX=PN;;
+  standft) TASKS=(
+    "no_pose_with_map_standft_scale25k|0.00000625|101"
+    "no_pose_with_map_standft_scale25k|0.00000625|202"
+    "no_pose_with_map_standft_scale25k|0.00000625|303"
+    "cross_attn_pe_with_map_standft_scale25k|0.00000625|101"
+    "cross_attn_pe_with_map_standft_scale25k|0.00000625|202"
+    "cross_attn_pe_with_map_standft_scale25k|0.00000625|303"
+    "cross_attn_pe_with_map_shufflepose_standft_scale25k|0.00000625|101"
+    "cross_attn_pe_with_map_shufflepose_standft_scale25k|0.00000625|202"
+    "cross_attn_pe_with_map_shufflepose_standft_scale25k|0.00000625|303"
+  ); STATUS="$WS/logs/status_ft.txt"; PFX=FT;;
+  *) echo "unknown mode: $MODE (expected ladder|lrcheck|posladder|standft)" >&2; exit 2;;
 esac
 
 if [ "${SLURM_ARRAY_TASK_ID:-0}" -ge "${#TASKS[@]}" ]; then
@@ -127,8 +185,16 @@ fi
 spec=${TASKS[$SLURM_ARRAY_TASK_ID]}
 cfg=${spec%%|*}; rest=${spec#*|}; lr=${rest%%|*}; seed=${rest##*|}
 lrtag=$(echo "$lr" | sed 's/0\.0*//')
-tag="HN_${RUNG}_${cfg}_lr${lrtag}_s${seed}"
+tag="${PFX}_${RUNG}_${cfg}_lr${lrtag}_s${seed}"
 echo "task $SLURM_ARRAY_TASK_ID -> cfg=$cfg lr=$lr seed=$seed tag=$tag"
+
+INIT=""
+if [ "$MODE" = standft ]; then
+  arm=${cfg%_standft_scale25k}
+  INIT="$WS/MTR_with_poses/output/waymo/mtr+pose_data_${arm}_headnoise00_scale25k/HN_25k_${arm}_headnoise00_scale25k_lr25_s${seed}/ckpt/checkpoint_epoch_30.pth"
+  [ -f "$INIT" ] || { echo "missing init checkpoint $INIT" >&2; exit 2; }
+  echo "init from $INIT"
+fi
 
 note() { flock "$STATUS.lock" -c "echo \"$(date +%H:%M:%S) $tag $*\" >> '$STATUS'"; }
 note "START"
@@ -138,6 +204,7 @@ cd "$WS/MTR_with_poses/tools"
 python train.py \
   --cfg_file "cfgs/waymo/mtr+pose_data_${cfg}.yaml" \
   --extra_tag "$tag" --random_seed "$seed" --workers 8 --max_ckpt_save_num 1 \
+  ${INIT:+--pretrained_model "$INIT"} \
   --set DATA_CONFIG.DATA_ROOT "$TMPDIR/poses" \
         DATA_CONFIG.PROCESSED_SCENARIOS_PATH "$TMPDIR/scenarios" \
         MODEL.MOTION_DECODER.SMPL_MODEL_DIR "$WS/MTR_with_poses/models" \
