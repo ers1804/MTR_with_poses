@@ -90,6 +90,11 @@ RETIRED = [
     dict(pat=r'eight-seed confirmation|acceptance floor|development half|-1\.21',
          why='these all describe the removed search and its confirmation arms',
          instead='nothing -- the evidence they supported is simply not claimed'),
+    # --- retired 2026-11-07, when the onboard-heading ladder landed ----------------
+    dict(pat=r"tracker's box\s+heading|the tracker\s+heading",
+         why='WOMD boxes are offboard auto-labels refined over the whole track, future '
+             'frames included (Ettinger et al. 2021, Qi et al. 2021), not tracker output',
+         instead="the labelled box heading; Sec. V-B degrades it to test the difference"),
     # --- retired 2026-11-04, when the early-fusion ladder landed at 25k -------------
     # Sec. V-C still NARRATES the 579 reading before overturning it, so these patterns
     # target the conclusions that reading supported, not the reading itself.
@@ -159,6 +164,17 @@ RETIRED = [
              'reliability claim; the defensible evidence is the per-seed signature',
          instead='two of three seeds showed no movement at all from a perfect channel, '
                  'where the branch moved on all three'),
+    # --- retired 2026-11-09, when the onboard-track ladder landed ---------------------
+    dict(pat=r'neither finds anything in the\s+body to read',
+         why='under a simulated causal tracker own pose beats a stranger\'s by 6% on moving '
+             'pedestrians; the body has nothing to add to an OFFBOARD track only',
+         instead='pose adds nothing to an offboard track and pays on a causal one'),
+    dict(pat=r'this ladder does not degrade them',
+         why='positions are degraded by the onboard-track ladder (Sec. IV-E)',
+         instead='point to Sec. IV-E'),
+    dict(pat=r'does not measurably improve pedestrian trajectory accuracy\.',
+         why='unscoped: the null holds on offboard tracks, not on a causal tracker\'s',
+         instead='scope it to WOMD\'s offboard tracks'),
     dict(pat=r'160\.6',
          why='MPJPE from the misaligned harness protocol; the fair number is 87.6 mm',
          instead='87.6 mm root-aligned, timestamp-aligned'),
@@ -445,6 +461,118 @@ def main() -> int:
             (g, f'theta=0 p (n={r0["n"]})', r0['p'], '0.0002'),
             (g, f'theta=0 CI lo (n={r0["n"]})', abs(r0['lo']), '32.9'),
             (g, f'theta=0 CI hi (n={r0["n"]})', abs(r0['hi']), '29.5'),
+        ]
+
+    HN = load('heading_noise_ladder.json')
+    if HN:
+        g = 'onboard-heading ladder (Sec. V-B)'
+        R = {r['sigma_deg']: r for r in HN['rungs']}
+        checks += [
+            (g, 'sigma=15 baseline loss', R[15]['degradation']['rel'], '5.8'),
+            (g, 'sigma=30 baseline loss', R[30]['degradation']['rel'], '12.6'),
+            (g, 'sigma=30 median added error', R[30]['median_added_err_deg'], '20.2'),
+            (g, 'sigma=15 content', abs(R[15]['content']['rel']), '0.14'),
+            (g, 'sigma=15 content p', R[15]['content']['p'], '0.90'),
+            (g, 'sigma=30 content', abs(R[30]['content']['rel']), '0.11'),
+            (g, 'sigma=30 content p', R[30]['content']['p'], '0.93'),
+            (g, 'sigma=30 recovery cap (%)', R[30]['max_recovered_share'] * 100, '38'),
+            (g, 'clean rung vs workstation (max |rel|)',
+             max(abs(x['rel']) for x in HN['reproduction'].values()), '0.4'),
+            (g, 'LR check', HN['lr_check']['vs_default']['rel'], '0.7'),
+            (g, 'LR check p', HN['lr_check']['vs_default']['p'], '0.48'),
+        ]
+    HS = load('heading_noise_subpopulation.json')
+    if HS:
+        g = 'onboard-heading ladder, stationary (Sec. V-B)'
+        st = HS['stationary']
+        checks += [
+            (g, 'stationary n', HS['_meta']['sizes']['stationary'], '3{,}336'),
+            (g, 'sigma=15 baseline change', abs(st['sigma15']['degradation']['rel']), '1.1'),
+            (g, 'sigma=30 baseline change', st['sigma30']['degradation']['rel'], '4.3'),
+            (g, 'sigma=15 content', st['sigma15']['content']['rel'], '1.2'),
+            (g, 'sigma=30 content', st['sigma30']['content']['rel'], '1.3'),
+            (g, 'sigma=30 content p', st['sigma30']['content']['p'], '0.049'),
+        ]
+
+    PN = load('position_noise_ladder.json')
+    if PN:
+        g = 'onboard-track ladder (Sec. IV-E, Table onboard)'
+        R = {r['noise_cm']: r for r in PN['rungs']}
+        # n is in every label: seeds 404/505 are in flight, and when they land these
+        # values move and the mismatch is the signal to refresh Sec. IV-E
+        n10, n30 = R[10]['n'], R[30]['n']
+        c30, c10 = R[30]['content'], R[10]['content']
+        fe = [abs(x['content']['rel']) for x in R[30]['fixed_epoch'].values()]
+        e10 = R[10]['tracker_error']
+        e30 = R[30]['tracker_error']
+        checks += [
+            (g, f'30 cm content (n={n30})', abs(c30['rel']), '6.05'),
+            (g, f'30 cm content, abstract (n={n30})', abs(c30['rel']), '6.0'),
+            (g, f'30 cm content p (n={n30})', c30['p'], '0.004'),
+            (g, f'30 cm CI lo (n={n30})', abs(c30['lo']), '7.7'),
+            (g, f'30 cm CI hi (n={n30})', abs(c30['hi']), '4.4'),
+            (g, f'30 cm per-seed min (n={n30})', min(abs(x) for x in c30['per_seed_rel']), '5.3'),
+            (g, f'30 cm per-seed max (n={n30})', max(abs(x) for x in c30['per_seed_rel']), '6.5'),
+            (g, f'30 cm per-seed s101 (n={n30})', abs(c30['per_seed_rel'][0]), '6.4'),
+            (g, f'30 cm fixed-epoch min (n={n30})', min(fe), '6.5'),
+            (g, f'30 cm fixed-epoch max (n={n30})', max(fe), '6.6'),
+            (g, f'30 cm vs no-pose (n={n30})', abs(R[30]['pose_vs_nopose']['rel']), '4.60'),
+            (g, f'30 cm vs no-pose p (n={n30})', R[30]['pose_vs_nopose']['p'], '0.05'),
+            (g, f'10 cm content (n={n10})', abs(c10['rel']), '2.14'),
+            (g, f'10 cm content p (n={n10})', c10['p'], '0.06'),
+            (g, f'10 cm vs no-pose (n={n10})', abs(R[10]['pose_vs_nopose']['rel']), '1.92'),
+            (g, f'10 cm vs no-pose p (n={n10})', R[10]['pose_vs_nopose']['p'], '0.03'),
+            (g, '10 cm baseline loss', R[10]['degradation']['rel'], '14.1'),
+            (g, '30 cm baseline loss', R[30]['degradation']['rel'], '32.3'),
+            (g, 'clean rung content', R[0]['content']['rel'], '0.41'),
+            (g, 'clean rung content p', R[0]['content']['p'], '0.60'),
+            (g, 'clean rung vs no-pose', R[0]['pose_vs_nopose']['rel'], '1.97'),
+            (g, '10 cm tracker position error (cm)', e10['pos_err_median_m'] * 100, '7.5'),
+            (g, '10 cm tracker velocity error', e10['vel_err_median_ms'], '0.23'),
+            (g, '30 cm tracker position error (cm)', e30['pos_err_median_m'] * 100, '21'),
+            (g, '30 cm tracker velocity error', e30['vel_err_median_ms'], '0.46'),
+            (g, 'median pedestrian speed', e30['speed_median_ms'], '1.1'),
+        ]
+    HT = HN and {r['sigma_deg']: r for r in HN['rungs']}
+    if HT:
+        g = 'onboard-heading ladder, Table onboard'
+        checks += [
+            (g, 'sigma=15 vs no-pose', abs(HT[15]['pose_vs_nopose']['rel']), '0.39'),
+            (g, 'sigma=30 vs no-pose', HT[30]['pose_vs_nopose']['rel'], '1.34'),
+        ]
+    PS = load('position_noise_subpopulation.json')
+    if PS:
+        g = 'onboard-track ladder by speed (Sec. IV-E)'
+        w = PS['walking']
+        checks += [
+            (g, 'walking n', PS['_meta']['sizes']['walking'], '8{,}757'),
+            (g, f'walking 10 cm content (n={w["pn10"]["content"]["n"]})', abs(w['pn10']['content']['rel']), '3.8'),
+            (g, f'walking 10 cm p (n={w["pn10"]["content"]["n"]})', w['pn10']['content']['p'], '0.02'),
+            (g, f'walking 30 cm content (n={w["pn30"]["content"]["n"]})', abs(w['pn30']['content']['rel']), '7.3'),
+            (g, f'walking 30 cm p (n={w["pn30"]["content"]["n"]})', w['pn30']['content']['p'], '0.003'),
+            (g, 'standing n', PS['_meta']['sizes']['stationary'], '3{,}336'),
+        ]
+    SF = load('standing_finetune.json')
+    if SF:
+        g = 'standing-only fine-tune (Sec. V-B)'
+        f5 = SF['stationary'][f'ft_epoch{SF["_meta"]["final_epoch"]}']
+        checks += [
+            (g, 'content after fine-tune', abs(f5['content']['rel']), '1.2'),
+            (g, 'content p', f5['content']['p'], '0.28'),
+            (g, 'change vs init (pp)', f5['did']['rel'], '1.5'),
+            (g, 'change vs init p', f5['did']['p'], '0.36'),
+        ]
+    LC = load('label_causality.json')
+    if LC:
+        g = 'offboard labels (Sec. IV-E)'
+        assert LC['velocity_is_exact_backward_difference']
+        checks += [(g, 'pedestrian time steps checked', LC['n_timesteps'], '954{,}751')]
+    if EF and EF.get('rungs'):
+        g = 'early-fusion ladder at 25k, corrupted rungs (Sec. V-C)'
+        R = {round(r['median_err_deg']): r for r in EF['rungs']}
+        checks += [
+            (g, f'5.0 deg rel (n={R[5]["n"]})', abs(R[5]['rel']), '19.4'),
+            (g, f'10.0 deg rel (n={R[10]["n"]})', abs(R[10]['rel']), '15.5'),
         ]
 
     bad, group = [], None
