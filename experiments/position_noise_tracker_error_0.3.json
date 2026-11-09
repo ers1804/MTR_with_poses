@@ -1,0 +1,10 @@
+{
+ "position_noise_m": 0.3,
+ "scenes": 200,
+ "agents": 675,
+ "pos_err_median_m": 0.20939311048838552,
+ "pos_err_p90_m": 0.3840285775488876,
+ "vel_err_median_ms": 0.45522065558833275,
+ "vel_err_p90_ms": 1.0377491654460727,
+ "speed_median_ms": 1.0972756374142691
+}
