@@ -89,7 +89,11 @@ LADDERS = {
                   label='early fusion, per-timestep agent channels, 25k scenes'),
     '25k': dict(cfg='mtr+pose_data_cross_attn_pe_with_map_oracledir{}_scale25k',
                 tag='MS_oracledir{key}_25k_s{seed}',
-                rungs={k: _RUNGS[k] for k in ('00', '05', '10', '15')},
+                rungs={k: _RUNGS[k] for k in ('00', '05', '10', '15', '25', '45')},
+                # Eq. (1) is fitted to 0-15.1 deg only. The two high rungs came later
+                # (run_floor_hi25k.sh) and are scored as held-out predictions of that fit,
+                # so landing them tests the law instead of silently refitting it.
+                fit_rungs=('00', '05', '10', '15'),
                 # no watch seed: the 2 SD baseline outlier is a property of the 579 cell.
                 # The 25k no-pose cell spans 0.3683-0.3752 over five seeds, so there is no
                 # draw to resample and the single denominator is the only one.
@@ -454,7 +458,9 @@ def main() -> int:
             print(f"     is a heavy tail: {100 * _U['smpl_above_hi']:.1f}% of agents sit "
                   "above the bracket's upper edge.")
 
-    decay = fit_decay(rows)
+    fit_keys = L.get('fit_rungs', tuple(RUNGS))
+    fit_rows = [r for r in rows if r['rung'] in fit_keys]
+    decay = fit_decay(fit_rows)
     if decay.get('pooled'):
         d = decay['pooled']
         print(f"\ndecay law fitted to this ladder: "
@@ -470,7 +476,7 @@ def main() -> int:
                   + '   -- systematic in theta means the functional form is wrong,'
                     ' not the constants')
 
-    two = fit_two_component(rows)
+    two = fit_two_component(fit_rows)
     if two.get('pooled'):
         t = two['pooled']
         print(f"\ntwo-component fit: -({t['persistent_pct']:.1f}% + "
@@ -486,8 +492,33 @@ def main() -> int:
             print(f'  per-seed: persistent {p0:.1f}-{p1:.1f}%, '
                   f'amplitudes {a0:.1f}-{a1:.1f}%, half-lives {h0:.1f}-{h1:.1f} deg')
 
+    # Rungs outside the fitted span. By 24.9 deg the precision term is below 0.1%, so a
+    # held-out rung reads the slow term almost alone, and its share of the fitted
+    # persistent term says how much of it a bearing error that large leaves.
+    held_out = []
+    if two.get('pooled'):
+        t = two['pooled']
+        for r in sorted(rows, key=lambda r: r['median_err_deg']):
+            if r['rung'] in fit_keys:
+                continue
+            th = r['median_err_deg']
+            precision = t['amplitude_pct'] * np.exp(-th / t['tau_deg'])
+            pred = -(t['persistent_pct'] + precision)
+            held_out.append(dict(rung=r['rung'], median_err_deg=th, n=r['n'], rel=r['rel'],
+                                 predicted=float(pred), precision_term=float(precision),
+                                 slow_share=float(-r['rel'] / t['persistent_pct']),
+                                 prediction_in_ci=bool(r['lo'] <= pred <= r['hi'])))
+        if held_out:
+            print('\nheld out of the fit:')
+            for h in held_out:
+                print(f"  {h['median_err_deg']:.1f} deg  measured {h['rel']:+.2f}%  "
+                      f"predicted {h['predicted']:+.2f}%  (precision term "
+                      f"{h['precision_term']:.2f}%)  slow term left "
+                      f"{h['slow_share']:.0%}  prediction in CI: {h['prediction_in_ci']}")
+
     json.dump(dict(ladder=which, pathway=L['label'], rungs=rows, decay_fit=decay,
                    two_component_fit=two,
+                   fit_rungs=list(fit_keys), held_out=held_out,
                    floor_bracket_deg=[primary['lo'], primary['hi']],
                    floor_brackets=brackets, bracket_edge_stable=(len(edges) <= 1),
                    primary_denominator=PRIMARY[0],
