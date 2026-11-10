@@ -40,7 +40,7 @@ separates body information from an extra branch's capacity. On WOMD's tracks it
 returns $+0.04\%$ ($p{=}0.93$) at our largest scale, and the data bound the
 content effect to $\pm1.7\%$. Those tracks are offboard auto-labels, refined
 with future frames. Replace the observed history with what a causal onboard
-tracker would report, and own pose beats a stranger's by $6.0\%$ ($p{=}0.004$)
+tracker would report, and own pose beats a stranger's by $5.3\%$ ($p{=}0.002$)
 at $30$\,cm of detection noise, on moving pedestrians, whose gait carries the
 speed the tracker loses. Degrading the box heading instead leaves the null
 intact, because body facing is a noisier copy of that heading ($12.3^\circ$
@@ -93,7 +93,7 @@ pose adds to these tracks, not of the plumbing.
 \textbf{Where it pays.} We replace WOMD's observed history with what a causal
 tracker would report, per-frame detection noise filtered by a forward-only
 Kalman filter, and repeat the content test. Pose now pays: own pose beats a
-stranger's by $6.0\%$ at $30$\,cm of detection noise, on moving pedestrians,
+stranger's by $5.3\%$ at $30$\,cm of detection noise, on moving pedestrians,
 whose gait carries the speed the tracker loses. Corrupting the box heading
 instead leaves the null intact. The body carries gait that an offboard track
 makes redundant and a causal one does not.
@@ -467,9 +467,10 @@ test one hypothesis fixed before the runs, grow with the noise and agree in sign
 on every seed.
 
 \begin{table}[t]
-\caption{Onboard-quality inputs at $25$k scenes, $n{=}3$ seeds per arm. Each
-condition degrades one input of the baseline and repeats the content test. Loss
-is the no-pose baseline against its clean cell, and negative favours pose.}
+\caption{Onboard-quality inputs at $25$k scenes, $n{=}3$ seeds per arm on the
+heading rungs and $n{=}5$ on the track rungs. Each condition degrades one input
+of the baseline and repeats the content test. Loss is the no-pose baseline
+against its clean cell on the seeds both share, and negative favours pose.}
 \label{tab:onboard}
 \centering
 \footnotesize
@@ -483,8 +484,8 @@ None & --- & $+0.41\%$ & $0.60$ & $+1.97\%$ \\
 $\sigma{=}15^\circ$ & $+5.8\%$  & $-0.14\%$ & $0.90$ & $-0.39\%$ \\
 $\sigma{=}30^\circ$ & $+12.6\%$ & $-0.11\%$ & $0.93$ & $+1.34\%$ \\
 \multicolumn{5}{@{}l}{\emph{Track, causal tracker on detection noise $s$}}\\
-$s{=}10$\,cm & $+14.1\%$ & $-2.14\%$ & $0.06$ & $-1.92\%$ \\
-$s{=}30$\,cm & $+32.3\%$ & $\mathbf{-6.05\%}$ & $\mathbf{0.004}$ & $-4.60\%$ \\
+$s{=}10$\,cm & $+14.1\%$ & $\mathbf{-2.08\%}$ & $\mathbf{0.005}$ & $-1.21\%$ \\
+$s{=}30$\,cm & $+32.3\%$ & $\mathbf{-5.32\%}$ & $\mathbf{0.002}$ & $-4.06\%$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -507,15 +508,17 @@ by $7.5$\,cm and $0.23$\,m/s in median at $s{=}10$\,cm, and by $21$\,cm and
 $0.46$\,m/s at $30$\,cm, against a median pedestrian speed of $1.1$\,m/s.
 
 The null breaks (Table~\ref{tab:onboard}). At $30$\,cm own pose beats a
-stranger's by $6.05\%$ ($p{=}0.004$, $95\%$ CI $[-7.7,-4.4]$) and beats no pose
-by $4.60\%$ ($p{=}0.05$). Every seed agrees ($-6.4$, $-5.3$ and $-6.5\%$), and
-so does every fixed late epoch ($-6.5$ to $-6.6\%$ at epochs $26$, $28$ and
-$30$), so this is not the stopping rule. At $10$\,cm the effect is a third as
-large, $-2.14\%$ against shuffled ($p{=}0.06$) and $-1.92\%$ against no pose
-($p{=}0.03$). It sits where gait would put it. On the $8{,}757$ pedestrians
-walking at $0.8$ to $1.6$\,m/s it is $-3.8\%$ ($p{=}0.02$) at $10$\,cm and
-$-7.3\%$ ($p{=}0.003$) at $30$\,cm, while on the $3{,}336$ standing at
-prediction time it is significant at neither. The box heading still states a
+stranger's by $5.32\%$ ($p{=}0.002$, $95\%$ CI $[-7.3,-3.4]$) and beats no pose
+by $4.06\%$ ($p{=}0.004$), over five seeds. All five agree in sign ($-2.7$ to
+$-6.5\%$), and so does every fixed late epoch ($-5.2$ to $-5.8\%$ at epochs
+$26$, $28$ and $30$), so this is not the stopping rule. The first three seeds
+read $-6.05\%$, and unlike the effects in this study that dissolved under more
+seeds, this one held. At $10$\,cm it is smaller, $-2.08\%$ against shuffled
+($p{=}0.005$) and $-1.21\%$ against no pose ($p{=}0.07$). It sits where gait
+would put it. On the $8{,}757$ pedestrians walking at $0.8$ to $1.6$\,m/s it is
+$-3.3\%$ ($p{=}0.008$) at $10$\,cm and $-6.8\%$ ($p{=}0.0002$) at $30$\,cm,
+while on the $3{,}336$ standing at prediction time it is significant at
+neither. The box heading still states a
 walker's direction, so what the tracker spoils is speed and path, and a stride
 carries speed: gait and speed correlate at $r{=}0.58$ on the corrected export
 (Sec.~\ref{sec:setup}).
@@ -582,14 +585,15 @@ it to $0.4$\,pp:
 \Delta\minADE(\theta) \;\approx\; -\big[\,13.1\% + 21.4\%\cdot e^{-\theta/4.4^\circ}\,\big],
 \label{eq:floor}
 \end{equation}
-a precision term with a half-life of $3.0^\circ$ over a term the corruptions in
-this ladder do not resolve. That term is slow, not permanent: it is flat to
-$15.1^\circ$ here, while the same ladder at $579$ scenes reads $-0.1$ to
-$+2.7\%$ from $24.9^\circ$ outward, with intervals that exclude the
-${\approx}6\%$ a persistent term scaled from that ladder's own $\theta{=}0$
-amplitude would predict (Table~\ref{tab:floor}). It must decay somewhere beyond
-our rungs, since a $60^\circ$ median error is close to uniform on the circle. The seeds agree closely: $12.3$--$14.2\%$ persistent,
-amplitudes $20.8$--$21.8\%$, half-lives $2.8$--$3.4^\circ$.
+a precision term with a half-life of $3.0^\circ$ over a term that is flat across
+the fitted span. The seeds agree closely: $12.3$--$14.2\%$ persistent,
+amplitudes $20.8$--$21.8\%$, half-lives $2.8$--$3.4^\circ$. That term is slow,
+not permanent, and a rung held out of the fit measures it. By $24.9^\circ$ the
+precision term is below $0.1\%$, so that rung reads the slow term almost alone,
+and it still converts: $-10.39\%$ ($p{=}0.003$, CI $[-12.9,-7.9]$) against the
+$-13.2\%$ Eq.~(\ref{eq:floor}) extrapolates (Table~\ref{tab:floor}). Four fifths
+of the term survive a $25^\circ$ median error. It must vanish eventually, since a
+$60^\circ$ median error is close to uniform on the circle.
 
 \textbf{The angular axis is not an acceptance threshold.} It is tempting to read
 $\theta$ as the accuracy a cue must reach: feed the branch a channel whose
@@ -648,7 +652,9 @@ $10.0^\circ$ ($-6.0\%$, $p{=}0.04$), indistinguishable from zero at $15.1^\circ$
 ($-1.4\%$, $p{=}0.47$), flat above. At $25$k that second rung is $-13.6\%$. The
 $579$ ladder could never have seen it: scaling its own $\theta{=}0$ amplitude
 ($-15.8\%$) by the $25$k decay predicts ${\approx}6.2\%$ there, against that
-rung's MDE of $6.7$\,pp. Its apparent floor was the angle at which a three-seed
+rung's MDE of $6.7$\,pp. Scaled the same way, its $24.9^\circ$ rung should have
+read ${\approx}4.7\%$, below that rung's MDE of $6.6$\,pp, so its flat reading
+above $15.1^\circ$ was blindness too. Its apparent floor was the angle at which a three-seed
 experiment went blind, and a threshold read off the first non-significant rung is
 a statement about power wearing the clothes of a property of the task. We report
 both ladders in Table~\ref{tab:floor} for that reason.
@@ -701,9 +707,9 @@ ${\sim}1.6\%$ cost of the branch that would carry it.
 per-agent angular error, each rung labelled by the median bearing error actually
 delivered. Tests are paired $t$ against each seed's own no-pose run, and
 negative favours the oracle. MDE is the minimum effect a rung could detect at $80\%$ power given its
-realised spread. At $25$k scenes every rung converts, including $15.1^\circ$,
-which is worse at every percentile than the box heading the model already
-receives. The ladder therefore bounds what a direction channel could buy rather
+realised spread. At $25$k scenes every rung converts, out to $24.9^\circ$, which
+is held out of Eq.~(\ref{eq:floor}). Even $15.1^\circ$ is worse at every
+percentile than the box heading the model already receives. The ladder therefore bounds what a direction channel could buy rather
 than setting an accuracy a cue must reach (Sec.~\ref{sec:floor}). The same ladder at
 $579$ scenes reports a floor at $15.1^\circ$ that is its own MDE: proportionally
 to its $\theta{=}0$ amplitude it should have read ${\approx}6.2\%$ there, and it
@@ -721,6 +727,7 @@ $0.0^\circ$  & 3 & $-34.50\%$ & $0.0001$ & $[-35.6,-33.4]$ & $1.4$ \\
 $5.0^\circ$  & 3 & $-19.77\%$ & $0.0007$ & $[-22.1,-17.5]$ & $2.9$ \\
 $10.0^\circ$ & 3 & $-15.68\%$ & $0.0009$ & $[-17.7,-13.6]$ & $2.6$ \\
 $15.1^\circ$ & 3 & $-13.57\%$ & $0.0016$ & $[-15.9,-11.2]$ & $2.9$ \\
+$24.9^\circ$ & 3 & $-10.39\%$ & $0.0031$ & $[-12.9,-7.9]$ & $3.1$ \\
 \midrule
 \multicolumn{6}{@{}l}{\emph{$579$ scenes: the same ladder, underpowered}}\\
 $0.0^\circ$  & 3 & $-15.8\%$ & $0.021$  & $[-25.6,-5.9]$ & $12.3$ \\
@@ -965,8 +972,8 @@ carrying a prior.
 \textbf{Limitations.} The largest rung we train is $25$k scenes of the
 $299{,}220$ exported, so the full rung is a compute limit rather than an
 annotation one. At eight seeds the minimum detectable content effect is
-${\approx}1.25\%$ at $80\%$ power, and the ladders run at $n{=}3$ per rung
-(Tables~\ref{tab:floor} and~\ref{tab:onboard}). We test one forecaster, one dataset and one pose
+${\approx}1.25\%$ at $80\%$ power, and the ladders run at $n{=}3$ per rung,
+five on the track rungs (Tables~\ref{tab:floor} and~\ref{tab:onboard}). We test one forecaster, one dataset and one pose
 estimator. We ladder two integration pathways rather than one, but two is not
 every way a cue can enter a model, and the early-fusion ladder stops at
 $10.0^\circ$ (Sec.~\ref{sec:earlyfloor}). The onboard track is simulated:
@@ -990,7 +997,7 @@ replaced by what a causal onboard tracker would report. On the offboard labels
 the null is controlled against a shuffled-pose baseline and holds across scale,
 representation, integration and box-heading quality, and an oracle through the
 same branch rules out a dead pathway. Under a simulated tracker own pose beats a
-stranger's by $6.0\%$, on moving pedestrians, where gait carries the speed the
+stranger's by $5.3\%$, on moving pedestrians, where gait carries the speed the
 tracker loses. The two results are one mechanism: a cue pays only for what it
 carries beyond the model's existing inputs, and an offboard track leaves the
 body nothing to add. Degrading the box heading does not make body facing pay.

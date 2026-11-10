@@ -87,9 +87,14 @@ RETIRED = [
     dict(pat=r'coding agent|directed architecture search|directed search',
          why='the search is not reported in the submission',
          instead='the controlled null across scale, encoding and integration'),
-    dict(pat=r'eight-seed confirmation|acceptance floor|development half|-1\.21',
+    dict(pat=r'eight-seed confirmation|acceptance floor|development half',
          why='these all describe the removed search and its confirmation arms',
          instead='nothing -- the evidence they supported is simply not claimed'),
+    dict(pat=r'-1\.21',
+         why="the removed search's confirmation-arm effect",
+         instead='nothing -- the evidence it supported is simply not claimed',
+         # the onboard-track ladder's 10 cm pose-vs-no-pose effect is also -1.21% at n=5
+         allow=r'against no pose|\$s\{=\}10\$'),
     # --- retired 2026-11-07, when the onboard-heading ladder landed ----------------
     dict(pat=r"tracker's box\s+heading|the tracker\s+heading",
          why='WOMD boxes are offboard auto-labels refined over the whole track, future '
@@ -121,10 +126,16 @@ RETIRED = [
          instead='the three encodings with a shuffled control on the corrected export, '
                  'with constant-pose named as a capacity control'),
     dict(pat=r'corruption-invariant|survives every\s+corruption|survives arbitrary angular',
-         why='the persistent term is slow, not permanent: the 579 ladder reads -0.1 to '
-             '+2.7% from 24.9 deg outward, with intervals excluding the ~6% a scaled '
-             'persistent term predicts, and a 60 deg median is near-uniform on the circle',
-         instead='a slowly decaying term that the corruptions in this ladder do not resolve'),
+         why='the persistent term is slow, not permanent: the 25k rung held out at '
+             '24.9 deg reads -10.39% against the -13.2% Eq. 1 extrapolates, and a 60 deg '
+             'median is near-uniform on the circle',
+         instead='a slowly decaying term, four fifths of it left at 24.9 deg'),
+    # --- retired 2026-11-09, when the 25k rung at 24.9 deg landed -------------------
+    dict(pat=r'intervals that exclude the|decay somewhere beyond\s+our rungs',
+         why='the 579 rungs above 15.1 deg read ~0 because they were blind, not because '
+             'the term had gone: scaled from 25k, 24.9 deg should read ~4.7% there, below '
+             'its MDE of 6.6 pp, while the 25k rung itself converts -10.39% (p=0.003)',
+         instead='the held-out 25k rung: four fifths of the slow term survive 24.9 deg'),
     dict(pat=r'Selection is not available to any observation-time',
          why='Sec. V-B measures observation-time cues that do carry partial mode '
              'information (box heading 25.2 deg, SMPL 44.2 deg against 90 deg chance), '
@@ -283,6 +294,12 @@ def main() -> int:
                 expected = by_deg[0.0]['rel'] * (n25[15.1] / n25[0.0])
                 checks.append((g, 'rung 15.1 effect the 579 ladder should have expected',
                                -expected, '6.2'))
+            # and its flat top: the 25k rung at 24.9 deg, scaled the same way
+            if 0.0 in n25 and 24.9 in n25 and 24.9 in by_deg:
+                expected = by_deg[0.0]['rel'] * (n25[24.9] / n25[0.0])
+                checks += [(g, 'rung 24.9 effect the 579 ladder should have expected',
+                            -expected, '4.7'),
+                           (g, 'rung 24.9 MDE at 579', by_deg[24.9]['mde80'], '6.6')]
 
     D25 = load('detection_floor_25k.json')
     if D25:
@@ -308,6 +325,17 @@ def main() -> int:
         if two.get('residuals_pp'):
             for v in two['residuals_pp']:
                 pass    # two-component residuals are quoted only as "to 0.4 pp"
+        for h in D25.get('held_out', []):
+            if h['median_err_deg'] == 24.9:
+                r = next(r for r in D25['rungs'] if r['median_err_deg'] == 24.9)
+                checks += [(g, f'held-out 24.9 p (n={r["n"]})', r['p'], '0.003'),
+                           (g, f'held-out 24.9 CI low (n={r["n"]})', abs(r['lo']), '12.9'),
+                           (g, f'held-out 24.9 CI high (n={r["n"]})', abs(r['hi']), '7.9'),
+                           (g, 'held-out 24.9 Eq. 1 extrapolation', abs(h['predicted']),
+                            '13.2')]
+                # "Four fifths of the term survive" and "below 0.1%"
+                assert 0.75 <= h['slow_share'] < 0.85, h['slow_share']
+                assert h['precision_term'] < 0.1, h['precision_term']
         fit1 = D25.get('decay_fit', {})
         if fit1.get('residuals_pp'):
             # the paper quotes these as the reason the functional form is wrong
@@ -498,30 +526,32 @@ def main() -> int:
     if PN:
         g = 'onboard-track ladder (Sec. IV-E, Table onboard)'
         R = {r['noise_cm']: r for r in PN['rungs']}
-        # n is in every label: seeds 404/505 are in flight, and when they land these
-        # values move and the mismatch is the signal to refresh Sec. IV-E
+        # n is in every label, so a change in the seed count shows up as a mismatch.
+        # The track rungs are at n=5 since 2026-11-10; the paper also quotes the
+        # first-three-seed reading, recomputed here from the per-seed values.
         n10, n30 = R[10]['n'], R[30]['n']
         c30, c10 = R[30]['content'], R[10]['content']
         fe = [abs(x['content']['rel']) for x in R[30]['fixed_epoch'].values()]
         e10 = R[10]['tracker_error']
         e30 = R[30]['tracker_error']
         checks += [
-            (g, f'30 cm content (n={n30})', abs(c30['rel']), '6.05'),
-            (g, f'30 cm content, abstract (n={n30})', abs(c30['rel']), '6.0'),
-            (g, f'30 cm content p (n={n30})', c30['p'], '0.004'),
-            (g, f'30 cm CI lo (n={n30})', abs(c30['lo']), '7.7'),
-            (g, f'30 cm CI hi (n={n30})', abs(c30['hi']), '4.4'),
-            (g, f'30 cm per-seed min (n={n30})', min(abs(x) for x in c30['per_seed_rel']), '5.3'),
+            (g, f'30 cm content (n={n30})', abs(c30['rel']), '5.32'),
+            (g, f'30 cm content, abstract (n={n30})', abs(c30['rel']), '5.3'),
+            (g, f'30 cm content p (n={n30})', c30['p'], '0.002'),
+            (g, f'30 cm CI lo (n={n30})', abs(c30['lo']), '7.3'),
+            (g, f'30 cm CI hi (n={n30})', abs(c30['hi']), '3.4'),
+            (g, f'30 cm per-seed min (n={n30})', min(abs(x) for x in c30['per_seed_rel']), '2.7'),
             (g, f'30 cm per-seed max (n={n30})', max(abs(x) for x in c30['per_seed_rel']), '6.5'),
-            (g, f'30 cm per-seed s101 (n={n30})', abs(c30['per_seed_rel'][0]), '6.4'),
-            (g, f'30 cm fixed-epoch min (n={n30})', min(fe), '6.5'),
-            (g, f'30 cm fixed-epoch max (n={n30})', max(fe), '6.6'),
-            (g, f'30 cm vs no-pose (n={n30})', abs(R[30]['pose_vs_nopose']['rel']), '4.60'),
-            (g, f'30 cm vs no-pose p (n={n30})', R[30]['pose_vs_nopose']['p'], '0.05'),
-            (g, f'10 cm content (n={n10})', abs(c10['rel']), '2.14'),
-            (g, f'10 cm content p (n={n10})', c10['p'], '0.06'),
-            (g, f'10 cm vs no-pose (n={n10})', abs(R[10]['pose_vs_nopose']['rel']), '1.92'),
-            (g, f'10 cm vs no-pose p (n={n10})', R[10]['pose_vs_nopose']['p'], '0.03'),
+            (g, '30 cm content, first three seeds',
+             abs(sum(c30['per_seed_rel'][:3]) / 3), '6.05'),
+            (g, f'30 cm fixed-epoch min (n={n30})', min(fe), '5.2'),
+            (g, f'30 cm fixed-epoch max (n={n30})', max(fe), '5.8'),
+            (g, f'30 cm vs no-pose (n={n30})', abs(R[30]['pose_vs_nopose']['rel']), '4.06'),
+            (g, f'30 cm vs no-pose p (n={n30})', R[30]['pose_vs_nopose']['p'], '0.004'),
+            (g, f'10 cm content (n={n10})', abs(c10['rel']), '2.08'),
+            (g, f'10 cm content p (n={n10})', c10['p'], '0.005'),
+            (g, f'10 cm vs no-pose (n={n10})', abs(R[10]['pose_vs_nopose']['rel']), '1.21'),
+            (g, f'10 cm vs no-pose p (n={n10})', R[10]['pose_vs_nopose']['p'], '0.07'),
             (g, '10 cm baseline loss', R[10]['degradation']['rel'], '14.1'),
             (g, '30 cm baseline loss', R[30]['degradation']['rel'], '32.3'),
             (g, 'clean rung content', R[0]['content']['rel'], '0.41'),
@@ -546,10 +576,10 @@ def main() -> int:
         w = PS['walking']
         checks += [
             (g, 'walking n', PS['_meta']['sizes']['walking'], '8{,}757'),
-            (g, f'walking 10 cm content (n={w["pn10"]["content"]["n"]})', abs(w['pn10']['content']['rel']), '3.8'),
-            (g, f'walking 10 cm p (n={w["pn10"]["content"]["n"]})', w['pn10']['content']['p'], '0.02'),
-            (g, f'walking 30 cm content (n={w["pn30"]["content"]["n"]})', abs(w['pn30']['content']['rel']), '7.3'),
-            (g, f'walking 30 cm p (n={w["pn30"]["content"]["n"]})', w['pn30']['content']['p'], '0.003'),
+            (g, f'walking 10 cm content (n={w["pn10"]["content"]["n"]})', abs(w['pn10']['content']['rel']), '3.3'),
+            (g, f'walking 10 cm p (n={w["pn10"]["content"]["n"]})', w['pn10']['content']['p'], '0.008'),
+            (g, f'walking 30 cm content (n={w["pn30"]["content"]["n"]})', abs(w['pn30']['content']['rel']), '6.8'),
+            (g, f'walking 30 cm p (n={w["pn30"]["content"]["n"]})', w['pn30']['content']['p'], '0.0002'),
             (g, 'standing n', PS['_meta']['sizes']['stationary'], '3{,}336'),
         ]
     SF = load('standing_finetune.json')
