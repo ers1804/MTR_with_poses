@@ -61,7 +61,7 @@
 % (2) late fusion: pose encoder -> concat with agent feature -> fuser MLP
 % =====================================================================
 \node[pose,minimum width=24mm] (penc) at (5.35,5.43)
-  {\textbf{Pose encoder}\\GRU or x-attn $+$ PE};
+  {\textbf{Pose encoder}\\cross-attention $+$ PE};
 \node[num] at (penc.north west) {2};
 \draw[late] (split) -- (penc.west);
 \ivtokrow{7.55}{5.43}{1}{posetok}{tPose}

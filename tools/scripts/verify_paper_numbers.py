@@ -269,6 +269,40 @@ RETIRED = [
 ]
 
 
+# Numbers that left the paper in the cut to eight pages (2026-11-12). Their results stay
+# in experiments/ and their checks stay below, but a check whose number is no longer
+# written can only pass by coincidence (the test is "the string occurs somewhere"), so
+# these are skipped by name instead of being left to pass or fail at random. Remove an
+# entry when its number returns to the text. An entry that matches no check is reported.
+CUT = {
+    ('facing (ladder units)', 'SMPL p25'),
+    ('facing (ladder units)', 'SMPL p75'),
+    ('facing (ladder units)', 'SMPL p90'),
+    ('detection floor (Table II)', 'rung 0.0 MDE (n=3)'),
+    ('detection floor (Table II)', 'rung 5.0 MDE (n=3)'),
+    ('detection floor (Table II)', 'rung 10.0 MDE (n=5)'),
+    ('detection floor (Table II)', 'high rungs MDE low'),
+    ('detection floor (Table II)', 'high rungs MDE high'),
+    ('detection floor (Table II)', 'high rungs rel most negative'),
+    ('detection floor (Table II)', 'high rungs rel most positive'),
+    ('detection floor (Table II)', 'rung 24.9 effect the 579 ladder should have expected'),
+    ('detection floor (Table II)', 'rung 24.9 MDE at 579'),
+    ('oracle ladder 25k (Table I)', 'persistent_range_pct low'),
+    ('oracle ladder 25k (Table I)', 'persistent_range_pct high'),
+    ('oracle ladder 25k (Table I)', 'amplitude_range_pct low'),
+    ('oracle ladder 25k (Table I)', 'amplitude_range_pct high'),
+    ('oracle ladder 25k (Table I)', 'half_life_range_deg low'),
+    ('oracle ladder 25k (Table I)', 'half_life_range_deg high'),
+    ('horizon decomposition (Sec. V-A)', 'abs gain widest mode-spread quartile'),
+    ('horizon decomposition (Sec. V-A)', 'abs gain other quartiles low'),
+    ('horizon decomposition (Sec. V-A)', 'abs gain other quartiles high'),
+    ('per-joint recovery (Table V)', 'knee/ankle skill low'),
+    ('per-joint recovery (Table V)', 'knee/ankle skill high'),
+    ('per-joint recovery (Table V)', 'elbow skill low'),
+    ('per-joint recovery (Table V)', 'elbow skill high'),
+}
+
+
 def check_retired(tex):
     """Grep for claims the project has withdrawn. Returns a list of violations."""
     bad = []
@@ -839,6 +873,10 @@ def main() -> int:
             (g, f'10.0 deg rel (n={R[10]["n"]})', abs(R[10]['rel']), '15.5'),
         ]
 
+    skipped = [c for c in checks if (c[0], c[1]) in CUT]
+    stale = sorted(CUT - {(c[0], c[1]) for c in checks})
+    checks = [c for c in checks if (c[0], c[1]) not in CUT]
+
     bad, group = [], None
     for g, label, val, written in checks:
         if g != group:
@@ -877,6 +915,9 @@ def main() -> int:
               f'permitted scope')
 
     print()
+    print(f'{len(skipped)} checks skipped: their numbers were cut from the eight-page version')
+    for g, label in stale:
+        print(f'  stale CUT entry, no such check: [{g}] {label}')
     if bad:
         print(f'{len(bad)} MISMATCH(ES):')
         for g, label, val, written, status in bad:
