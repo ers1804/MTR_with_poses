@@ -34,21 +34,26 @@ erik.schuetz@gmx.de}}
 Gait and facing appear to encode pedestrian intent that a position history
 lacks, making body pose an attractive forecasting input. On the Waymo Open
 Motion Dataset (WOMD), with SMPL poses recovered from LiDAR, we find that whether
-it pays depends on the track it is added to. The decisive comparison is correct
+it pays depends on the track it is added to, and on what the pose pipeline was
+itself given. The decisive comparison is correct
 pose against the same architecture fed \emph{another pedestrian's} pose, which
 separates body information from an extra branch's capacity. On WOMD's tracks it
 returns $+0.04\%$ ($p{=}0.93$) at our largest scale, and the data bound the
 content effect to $\pm1.7\%$. Those tracks are offboard auto-labels, refined
 with future frames. Replace the observed history with what a causal onboard
 tracker would report, and own pose beats a stranger's by $5.3\%$ ($p{=}0.002$)
-at $30$\,cm of detection noise, on moving pedestrians, whose gait carries the
-speed the tracker loses. Degrading the box heading instead leaves the null
+at $30$\,cm of detection noise. Three quarters of that gain is the label
+returning through the body: the pipeline's motion-prior fit matches the gait to
+the offboard track, and with poses that never saw the track the gain is $1.3\%$
+($p{=}0.10$). What remains grows with the LiDAR returns on the body, to $3.5\%$
+($p{=}0.010$) on pedestrians with at least $200$, and is absent below $30$.
+Degrading the box heading instead leaves the null
 intact, because body facing is a noisier copy of that heading ($12.3^\circ$
 against $3.9^\circ$). An oracle through the same branch converts the agent's own
 future bearing at every accuracy we trained, so the pathway is not the obstacle.
-Pose is redundant with an offboard track, not with a causal one. Before
-integrating a modality, measure what it carries beyond the inputs the model
-already has, and measure it against the inputs a vehicle will have.
+Before integrating a modality, measure what it carries beyond the inputs the
+model already has, at the quality a vehicle will have, and check which labels
+its own pipeline consumed.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -69,8 +74,11 @@ that the reason is the track it is added to. WOMD's boxes are offboard
 auto-labels, refined with the whole track, future frames
 included~\cite{ettinger2021waymo,qi2021offboard}. Against that track the body
 restates what the model already knows. Against the history a causal onboard
-tracker would report, the same body pays. The reason can be checked
-quantitatively, and cheaply, before a modality is integrated at all.
+tracker would report, the same body appears to pay, and most of that gain is the
+offboard label returning through the pose pipeline, which fits the gait to the
+track. Poses that never saw the track pay only where the sensor resolves the
+body. Both reasons can be checked quantitatively, and cheaply, before a modality
+is integrated at all.
 
 We make four contributions.
 
@@ -90,13 +98,17 @@ replaces the body with a signal encoding the agent's own future, improves
 \minADE by $34.8\%$ through the same branch, so the null is a property of what
 pose adds to these tracks, not of the plumbing.
 
-\textbf{Where it pays.} We replace WOMD's observed history with what a causal
-tracker would report, per-frame detection noise filtered by a forward-only
-Kalman filter, and repeat the content test. Pose now pays: own pose beats a
-stranger's by $5.3\%$ at $30$\,cm of detection noise, on moving pedestrians,
-whose gait carries the speed the tracker loses. Corrupting the box heading
-instead leaves the null intact. The body carries gait that an offboard track
-makes redundant and a causal one does not.
+\textbf{An onboard-quality track, and a label leak.} We replace WOMD's observed
+history with what a causal tracker would report, per-frame detection noise
+filtered by a forward-only Kalman filter, and repeat the content test. Own pose
+now beats a stranger's by $5.3\%$ at $30$\,cm of detection noise. Three quarters
+of that is not body information. The pose pipeline ends in a motion-prior fit
+whose loss matches the gait to the box track, so the fitted body states the
+clean speed the tracker lost: body pose alone predicts it with $R^2{=}0.94$,
+against $0.44$ before the fit. Rerun on the pre-fit poses, the gain is $1.3\%$
+and no longer significant, except on well-resolved bodies, where it is $3.5\%$
+and grows with LiDAR returns. Corrupting the box heading instead leaves the null
+intact.
 
 \textbf{What the pathway converts, and what it does not.} We corrupt that oracle
 with a controlled angular error to ask what kind of information the branch turns
@@ -146,8 +158,8 @@ and, in the harder case for us, from $0.40$ to $0.36$ on JRDB with
 on JTA ($1.20{\to}0.90$) and on JRDB. Salzmann et al.~\cite{salzmann2023robots}
 report ${\approx}10\%$ from onboard-estimated keypoints at ranges up to $7$\,m,
 specifically for agents with little position history. A short history is a
-poor track, the condition under which we find pose paying
-(Sec.~\ref{sec:onboard}).
+poor track and $7$\,m is a well-resolved body, the one condition under which our
+track-free poses pay (Sec.~\ref{sec:onboard}).
 
 Le et al.~\cite{le2026legsoverarms} reach the opposite conclusion on JRDB and, in
 doing so, say the most useful thing about ours: they localise the gain to
@@ -162,10 +174,10 @@ dozen LiDAR returns at $40$\,m recover its mean position and lose much of its
 amplitude. So the two results do not conflict: theirs is what this cue is worth when the
 limbs are resolved and the predictor has no heading input, ours what it is worth
 when the trajectory already carries the body's direction and speed. Degrade our
-track to a causal tracker's and a gain appears on moving pedestrians, where gait
-acts (Sec.~\ref{sec:onboard}). Sparsity alone does not
-account for the difference, since our content test is null even on the
-best-resolved agents (Sec.~\ref{sec:hide}).
+track to a causal tracker's and a gain appears on the best-resolved bodies, and
+only there (Sec.~\ref{sec:onboard}). On the offboard track sparsity does not
+account for the difference, since the content test is null even on those agents
+(Sec.~\ref{sec:hide}).
 
 The most informative comparison is within Social-Pose itself. Alongside JTA it
 evaluates on Pedestrians and Cyclists in Road Traffic, the one vehicle-captured
@@ -226,7 +238,10 @@ past-trajectory direction by more than $90^\circ$, the pipeline snaps the root t
 the direction of travel. Body facing is therefore partly trajectory-derived for
 moving pedestrians. This reinforces the redundancy we report rather than
 weakening it, and it does not reach the stationary-onset analysis, whose events
-are all below $0.3$\,m/s.
+are all below $0.3$\,m/s. A second property bears on Sec.~\ref{sec:onboard}: the
+motion-prior stage fits each sequence against the box track, so the completed
+body is not independent of that track. We call the per-frame LiDAR-HMR output
+that precedes it the \emph{pre-fit} pose.
 
 Our first pass at this study was invalid. The export keyed pose clips by a
 scene-\emph{local} object identifier, so clips collided across scenes and nearly
@@ -463,14 +478,17 @@ Sec.~\ref{sec:belowfloor}). At that multiplicity one or two such results are
 expected by chance, and their direction is against a pose mechanism rather than
 for one. We report them so that the released metrics contain no surprise. The tests of
 Sec.~\ref{sec:onboard} that favour pose are a different kind of result. They
-test one hypothesis fixed before the runs, grow with the noise and agree in sign
-on every seed.
+grow with the noise and agree in sign on every seed, and that section shows that
+most of what they measure is a label, not a body.
 
 \begin{table}[t]
 \caption{Onboard-quality inputs at $25$k scenes, $n{=}3$ seeds per arm on the
 heading rungs and $n{=}5$ on the track rungs. Each condition degrades one input
 of the baseline and repeats the content test. Loss is the no-pose baseline
-against its clean cell on the seeds both share, and negative favours pose.}
+against its clean cell on the seeds both share, and negative favours pose. The
+fitted poses saw the offboard track, so their track rungs overstate what the
+body adds. The last rows repeat the $30$\,cm rung on pre-fit poses, overall and
+by mean LiDAR returns.}
 \label{tab:onboard}
 \centering
 \footnotesize
@@ -483,14 +501,18 @@ None & --- & $+0.41\%$ & $0.60$ & $+1.97\%$ \\
 \multicolumn{5}{@{}l}{\emph{Box heading, fixed error $\mathcal{N}(0,\sigma^2)$}}\\
 $\sigma{=}15^\circ$ & $+5.8\%$  & $-0.14\%$ & $0.90$ & $-0.39\%$ \\
 $\sigma{=}30^\circ$ & $+12.6\%$ & $-0.11\%$ & $0.93$ & $+1.34\%$ \\
-\multicolumn{5}{@{}l}{\emph{Track, causal tracker on detection noise $s$}}\\
-$s{=}10$\,cm & $+14.1\%$ & $\mathbf{-2.08\%}$ & $\mathbf{0.005}$ & $-1.21\%$ \\
-$s{=}30$\,cm & $+32.3\%$ & $\mathbf{-5.32\%}$ & $\mathbf{0.002}$ & $-4.06\%$ \\
+\multicolumn{5}{@{}l}{\emph{Track, causal tracker on detection noise $s$, fitted poses}}\\
+$s{=}10$\,cm & $+14.1\%$ & $-2.08\%$ & $0.005$ & $-1.21\%$ \\
+$s{=}30$\,cm & $+32.3\%$ & $-5.32\%$ & $0.002$ & $-4.06\%$ \\
+\multicolumn{5}{@{}l}{\emph{Track at $s{=}30$\,cm, pre-fit poses}}\\
+All pedestrians & $+32.3\%$ & $-1.34\%$ & $0.10$ & $+0.36\%$ \\
+\quad $<30$ returns & --- & $-0.34\%$ & $0.72$ & $+1.82\%$ \\
+\quad $\ge200$ returns & --- & $-3.47\%$ & $0.010$ & $-1.99\%$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Where it pays: an onboard-quality track}
+\subsection{An onboard-quality track, and a label leak}
 \label{sec:onboard}
 Everything above is measured on WOMD's tracks, and those are offboard
 auto-labels. An offline network refines every box with the whole track, future
@@ -507,31 +529,61 @@ corruption of Sec.~\ref{sec:belowfloor}. At prediction time the tracker is off
 by $7.5$\,cm and $0.23$\,m/s in median at $s{=}10$\,cm, and by $21$\,cm and
 $0.46$\,m/s at $30$\,cm, against a median pedestrian speed of $1.1$\,m/s.
 
-The null breaks (Table~\ref{tab:onboard}). At $30$\,cm own pose beats a
-stranger's by $5.32\%$ ($p{=}0.002$, $95\%$ CI $[-7.3,-3.4]$) and beats no pose
-by $4.06\%$ ($p{=}0.004$), over five seeds. All five agree in sign ($-2.7$ to
-$-6.5\%$), and so does every fixed late epoch ($-5.2$ to $-5.8\%$ at epochs
-$26$, $28$ and $30$), so this is not the stopping rule. The first three seeds
-read $-6.05\%$, and unlike the effects in this study that dissolved under more
-seeds, this one held. At $10$\,cm it is smaller, $-2.08\%$ against shuffled
-($p{=}0.005$) and $-1.21\%$ against no pose ($p{=}0.07$). It sits where gait
-would put it. On the $8{,}757$ pedestrians walking at $0.8$ to $1.6$\,m/s it is
-$-3.3\%$ ($p{=}0.008$) at $10$\,cm and $-6.8\%$ ($p{=}0.0002$) at $30$\,cm,
-while on the $3{,}336$ standing at prediction time it is significant at
-neither. The box heading still states a
-walker's direction, so what the tracker spoils is speed and path, and a stride
-carries speed: gait and speed correlate at $r{=}0.58$ on the corrected export
-(Sec.~\ref{sec:setup}).
+With the pipeline's fitted poses the null breaks (Table~\ref{tab:onboard}). At
+$30$\,cm own pose beats a stranger's by $5.32\%$ ($p{=}0.002$, $95\%$ CI
+$[-7.3,-3.4]$) and beats no pose by $4.06\%$ ($p{=}0.004$), over five seeds. All
+five agree in sign ($-2.7$ to $-6.5\%$), and so does every fixed late epoch
+($-5.2$ to $-5.8\%$ at epochs $26$, $28$ and $30$). At $10$\,cm it is $-2.08\%$
+against shuffled ($p{=}0.005$) and $-1.21\%$ against no pose ($p{=}0.07$). It
+sits where gait would put it. On the $8{,}757$ pedestrians walking at $0.8$ to
+$1.6$\,m/s it is $-3.3\%$ ($p{=}0.008$) at $10$\,cm and $-6.8\%$ ($p{=}0.0002$)
+at $30$\,cm, while on the $3{,}336$ standing at prediction time it is
+significant at neither. It reads as a stride restoring the speed the tracker
+lost.
 
-The clean track cannot reach the model through the body. The pose stream holds
-joint rotations only, with no translation, covers only the $11$ observed
-frames, and the pose and shuffled arms receive identical tracks. Two caveats
-bound the result. The tracker is simulated, with Gaussian detection noise rather
-than a detector's correlated, occlusion-driven errors. And the bodies are still
-fitted inside offboard boxes, so an onboard pose estimate would degrade too and
-these gains are optimistic for this estimator. What they establish is the
-direction: the same body that adds nothing to an offboard track adds measurably
-to a causal one.
+\textbf{Most of it is the label.} The fitted poses are not independent of the
+track. The motion-prior stage~\cite{he2022nemf} is a latent optimisation whose
+loss predicts the root translation from the local body motion and matches it to
+the box track, so the fit pulls the gait toward a stride that reproduces the
+offboard displacement. The model input holds joint rotations only and covers
+only the $11$ observed frames, so auditing the input does not reveal it. A check
+without training does. On $11{,}588$ validation pedestrians, gradient-boosted
+trees predict the clean one-second speed from body pose alone, root excluded,
+with $R^2{=}0.94$ from the fitted pose and $0.44$ from the pre-fit one. On
+moving pedestrians with fewer than $30$ LiDAR returns it is $0.78$ against less
+than zero: the fitted body knows a speed the sensor could not have shown it.
+Added to the $30$\,cm tracker's own state, the fitted pose removes $71\%$ of its
+speed error, the pre-fit pose about a fifth and a stranger's $1\%$. At $10$\,cm
+the shares are $21\%$ and under $2\%$.
+
+We therefore reran both pose arms at $30$\,cm on the pre-fit poses, which see
+only the points inside the box. Files, agents, tracks and the stranger assigned
+to each pedestrian are unchanged, and the two shuffled arms agree ($+0.40\%$,
+$p{=}0.54$). Own pose now beats a stranger's by $1.34\%$ ($p{=}0.10$, CI
+$[-3.1,+0.4]$) and does not beat no pose ($+0.36\%$, $p{=}0.54$). The fit
+accounts for $3.98$ of the $5.32$ points ($p{=}0.0001$, between $3.5$ and $4.9$
+on every seed), and on walkers $-6.8\%$ becomes $-0.8\%$ ($p{=}0.36$).
+
+\textbf{What survives follows the sensor.} Split by mean LiDAR returns over the
+observed second, the pre-fit content effect is $-0.3\%$ below $30$ returns,
+$-1.0\%$ and $-1.4\%$ in the two middle strata, and $-3.47\%$ ($p{=}0.010$, CI
+$[-5.6,-1.4]$) on the $2{,}365$ pedestrians with at least $200$, where it also
+beats no pose ($-1.99\%$, $p{=}0.041$). The top stratum is better than the
+bottom on every seed, by $3.1$ points ($p{=}0.004$), and at every fixed late
+epoch it reads $-3.2$ to $-4.6\%$. The fitted poses show no gradient ($-5.3$,
+$-5.4$, $-4.1$ and $-6.0\%$, $p{=}0.41$), as a leak that does not depend on the
+sensor would not. On the offboard track the same stratum is null
+(Sec.~\ref{sec:hide}).
+
+Three caveats bound this. The tracker is simulated, with Gaussian detection
+noise rather than a detector's correlated, occlusion-driven errors. The pre-fit
+poses are per-frame and unsmoothed, so a prior fitted to the body alone might
+recover more, and a clean pipeline lies somewhere between $1.3\%$ and $5.3\%$.
+And returns are one of two stratifications we scored on this rung, four strata
+each, so the gradient needs replication. What the two runs establish is that the
+same body adds nothing to an offboard track, adds to a causal one where the
+sensor resolves it, and that a pose fitted to a labelled track inherits the
+label.
 
 \section{Why Pose Does Not Pay on Offboard Tracks}
 \label{sec:why}
@@ -588,12 +640,14 @@ it to $0.4$\,pp:
 a precision term with a half-life of $3.0^\circ$ over a term that is flat across
 the fitted span. The seeds agree closely: $12.3$--$14.2\%$ persistent,
 amplitudes $20.8$--$21.8\%$, half-lives $2.8$--$3.4^\circ$. That term is slow,
-not permanent, and a rung held out of the fit measures it. By $24.9^\circ$ the
+not permanent, and two rungs held out of the fit measure it. By $24.9^\circ$ the
 precision term is below $0.1\%$, so that rung reads the slow term almost alone,
 and it still converts: $-10.39\%$ ($p{=}0.003$, CI $[-12.9,-7.9]$) against the
 $-13.2\%$ Eq.~(\ref{eq:floor}) extrapolates (Table~\ref{tab:floor}). Four fifths
-of the term survive a $25^\circ$ median error. It must vanish eventually, since a
-$60^\circ$ median error is close to uniform on the circle.
+of the term survive a $25^\circ$ median error. At $44.4^\circ$ the gain is
+$-6.92\%$ ($p{=}0.013$, CI $[-10.3,-3.5]$), so about half of it is left. It must
+vanish eventually, since a $60^\circ$ median error is close to uniform on the
+circle.
 
 \textbf{The angular axis is not an acceptance threshold.} It is tempting to read
 $\theta$ as the accuracy a cue must reach: feed the branch a channel whose
@@ -707,8 +761,8 @@ ${\sim}1.6\%$ cost of the branch that would carry it.
 per-agent angular error, each rung labelled by the median bearing error actually
 delivered. Tests are paired $t$ against each seed's own no-pose run, and
 negative favours the oracle. MDE is the minimum effect a rung could detect at $80\%$ power given its
-realised spread. At $25$k scenes every rung converts, out to $24.9^\circ$, which
-is held out of Eq.~(\ref{eq:floor}). Even $15.1^\circ$ is worse at every
+realised spread. At $25$k scenes every rung converts, out to $44.4^\circ$. The
+last two rungs are held out of Eq.~(\ref{eq:floor}). Even $15.1^\circ$ is worse at every
 percentile than the box heading the model already receives. The ladder therefore bounds what a direction channel could buy rather
 than setting an accuracy a cue must reach (Sec.~\ref{sec:floor}). The same ladder at
 $579$ scenes reports a floor at $15.1^\circ$ that is its own MDE: proportionally
@@ -728,6 +782,7 @@ $5.0^\circ$  & 3 & $-19.77\%$ & $0.0007$ & $[-22.1,-17.5]$ & $2.9$ \\
 $10.0^\circ$ & 3 & $-15.68\%$ & $0.0009$ & $[-17.7,-13.6]$ & $2.6$ \\
 $15.1^\circ$ & 3 & $-13.57\%$ & $0.0016$ & $[-15.9,-11.2]$ & $2.9$ \\
 $24.9^\circ$ & 3 & $-10.39\%$ & $0.0031$ & $[-12.9,-7.9]$ & $3.1$ \\
+$44.4^\circ$ & 3 & $-6.92\%$ & $0.0127$ & $[-10.3,-3.5]$ & $4.2$ \\
 \midrule
 \multicolumn{6}{@{}l}{\emph{$579$ scenes: the same ladder, underpowered}}\\
 $0.0^\circ$  & 3 & $-15.8\%$ & $0.021$  & $[-25.6,-5.9]$ & $12.3$ \\
@@ -789,8 +844,8 @@ each arm from its clean model for five epochs on standing pedestrians alone
 leaves pose against shuffled on them at $-1.2\%$ ($p{=}0.28$), no better than
 before ($+1.5$\,pp, $p{=}0.36$). The clean rung reproduces our main cells to within $0.4\%$, and a second
 learning rate at $30^\circ$ does no better ($+0.7\%$, $p{=}0.48$). However the heading is degraded,
-facing stays redundant, and what a degraded track loses and the body restores is
-speed (Sec.~\ref{sec:onboard}).
+facing stays redundant. What a degraded track loses is speed, and the body
+restores it only where the sensor resolves the body (Sec.~\ref{sec:onboard}).
 
 \subsection{The cheaper pathway converts a bearing, and still not pose}
 \label{sec:earlyfloor}
@@ -940,10 +995,12 @@ the input it would supplement. It is calibrated against the box heading, snapped
 to the direction of travel for the $95.5\%$ of agents that move, and recovered
 from the same returns, so where it is accurate it is redundant and where it would
 be independent it is worst (Sec.~\ref{sec:belowfloor}). Sec.~\ref{sec:onboard}
-tests the clause from the other side: leave the body as it is, degrade the input
-it duplicates, and the same body pays. Redundancy is therefore a property of a
-modality together with the inputs beside it, and an offboard-labelled benchmark
-sets those inputs at offboard quality. The check this licenses
+tests the clause from the other side: degrade the input the body duplicates, and
+the body pays where the sensor resolves it. It also shows the clause has a trap.
+A cue whose pipeline was fitted to the input it supplements carries that input,
+and looks informative exactly when the input is degraded. Redundancy is
+therefore a property of a modality together with the inputs beside it, and an
+offboard-labelled benchmark sets those inputs at offboard quality. The check this licenses
 is still cheap and still skipped, and it is still a measurement on the dataset
 with no training: how much of the target does the candidate cue explain that the
 existing inputs do not?
@@ -955,7 +1012,10 @@ but how much of that cue it explains \emph{beyond the inputs the model already
 receives}, and take those inputs at the quality a vehicle will have. That costs
 no training. On offboard labels it predicts our null, and a simulated causal
 tracker, a few lines in a data loader, shows what the same body is worth on a
-realistic track. Second, an oracle ladder is still worth its handful
+realistic track. Ask the same of the cue's provenance. Our fitted poses
+predicted the labelled speed with $R^2{=}0.94$, which no body seen through $30$
+returns can, and that one number would have flagged the leak before any
+training. Second, an oracle ladder is still worth its handful
 of runs, as a positive control and as an upper bound on the pathway, but size it
 so its MDE is below the effect you would act on, and do not read its angular axis
 as an acceptance threshold: ours converts a channel less accurate than an input
@@ -978,8 +1038,9 @@ estimator. We ladder two integration pathways rather than one, but two is not
 every way a cue can enter a model, and the early-fusion ladder stops at
 $10.0^\circ$ (Sec.~\ref{sec:earlyfloor}). The onboard track is simulated:
 Gaussian detection noise through a constant-velocity Kalman filter rather than a
-detector's errors. Its bodies are still fitted inside offboard boxes, and we
-have not run it through early fusion. The redundancy
+detector's errors. The pre-fit poses are still estimated from points cropped by
+offboard boxes, the pre-fit control covers the $30$\,cm rung only, and we have
+not run either through early fusion. The redundancy
 counterfactual, which deletes the heading channel to see whether facing then
 pays, is run at the $579$-scene rung rather than at $25$k, and its seed-level
 intervals there are wide enough that the agent-level analysis carries the turn
@@ -992,15 +1053,16 @@ here. We do not model pose--pose interaction.
 
 \section{Conclusion}
 Body pose, recovered from LiDAR, does not improve pedestrian trajectory
-forecasting on WOMD's offboard tracks, and it does once those tracks are
-replaced by what a causal onboard tracker would report. On the offboard labels
+forecasting on WOMD's offboard tracks. On the offboard labels
 the null is controlled against a shuffled-pose baseline and holds across scale,
 representation, integration and box-heading quality, and an oracle through the
-same branch rules out a dead pathway. Under a simulated tracker own pose beats a
-stranger's by $5.3\%$, on moving pedestrians, where gait carries the speed the
-tracker loses. The two results are one mechanism: a cue pays only for what it
-carries beyond the model's existing inputs, and an offboard track leaves the
-body nothing to add. Degrading the box heading does not make body facing pay.
+same branch rules out a dead pathway. Under a simulated onboard tracker own pose
+beats a stranger's by $5.3\%$, and three quarters of that is the offboard label,
+carried in by a pose pipeline that fits the gait to the track. Poses that never
+saw the track gain $1.3\%$ overall and $3.5\%$ on well-resolved bodies. The
+results are one mechanism: a cue pays only for what it carries beyond the
+model's existing inputs, an offboard track leaves the body nothing to add, and a
+cue fitted to a label carries the label. Degrading the box heading does not make body facing pay.
 As a bearing it is a noisier copy of that heading, and worst, at $41.2^\circ$,
 on the stationary pedestrians it was meant to serve. The oracle ladder shows
 what the pathway would convert, a direction channel at every accuracy we
@@ -1008,8 +1070,9 @@ trained, and that what it sells beyond precision is knowledge of which future
 occurred, which no sensor supplies. The lesson generalises past pose. Before
 integrating a modality, measure how much of the cue it carries beyond the
 model's existing inputs, take those inputs at the quality a vehicle will have
-rather than from offboard labels, and make sure any ladder you judge it against
-can resolve the effect you would act on.
+rather than from offboard labels, check what the cue's own pipeline was fitted
+to, and make sure any ladder you judge it against can resolve the effect you
+would act on.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}

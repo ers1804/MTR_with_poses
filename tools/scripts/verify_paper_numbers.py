@@ -179,13 +179,33 @@ RETIRED = [
     dict(pat=r'neither finds anything in the\s+body to read',
          why='under a simulated causal tracker own pose beats a stranger\'s by 6% on moving '
              'pedestrians; the body has nothing to add to an OFFBOARD track only',
-         instead='pose adds nothing to an offboard track and pays on a causal one'),
+         instead='pose adds nothing to an offboard track; on a causal one the fitted pose mostly '
+                 'restates the label and the pre-fit pose pays on well-resolved bodies'),
     dict(pat=r'this ladder does not degrade them',
          why='positions are degraded by the onboard-track ladder (Sec. IV-E)',
          instead='point to Sec. IV-E'),
     dict(pat=r'does not measurably improve pedestrian trajectory accuracy\.',
          why='unscoped: the null holds on offboard tracks, not on a causal tracker\'s',
          instead='scope it to WOMD\'s offboard tracks'),
+    # --- retired 2026-11-12, when the pre-fit control landed --------------------------
+    # The fitted poses come out of a motion-prior fit that matches the gait to the WOMD
+    # box track, so they carry the offboard speed. On pre-fit poses the 30 cm content
+    # effect is -1.34% (p=0.10) against -5.32%, and on walkers -0.8% against -6.8%.
+    dict(pat=r'clean track cannot reach the model',
+         why='it does, through the pose pipeline: body pose alone predicts the clean speed '
+             'with R^2 0.94 after the fit and 0.44 before',
+         instead='the label leak paragraph of Sec. IV-E'),
+    dict(pat=r'not with a\s+causal one|the same body pays|Pose now pays|same body that adds '
+             r'nothing to an offboard track adds\s+measurably',
+         why='three quarters of the onboard-track gain is the fit restating the offboard '
+             'track; pre-fit pose does not beat no-pose overall (+0.36%)',
+         instead='pre-fit poses pay only on well-resolved bodies (-3.47% at >=200 returns)'),
+    dict(pat=r'gait carries the\s+speed the tracker|where gait\s+acts|a stride\s+carries speed',
+         why='the walker effect was the leak: -6.8% with fitted poses, -0.8% (p=0.36) pre-fit',
+         instead='what survives follows LiDAR returns, not walking speed'),
+    dict(pat=r'this one held',
+         why='it held across seeds because a leak is as repeatable as a signal',
+         instead='report the pre-fit control beside it'),
     dict(pat=r'160\.6',
          why='MPJPE from the misaligned harness protocol; the fair number is 87.6 mm',
          instead='87.6 mm root-aligned, timestamp-aligned'),
@@ -336,6 +356,15 @@ def main() -> int:
                 # "Four fifths of the term survive" and "below 0.1%"
                 assert 0.75 <= h['slow_share'] < 0.85, h['slow_share']
                 assert h['precision_term'] < 0.1, h['precision_term']
+            if h['median_err_deg'] == 44.4:
+                r = next(r for r in D25['rungs'] if r['median_err_deg'] == 44.4)
+                checks += [(g, f'held-out 44.4 p (n={r["n"]})', r['p'], '0.013'),
+                           (g, f'held-out 44.4 p, table (n={r["n"]})', r['p'], '0.0127'),
+                           (g, f'held-out 44.4 CI low (n={r["n"]})', abs(r['lo']), '10.3'),
+                           (g, f'held-out 44.4 CI high (n={r["n"]})', abs(r['hi']), '3.5')]
+                # "about half of it is left"
+                assert 0.45 <= h['slow_share'] < 0.60, h['slow_share']
+                assert r['hi'] < 0, r['hi']    # "every rung converts, out to 44.4"
         fit1 = D25.get('decay_fit', {})
         if fit1.get('residuals_pp'):
             # the paper quotes these as the reason the functional form is wrong
@@ -542,8 +571,6 @@ def main() -> int:
             (g, f'30 cm CI hi (n={n30})', abs(c30['hi']), '3.4'),
             (g, f'30 cm per-seed min (n={n30})', min(abs(x) for x in c30['per_seed_rel']), '2.7'),
             (g, f'30 cm per-seed max (n={n30})', max(abs(x) for x in c30['per_seed_rel']), '6.5'),
-            (g, '30 cm content, first three seeds',
-             abs(sum(c30['per_seed_rel'][:3]) / 3), '6.05'),
             (g, f'30 cm fixed-epoch min (n={n30})', min(fe), '5.2'),
             (g, f'30 cm fixed-epoch max (n={n30})', max(fe), '5.8'),
             (g, f'30 cm vs no-pose (n={n30})', abs(R[30]['pose_vs_nopose']['rel']), '4.06'),
@@ -563,6 +590,88 @@ def main() -> int:
             (g, '30 cm tracker velocity error', e30['vel_err_median_ms'], '0.46'),
             (g, 'median pedestrian speed', e30['speed_median_ms'], '1.1'),
         ]
+    PF = {r['noise_cm']: r for r in (PN or {}).get('prefit', [])}
+    if 30 in PF and 'content' in PF[30]:
+        g = 'pre-fit control at 30 cm (Sec. IV-E, Table onboard)'
+        p = PF[30]
+        n, c, d = p['n'], p['content'], p['content_prefit_minus_final']
+        checks += [
+            (g, f'content (n={n})', abs(c['rel']), '1.34'),
+            (g, f'content, abstract (n={n})', abs(c['rel']), '1.3'),
+            (g, f'content p (n={n})', c['p'], '0.10'),
+            (g, f'content CI lo (n={n})', abs(c['lo']), '3.1'),
+            (g, f'content CI hi (n={n})', c['hi'], '0.4'),
+            (g, f'vs no-pose (n={n})', p['pose_vs_nopose']['rel'], '0.36'),
+            (g, f'vs no-pose p (n={n})', p['pose_vs_nopose']['p'], '0.54'),
+            (g, 'shuffled arms agree', p['prefit_shuffled_vs_final_shuffled']['rel'], '0.40'),
+            (g, 'shuffled arms agree p', p['prefit_shuffled_vs_final_shuffled']['p'], '0.54'),
+            (g, 'points the fit accounts for', d['rel'], '3.98'),
+            (g, 'points the fit accounts for, p', d['p'], '0.0001'),
+            (g, 'per-seed min', min(d['per_seed_rel']), '3.5'),
+            (g, 'per-seed max', max(d['per_seed_rel']), '4.9'),
+        ]
+        assert p['seeds'] == [101, 202, 303, 404, 505], p['seeds']
+        # "Three quarters of that gain is the label"
+        assert 0.70 <= 1 - p['surviving_share'] <= 0.80, p['surviving_share']
+        assert c['p'] > 0.05 and p['pose_vs_nopose']['rel'] > 0     # "does not beat no pose"
+    PSF = (load('position_noise_subpopulation.json') or {}).get('prefit', {}).get('pn30')
+    if PSF:
+        g = 'pre-fit control by LiDAR returns (Sec. IV-E, Table onboard)'
+        lo, m1, m2, hi, w = (PSF[k] for k in ('pts<30', 'pts30-100', 'pts100-200',
+                                             'pts>=200', 'walking'))
+        gr = PSF['returns_gradient']
+        fe = [abs(x['pts>=200']['rel']) for x in PSF['fixed_epoch'].values()]
+        checks += [
+            (g, 'walkers, pre-fit content', abs(w['content']['rel']), '0.8'),
+            (g, 'walkers, pre-fit content p', w['content']['p'], '0.36'),
+            (g, '<30 returns content', abs(lo['content']['rel']), '0.34'),
+            (g, '<30 returns content, text', abs(lo['content']['rel']), '0.3'),
+            (g, '<30 returns p', lo['content']['p'], '0.72'),
+            (g, '<30 returns vs no-pose', lo['pose_vs_nopose']['rel'], '1.82'),
+            (g, '30-100 returns content', abs(m1['content']['rel']), '1.0'),
+            (g, '100-200 returns content', abs(m2['content']['rel']), '1.4'),
+            (g, '>=200 returns n', hi['n_agents'], '2{,}365'),
+            (g, '>=200 returns content', abs(hi['content']['rel']), '3.47'),
+            (g, '>=200 returns content, abstract', abs(hi['content']['rel']), '3.5'),
+            (g, '>=200 returns p', hi['content']['p'], '0.010'),
+            (g, '>=200 returns CI lo', abs(hi['content']['lo']), '5.6'),
+            (g, '>=200 returns CI hi', abs(hi['content']['hi']), '1.4'),
+            (g, '>=200 returns vs no-pose', abs(hi['pose_vs_nopose']['rel']), '1.99'),
+            (g, '>=200 returns vs no-pose p', hi['pose_vs_nopose']['p'], '0.041'),
+            (g, 'gradient, top minus bottom (pp)', abs(gr['prefit']['top_minus_bottom']['rel']), '3.1'),
+            (g, 'gradient p', gr['prefit']['top_minus_bottom']['p'], '0.004'),
+            (g, 'fixed-epoch min, >=200', min(fe), '3.2'),
+            (g, 'fixed-epoch max, >=200', max(fe), '4.6'),
+            (g, 'fitted, <30 returns', abs(lo['content_final_same_seeds']['rel']), '5.3'),
+            (g, 'fitted, 30-100 returns', abs(m1['content_final_same_seeds']['rel']), '5.4'),
+            (g, 'fitted, 100-200 returns', abs(m2['content_final_same_seeds']['rel']), '4.1'),
+            (g, 'fitted, >=200 returns', abs(hi['content_final_same_seeds']['rel']), '6.0'),
+            (g, 'fitted gradient p', gr['final']['top_minus_bottom']['p'], '0.41'),
+        ]
+        # "better than the bottom on every seed" and "at every fixed late epoch"
+        assert all(x < 0 for x in gr['prefit']['top_minus_bottom']['per_seed'])
+        assert all(x['pts>=200']['p'] < 0.05 for x in PSF['fixed_epoch'].values())
+    LK = load('pose_fit_leak_speed.json')
+    if LK:
+        g = 'label leak through the pose fit (Sec. IV-E)'
+        a = LK['A']['v_win']
+        w30, w10 = LK['C']['v_win']['s30']['all'], LK['C']['v_win']['s10']['all']
+        sparse = LK['A']['by_points']['pts<30']
+        checks += [
+            (g, 'pedestrians', LK['n'], '11{,}588'),
+            (g, 'R2 fitted', a['all']['r2_final'], '0.94'),
+            (g, 'R2 pre-fit', a['all']['r2_raw'], '0.44'),
+            (g, 'R2 fitted, movers <30 returns', sparse['r2_final'], '0.78'),
+            (g, '30 cm: share removed, fitted', w30['mse_removed']['tracker+final'] * 100, '71'),
+            (g, '30 cm: share removed, stranger', w30['mse_removed']['tracker+final_shuf'] * 100, '1'),
+            (g, '10 cm: share removed, fitted', w10['mse_removed']['tracker+final'] * 100, '21'),
+        ]
+        # The trees are fitted with threaded numerics, so a rerun moves the weak pre-fit
+        # numbers in the second decimal (-0.03 and -0.05, 21.7% and 21.5%, 1.4% and 1.7% on
+        # two runs). The paper states those three in words, checked here as ranges.
+        assert sparse['r2_raw'] < 0, sparse['r2_raw']                        # "less than zero"
+        assert 0.18 <= w30['mse_removed']['tracker+raw'] <= 0.25             # "about a fifth"
+        assert 0 <= w10['mse_removed']['tracker+raw'] < 0.02                 # "under 2%"
     HT = HN and {r['sigma_deg']: r for r in HN['rungs']}
     if HT:
         g = 'onboard-heading ladder, Table onboard'
