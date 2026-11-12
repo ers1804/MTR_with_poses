@@ -43,8 +43,8 @@ tracker would report, own pose beats a stranger's by $5.3\%$ ($p{=}0.002$) at
 $30$\,cm of detection noise. Three quarters of that gain is the label returning
 through the body: the pipeline's motion-prior fit matches the gait to the
 offboard track. With poses that never saw the track the gain is $1.3\%$
-($p{=}0.10$), and $3.5\%$ ($p{=}0.010$) on pedestrians with at least $200$
-LiDAR returns, in one stratification that awaits replication. An oracle through
+($p{=}0.10$), and $3.5\%$ ($p{=}0.010$, uncorrected) on pedestrians with at
+least $200$ LiDAR returns. An oracle through
 the same branch converts the agent's own future bearing, so the pathway is not
 the obstacle. Before integrating a modality, measure what it carries beyond the
 model's existing inputs at the quality a vehicle will have, and check which
@@ -97,7 +97,7 @@ whose loss matches the gait to the box track, so the fitted body states the
 clean speed the tracker lost: body pose alone predicts it with $R^2{=}0.94$,
 against $0.44$ before the fit. Rerun on the pre-fit poses, the gain is $1.3\%$
 and no longer significant. On well-resolved bodies it is $3.5\%$ and grows
-with LiDAR returns, a result from one stratification that awaits replication.
+with LiDAR returns, a result that rests on one stratification.
 
 \textbf{What the pathway converts, and what it does not.} We corrupt that oracle
 with a controlled angular error to ask what kind of information the branch turns
@@ -507,8 +507,7 @@ recover more, though on the $347$ frames with labelled keypoints the fitted
 poses are no more accurate than the pre-fit ones ($92.7$ against $87.6$\,mm
 MPJPE).
 And returns are one of two stratifications we scored at this noise level, four strata
-each, so $p{=}0.010$ is uncorrected over eight strata and the gradient needs
-replication. What the two runs establish is that the same body adds nothing to
+each, so $p{=}0.010$ is uncorrected over eight strata. What the two runs establish is that the same body adds nothing to
 an offboard track and that a pose fitted to a labelled track inherits the
 label. That it adds to a causal track where the sensor resolves it rests on one
 stratification.
@@ -794,8 +793,8 @@ and an oracle through the same branch rules out a dead pathway. Under a
 simulated onboard tracker own pose beats a stranger's by $5.3\%$, and three
 quarters of that is the offboard label, carried in by a pose pipeline that fits
 the gait to the track. Poses that never saw the track gain a non-significant
-$1.3\%$ overall and $3.5\%$ on the best-resolved bodies, which awaits
-replication. The results are one mechanism: a cue pays only for what it carries
+$1.3\%$ overall and $3.5\%$ on the best-resolved bodies, the latter in one
+stratification. The results are one mechanism: a cue pays only for what it carries
 beyond the model's existing inputs, an offboard track leaves the body nothing to
 add, and a cue fitted to a label carries the label. Before integrating a
 modality, measure what it carries beyond those inputs at the quality a vehicle
