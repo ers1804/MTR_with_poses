@@ -22,7 +22,7 @@ SWEEP="$(dirname "$0")/60_heading_noise.sh"
 # a running task's comment with its GPU bus id.
 QUEUE=$(squeue -u "$USER" -h -r -o '%j %K' 2>/dev/null)
 
-for mode in ladder lrcheck posladder standft; do
+for mode in ladder lrcheck posladder standft prefit; do
   mapfile -t TASKS < <(sed -n "/^  ${mode}) TASKS=(/,/^  );/p" "$SWEEP" \
     | grep -oE '"[^"]+\|[^"]+\|[0-9]+"' | tr -d '"')
   if [ ${#TASKS[@]} -eq 0 ]; then
@@ -33,6 +33,7 @@ for mode in ladder lrcheck posladder standft; do
     lrcheck)   STATUS="$WS/logs/status_hn_lr.txt"; PFX=HN;;
     posladder) STATUS="$WS/logs/status_pn.txt";    PFX=PN;;
     standft)   STATUS="$WS/logs/status_ft.txt";    PFX=FT;;
+    prefit)    STATUS="$WS/logs/status_pf.txt";    PFX=PF;;
   esac
 
   RUNNING=" $(awk -v m="mtr_hn_$mode" '$1 == m {print $2}' <<<"$QUEUE" | tr '\n' ' ') "

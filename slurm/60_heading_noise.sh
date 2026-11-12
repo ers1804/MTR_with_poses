@@ -31,11 +31,18 @@
 # clean rung is the ladder's sigma=0 cells, so only the two noisy rungs run here.
 #
 #   sbatch --array=0-8 --job-name=mtr_hn_standft slurm/60_heading_noise.sh standft
+#   sbatch --array=0-9 --job-name=mtr_hn_prefit  slurm/60_heading_noise.sh prefit
 #
 # standft fine-tunes each arm's sigma=0 model (its final epoch-30 checkpoint, same seed)
 # for 5 epochs on pedestrians STANDING at prediction time only (TRAIN_CENTER_SPEED_MAX),
 # to test whether full-dataset training drowns out a stationary-only pose benefit.
 # Eval stays on every agent; the stationary subset is scored from the pickles.
+#
+# prefit repeats the 30 cm posladder rung with poses that never saw the track. The final
+# poses are fitted by a motion prior whose loss matches the gait to the WOMD box track,
+# so they carry the clean track's speed, which is what that rung's tracker loses. The
+# per-frame LiDAR-HMR output does not (tools/scripts/export_prefit_poses.py, staged from
+# poses_${RUNG}_prefit.tar). Its no-pose arm is posladder's, which reads no pose at all.
 #
 # The job name is what lets the watchdog tell a queued ladder task 0 from lrcheck task 0.
 #
@@ -88,7 +95,9 @@ export CUDA_CACHE_PATH="$TMPDIR/cache/nv"
 mkdir -p "$MPLCONFIGDIR" "$TORCH_HOME" "$TRITON_CACHE_DIR" "$CUDA_CACHE_PATH"
 
 echo "staging data to $TMPDIR ..."
-tar xf "$WS/data/poses_${RUNG}.tar"     -C "$TMPDIR"
+POSES_TAR="poses_${RUNG}.tar"; POSES_DIR="$TMPDIR/poses"
+if [ "$MODE" = prefit ]; then POSES_TAR="poses_${RUNG}_prefit.tar"; POSES_DIR="$TMPDIR/poses_prefit"; fi
+tar xf "$WS/data/$POSES_TAR"            -C "$TMPDIR"
 tar xf "$WS/data/scenarios_${RUNG}.tar" -C "$TMPDIR"
 
 PFX=HN
@@ -176,7 +185,20 @@ case "$MODE" in
     "cross_attn_pe_with_map_shufflepose_standft_scale25k|0.00000625|202"
     "cross_attn_pe_with_map_shufflepose_standft_scale25k|0.00000625|303"
   ); STATUS="$WS/logs/status_ft.txt"; PFX=FT;;
-  *) echo "unknown mode: $MODE (expected ladder|lrcheck|posladder|standft)" >&2; exit 2;;
+  # Paired by seed, so the first tasks to finish already form complete pairs.
+  prefit) TASKS=(
+    "cross_attn_pe_with_map_prefit_posnoise30_scale25k|0.000025|101"
+    "cross_attn_pe_with_map_shufflepose_prefit_posnoise30_scale25k|0.000025|101"
+    "cross_attn_pe_with_map_prefit_posnoise30_scale25k|0.000025|202"
+    "cross_attn_pe_with_map_shufflepose_prefit_posnoise30_scale25k|0.000025|202"
+    "cross_attn_pe_with_map_prefit_posnoise30_scale25k|0.000025|303"
+    "cross_attn_pe_with_map_shufflepose_prefit_posnoise30_scale25k|0.000025|303"
+    "cross_attn_pe_with_map_prefit_posnoise30_scale25k|0.000025|404"
+    "cross_attn_pe_with_map_shufflepose_prefit_posnoise30_scale25k|0.000025|404"
+    "cross_attn_pe_with_map_prefit_posnoise30_scale25k|0.000025|505"
+    "cross_attn_pe_with_map_shufflepose_prefit_posnoise30_scale25k|0.000025|505"
+  ); STATUS="$WS/logs/status_pf.txt"; PFX=PF;;
+  *) echo "unknown mode: $MODE (expected ladder|lrcheck|posladder|standft|prefit)" >&2; exit 2;;
 esac
 
 if [ "${SLURM_ARRAY_TASK_ID:-0}" -ge "${#TASKS[@]}" ]; then
@@ -205,7 +227,7 @@ python train.py \
   --cfg_file "cfgs/waymo/mtr+pose_data_${cfg}.yaml" \
   --extra_tag "$tag" --random_seed "$seed" --workers 8 --max_ckpt_save_num 1 \
   ${INIT:+--pretrained_model "$INIT"} \
-  --set DATA_CONFIG.DATA_ROOT "$TMPDIR/poses" \
+  --set DATA_CONFIG.DATA_ROOT "$POSES_DIR" \
         DATA_CONFIG.PROCESSED_SCENARIOS_PATH "$TMPDIR/scenarios" \
         MODEL.MOTION_DECODER.SMPL_MODEL_DIR "$WS/MTR_with_poses/models" \
         OPTIMIZATION.LR "$lr"
