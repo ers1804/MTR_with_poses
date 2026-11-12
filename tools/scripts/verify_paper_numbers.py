@@ -44,6 +44,53 @@ TEX = os.environ.get('PAPER_TEX',
 # an occurrence legitimate -- several of these numbers are fine in their correct scope
 # and wrong as headlines.
 RETIRED = [
+    # --- retired 2026-11-12, after a review of the paper against the code -------------
+    dict(pat=r'Degrading the box heading|Corrupting the box heading|box-heading quality|'
+             r'However the heading is\s+degraded|onboard-heading\s+ladder|Nor does degrading it',
+         why='the heading-noise runs rotate the agent-centric frame but leave the clean '
+             'per-timestep heading in the channel (it reads -eps at the prediction frame, '
+             'waymo_pose_dataset.py transform_trajs_to_center_coords), and the pose root is '
+             'in world coordinates (AGENT_CENTRIC_POSE_ROT is unset in every headnoise '
+             'config). They do not test a degraded heading',
+         instead='a frame-rotation control; whether facing pays under an onboard-quality '
+                 'heading is untested'),
+    dict(pat=r'pose root,?\s+rotated into the same corrupted frame|map and pose root\s+all inherit',
+         why='obj_poses is identical with and without heading noise; the root is never '
+             'rotated into the frame in those configs',
+         instead='the pose root stays in world coordinates'),
+    dict(pat=r'fusion residual\s+is zero-initialised',
+         why='the zero-initialised residual exists only under POSE_FUSER_RESIDUAL, which '
+             'only the four fine-tune configs set; every from-scratch arm uses a plain MLP '
+             'fuser with default initialisation',
+         instead='drop the clause'),
+    dict(pat=r'is absent below|track pay only where the sensor|and\s+only there \(Sec',
+         why='the <30-returns stratum reads -0.3% at best epoch but -1.4 to -2.1% (n.s.) at '
+             'fixed epochs 26/28/30, and the >=200 result is one of eight strata, unreplicated',
+         instead='"appears to", with the caveat, wherever the survivor is stated'),
+    dict(pat=r'minADE is\s+\$0\.091\$',
+         why='0.091 m is the 2 s error of the eight-seed replication, while the oracle '
+             'gain quoted beside it (1.4 cm, 14.7%) is taken from the 25k baseline, '
+             'which reads 0.097 m',
+         instead='0.097 m at 25k scenes'),
+    dict(pat=r'queries by predicted likelihood: a better',
+         why='the decoder keeps six modes by non-maximum suppression on the score with a '
+             '2.5 m endpoint radius (NMS_DIST_THRESH), not by a plain top-six',
+         instead='name the suppression and its radius'),
+    dict(pat=r'fixed at \$5\{,\}171\$ scenes and \$16\{,\}486\$ pedestrians',
+         why='the 5,171 scenes hold 17,218 predicted pedestrians; 732 have no valid future '
+             'step and are not scored, which leaves 16,486 in 4,648 scenes',
+         instead='give both counts'),
+    dict(pat=r'clean pipeline lies somewhere between',
+         why='nothing shows the fit adds body information: fitted poses score 92.7 mm '
+             'against 87.6 mm pre-fit on the same 347 labelled frames',
+         instead='state the MPJPE comparison'),
+    dict(pat=r'pedestrian-resampling bootstrap gives a visibly|under a\s+pedestrian-resampling bootstrap \(\$p\{=\}0\.037|'
+             r'pedestrian-resampling bootstrap makes the branch',
+         why='the +-1.2% interval, p=0.037, p=0.016 and p=0.006 are all from the '
+             'HIERARCHICAL bootstrap (multiseed_analysis.json pairs/*/hierarchical); the '
+             'pedestrian-only one is far tighter',
+         instead='"hierarchical bootstrap"'),
+
     dict(pat=r'factor of four|four times coarser',
          why='mixed units: 44.2 deg is onset direction on the stationary subset, the '
              'ladder is calibrated on displacement bearing over every predicted '
@@ -505,6 +552,15 @@ def main() -> int:
                 / len(r0))
         checks.append((g, '2 s oracle relative', abs(rel2), '14.7'))
         checks.append((g, '2 s oracle absolute (cm)', gain * 100.0, '1.4'))
+        # the baseline the gain is taken from, so the three figures share one source
+        checks.append((g, '2 s baseline minADE (m)',
+                       sum(x['minADE_2s']['base'] for x in r0) / len(r0), '0.097'))
+    CV = load('cv_baseline.json')
+    if CV:
+        checks += [('2 s headroom (Sec. V-F)', 'constant-velocity ADE at 2 s (m)',
+                    CV['cv_ade_2s'], '0.310'),
+                   ('validation set (Sec. III-D)', 'predicted pedestrians',
+                    CV['n_agents'], '17{,}218')]
 
     EF = load('detection_floor_ef25k.json')
     if EF and EF.get('rungs'):
@@ -522,31 +578,28 @@ def main() -> int:
 
     HN = load('heading_noise_ladder.json')
     if HN:
-        g = 'onboard-heading ladder (Sec. V-B)'
+        # 2026-11-12: this is a frame-rotation control, not a degraded heading (the
+        # heading channel still carries the clean heading in the rotated frame, and the
+        # pose root is in world coordinates). The paper no longer quotes the median added
+        # error, the recovery cap or the second learning rate, so they are not checked.
+        g = 'frame-rotation control (Sec. V-B)'
         R = {r['sigma_deg']: r for r in HN['rungs']}
         checks += [
             (g, 'sigma=15 baseline loss', R[15]['degradation']['rel'], '5.8'),
             (g, 'sigma=30 baseline loss', R[30]['degradation']['rel'], '12.6'),
-            (g, 'sigma=30 median added error', R[30]['median_added_err_deg'], '20.2'),
             (g, 'sigma=15 content', abs(R[15]['content']['rel']), '0.14'),
             (g, 'sigma=15 content p', R[15]['content']['p'], '0.90'),
             (g, 'sigma=30 content', abs(R[30]['content']['rel']), '0.11'),
             (g, 'sigma=30 content p', R[30]['content']['p'], '0.93'),
-            (g, 'sigma=30 recovery cap (%)', R[30]['max_recovered_share'] * 100, '38'),
             (g, 'clean rung vs workstation (max |rel|)',
              max(abs(x['rel']) for x in HN['reproduction'].values()), '0.4'),
-            (g, 'LR check', HN['lr_check']['vs_default']['rel'], '0.7'),
-            (g, 'LR check p', HN['lr_check']['vs_default']['p'], '0.48'),
         ]
     HS = load('heading_noise_subpopulation.json')
     if HS:
-        g = 'onboard-heading ladder, stationary (Sec. V-B)'
+        g = 'frame-rotation control, stationary (Sec. IV-D)'
         st = HS['stationary']
         checks += [
             (g, 'stationary n', HS['_meta']['sizes']['stationary'], '3{,}336'),
-            (g, 'sigma=15 baseline change', abs(st['sigma15']['degradation']['rel']), '1.1'),
-            (g, 'sigma=30 baseline change', st['sigma30']['degradation']['rel'], '4.3'),
-            (g, 'sigma=15 content', st['sigma15']['content']['rel'], '1.2'),
             (g, 'sigma=30 content', st['sigma30']['content']['rel'], '1.3'),
             (g, 'sigma=30 content p', st['sigma30']['content']['p'], '0.049'),
         ]
@@ -674,10 +727,82 @@ def main() -> int:
         assert 0 <= w10['mse_removed']['tracker+raw'] < 0.02                 # "under 2%"
     HT = HN and {r['sigma_deg']: r for r in HN['rungs']}
     if HT:
-        g = 'onboard-heading ladder, Table onboard'
+        g = 'frame-rotation control, Table onboard'
         checks += [
             (g, 'sigma=15 vs no-pose', abs(HT[15]['pose_vs_nopose']['rel']), '0.39'),
             (g, 'sigma=30 vs no-pose', HT[30]['pose_vs_nopose']['rel'], '1.34'),
+        ]
+    # --- added after the 2026-11-12 review of the paper against code and results ------
+    MS = load('multiseed_analysis.json')
+    if MS:
+        from scipy import stats as _st
+        import numpy as _np
+        C = MS['cells']
+
+        def _pair(a, b, key):
+            A, B = C[a]['seeds'], C[b]['seeds']
+            ss = sorted(set(A) & set(B))
+            x = _np.array([A[q][key] for q in ss], float)
+            y = _np.array([B[q][key] for q in ss], float)
+            return (x.mean() / y.mean() - 1) * 100, float(_st.ttest_rel(x, y)[1])
+        g = 'content test at epoch 30 (Sec. IV-B)'
+        for name, a, b, rel, pv in (
+                ('579', 'map_xattn_pe_fix', 'map_shufflepose_fix', '5.9', '0.16'),
+                ('5k', 'scale5k_lr5_xattn_pe', 'scale5k_lr5_shufflepose', '4.7', '0.07'),
+                ('25k', 'scale25k_xattn_pe', 'scale25k_shufflepose', '1.7', '0.60')):
+            r_, p_ = _pair(a, b, 'last_eval_minADE')
+            assert r_ < 0, (name, r_)                      # the paper prints them negative
+            checks += [(g, f'{name} content', abs(r_), rel), (g, f'{name} p', p_, pv)]
+        g = 'agent-frame-root content test (Sec. III-B)'
+        r_, p_ = _pair('fa_agentrot', 'fa_agentrot_shuf', 'best_minADE')
+        checks += [(g, 'content', r_, '0.68'), (g, 'p', p_, '0.49')]
+        g = 'miss rate at 2 m, content (Sec. IV-A)'
+        checks += [(g, '25k', _pair('scale25k_xattn_pe', 'scale25k_shufflepose', 'best_MR2m')[0], '2.2'),
+                   (g, 'fine-tuned', _pair('ft_xattn_pe_fix', 'ft_shufflepose_fix', 'best_MR2m')[0], '4.3')]
+    FO = load('facing_vs_observation_length.json')
+    if FO:
+        checks.append(('stationary onset (Sec. V-B)', 'onset events', FO['overall']['n'], '1{,}705'))
+    MP = load('full_pipeline_mpjpe.json')
+    if MP:
+        g = 'fitted vs pre-fit pose accuracy (Sec. IV-E)'
+        m = MP['paired_vs_lidar_hmr_stage_ts_aligned']['root_aligned']
+        checks += [(g, 'fitted MPJPE mm', m['full_mean'], '92.7'),
+                   (g, 'pre-fit MPJPE mm', m['lidar_hmr_mean'], '87.6'),
+                   (g, 'frames', m['n'], '347')]
+        assert m['full_mean'] > m['lidar_hmr_mean']        # "no more accurate"
+    HD = load('horizon_decomposition.json')
+    if HD:
+        checks.append(('metric definition (Sec. III-C)', 'share with a full 8 s future (%)',
+                       100 * HD['summary']['n_full_future'] / HD['summary']['n_paired'], '36'))
+    TE = load('position_noise_tracker_error_0.3.json')
+    if TE:
+        checks.append(('simulated tracker (Sec. IV-E)', 'pedestrians measured', TE['agents'], '675'))
+    if PN and PN.get('prefit'):
+        g = 'pre-fit control at fixed epochs (Sec. IV-E)'
+        fe = next(r for r in PN['prefit'] if r['noise_cm'] == 30)['fixed_epoch']
+        for e, rel in (('26', '1.4'), ('28', '2.6'), ('30', '1.5')):
+            assert fe[e]['content']['rel'] < 0
+            checks.append((g, f'epoch {e} content', abs(fe[e]['content']['rel']), rel))
+        checks.append((g, 'epoch 28 p', fe['28']['content']['p'], '0.02'))
+        assert fe['26']['content']['p'] > 0.05 and fe['30']['content']['p'] > 0.05   # "the second only"
+    PSr = load('position_noise_subpopulation.json')
+    if PSr and PSr.get('prefit', {}).get('pn30'):
+        g = 'pre-fit control by returns, robustness (Sec. IV-E)'
+        c30 = PSr['prefit']['pn30']
+        lo = [c30['fixed_epoch'][e]['pts<30'] for e in ('26', '28', '30')]
+        hi = [c30['fixed_epoch'][e]['pts>=200'] for e in ('26', '28', '30')]
+        gaps = [abs(h['rel'] - l['rel']) for h, l in zip(hi, lo)]
+        assert all(x['p'] > 0.05 for x in lo)              # "(n.s.)"
+        top = c30['pts>=200']
+        checks += [
+            (g, '<30 returns, fixed-epoch min', min(abs(x['rel']) for x in lo), '1.4'),
+            (g, '<30 returns, fixed-epoch max', max(abs(x['rel']) for x in lo), '2.1'),
+            (g, 'gap at fixed epochs, min', min(gaps), '1.7'),
+            (g, 'gap at fixed epochs, max', max(gaps), '2.5'),
+            (g, 'stranger arms differ in top stratum', top['shuffled_vs_final_shuffled']['rel'], '0.9'),
+            (g, 'stranger arms differ, p', top['shuffled_vs_final_shuffled']['p'], '0.015'),
+            (g, 'pre-fit pose vs fitted stranger', abs(top['pose_vs_final_shuffled']['rel']), '2.6'),
+            (g, 'pre-fit pose vs fitted stranger, p', top['pose_vs_final_shuffled']['p'], '0.03'),
         ]
     PS = load('position_noise_subpopulation.json')
     if PS:

@@ -151,7 +151,10 @@ def main() -> None:
                        content_final_same_seeds=ci(c_fin),
                        content_prefit_minus_final=ci(c_pre - c_fin),
                        pose_vs_nopose=ci(relp(pp, npo, mask)),
-                       shuffled_vs_final_shuffled=ci(relp(sh, fs, mask)))
+                       shuffled_vs_final_shuffled=ci(relp(sh, fs, mask)),
+                       # the two stranger arms need not agree inside a stratum, so the
+                       # content effect is also scored against the fitted stranger
+                       pose_vs_final_shuffled=ci(relp(pp, fs, mask)))
             res['prefit'][f'pn{r:02d}'][sub] = row
             c, f, d, pn = (row[k] for k in ('content', 'content_final_same_seeds',
                                             'content_prefit_minus_final', 'pose_vs_nopose'))
