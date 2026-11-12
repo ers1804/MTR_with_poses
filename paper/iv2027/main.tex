@@ -281,7 +281,7 @@ and a pedestrian-only bootstrap ignores between-seed variance entirely.
 Every arm trains for $30$ epochs with AdamW (batch $2$ per GPU, weight decay
 $0.01$, gradient-norm clipping $1.0$) under a step schedule that halves the
 learning rate at epochs $10$, $20$ and $25$, and the decoder predicts $K{=}6$ modes.
-The learning rate is chosen per rung from a grid run separately for each arm:
+The learning rate is chosen per scale from a grid run separately for each arm:
 $1{\times}10^{-4}$ at $579$ scenes, $5{\times}10^{-5}$ at $5$k and
 $2.5{\times}10^{-5}$ at $25$k, where every arm peaks at the same interior
 optimum. Validation is fixed at $5{,}171$ scenes and $16{,}486$ pedestrians. Headline
@@ -296,7 +296,7 @@ and the analysis scripts are released with the paper.
 
 \begin{table}[t]
 \caption{Content test across training scale, validation fixed. The learning rate
-is selected per rung by a grid run separately for every arm, and all arms peak at the
+is selected per scale by a grid run separately for every arm, and all arms peak at the
 same value (Sec.~\ref{sec:protocol}). Percentages are differences of arm means, and
 $p$-values are paired $t$-tests over per-seed differences. Negative favours pose.}
 \label{tab:ladder}
@@ -356,15 +356,15 @@ Pose     & $.364\ .372\ .371\ .374\ .373$ & $0.3708 \pm 0.0040$ & $+0.88\%$ \\
 
 \subsection{The null on offboard tracks, and its bound}
 Table~\ref{tab:ladder} trains all three arms at three scales. Data alone improves
-the baseline by $19.2\%$, while the content test is null at every rung, in \minADE and
+the baseline by $19.2\%$, while the content test is null at every scale, in \minADE and
 in \minFDE alike, and in miss rate at $2$\,m, where the content test is
 $+2.3\%$ at $25$k ($p{=}0.21$) and $+4.5\%$ fine-tuned ($p{=}0.19$): null, and
-with its sign against pose on all three metrics. The rungs are not equally
+with its sign against pose on all three metrics. The scales are not equally
 sensitive, and we state what each one
 could have seen: at $80\%$ power the minimum detectable content effect is
 $3.5\%$ at $579$ scenes ($n{=}5$), $7.6\%$ at $5$k ($n{=}3$) and $2.2\%$ at
-$25$k ($n{=}5$). The $5$k rung is therefore weak evidence on its own and we do
-not count it as an independent null. The weight falls on the $25$k rung, which
+$25$k ($n{=}5$). The $5$k scale is therefore weak evidence on its own and we do
+not count it as an independent null. The weight falls on $25$k, which
 is both the largest scale and the most sensitive. At $25$k the paired seed-level
 interval on the content difference is $[-1.59\%,+1.70\%]$, so at the largest
 scale we train the data exclude a content effect beyond roughly $1.7\%$ in either
@@ -415,7 +415,7 @@ pedestrian-resampling bootstrap makes the branch contrast look decisive
 against.
 
 \textbf{Tuning dominates the treatment.} At $5$k the learning rate inherited from
-the smaller rung made pose look catastrophic ($+37\%$). With per-arm tuning it reads
+the smaller scale made pose look catastrophic ($+37\%$). With per-arm tuning it reads
 $-0.90\%$, n.s. Across the $25$k grid the learning rate moves \minADE by up to
 $16.7\%$ against a content signal of ${\sim}0.05\%$: a pose-versus-baseline
 comparison that does not tune each arm separately is a claim about the learning
@@ -482,12 +482,12 @@ grow with the noise and agree in sign on every seed, and that section shows that
 most of what they measure is a label, not a body.
 
 \begin{table}[t]
-\caption{Onboard-quality inputs at $25$k scenes, $n{=}3$ seeds per arm on the
-heading rungs and $n{=}5$ on the track rungs. Each condition degrades one input
+\caption{Onboard-quality inputs at $25$k scenes, $n{=}3$ seeds per arm for
+heading noise and $n{=}5$ for track noise. Each condition degrades one input
 of the baseline and repeats the content test. Loss is the no-pose baseline
 against its clean cell on the seeds both share, and negative favours pose. The
-fitted poses saw the offboard track, so their track rungs overstate what the
-body adds. The last rows repeat the $30$\,cm rung on pre-fit poses, overall and
+fitted poses saw the offboard track, so their track-noise rows overstate what the
+body adds. The last rows repeat the $30$\,cm level on pre-fit poses, overall and
 by mean LiDAR returns.}
 \label{tab:onboard}
 \centering
@@ -579,7 +579,7 @@ Three caveats bound this. The tracker is simulated, with Gaussian detection
 noise rather than a detector's correlated, occlusion-driven errors. The pre-fit
 poses are per-frame and unsmoothed, so a prior fitted to the body alone might
 recover more, and a clean pipeline lies somewhere between $1.3\%$ and $5.3\%$.
-And returns are one of two stratifications we scored on this rung, four strata
+And returns are one of two stratifications we scored at this noise level, four strata
 each, so the gradient needs replication. What the two runs establish is that the
 same body adds nothing to an offboard track, adds to a causal one where the
 sensor resolves it, and that a pose fitted to a labelled track inherits the
@@ -615,7 +615,7 @@ Sec.~\ref{sec:poscontrol} shows the branch can carry information. Neither says
 what \emph{kind} of information this pathway turns into accuracy. We measured
 that by degrading the oracle.
 
-Each rung of Table~\ref{tab:floor} feeds the branch the same direction-only
+Each level of Table~\ref{tab:floor} feeds the branch the same direction-only
 oracle, the bearing of the agent's own future displacement at $3$ and $8$\,s,
 corrupted by a fixed angular error. Each is labelled by the median
 bearing error actually delivered: $0.6745\sigma$ by construction, since the
@@ -625,11 +625,11 @@ channel carries direction alone. The error is drawn once per pedestrian, not per
 epoch: a real estimator's error is a property of the observation, and resampling
 it would let training average it away.
 
-At $25$k scenes every rung converts, and the gain stays large: $-34.50\%$ with an
+At $25$k scenes every level converts, and the gain stays large: $-34.50\%$ with an
 exact bearing, $-19.77\%$ at $5.0^\circ$, $-15.68\%$ at $10.0^\circ$ and
 $-13.57\%$ at $15.1^\circ$, all at $p\le0.0016$ against minimum detectable
 effects of $1.4$--$2.9$\,pp. The decay is not exponential: one exponential fitted
-to the four rungs leaves residuals (measured minus fitted) of $-1.5$, $+3.2$,
+to the four levels leaves residuals (measured minus fitted) of $-1.5$, $+3.2$,
 $+0.3$ and $-2.5$\,pp, a systematic pattern in $\theta$ against those MDEs rather
 than scatter about the curve. The curve decelerates, and two terms fit
 it to $0.4$\,pp:
@@ -640,8 +640,8 @@ it to $0.4$\,pp:
 a precision term with a half-life of $3.0^\circ$ over a term that is flat across
 the fitted span. The seeds agree closely: $12.3$--$14.2\%$ persistent,
 amplitudes $20.8$--$21.8\%$, half-lives $2.8$--$3.4^\circ$. That term is slow,
-not permanent, and two rungs held out of the fit measure it. By $24.9^\circ$ the
-precision term is below $0.1\%$, so that rung reads the slow term almost alone,
+not permanent, and two levels held out of the fit measure it. By $24.9^\circ$ the
+precision term is below $0.1\%$, so that level reads the slow term almost alone,
 and it still converts: $-10.39\%$ ($p{=}0.003$, CI $[-12.9,-7.9]$) against the
 $-13.2\%$ Eq.~(\ref{eq:floor}) extrapolates (Table~\ref{tab:floor}). Four fifths
 of the term survive a $25^\circ$ median error. At $44.4^\circ$ the gain is
@@ -651,11 +651,11 @@ circle.
 
 \textbf{The angular axis is not an acceptance threshold.} It is tempting to read
 $\theta$ as the accuracy a cue must reach: feed the branch a channel whose
-bearing error is $\theta$, expect the gain at rung $\theta$. The ladder refutes
+bearing error is $\theta$, expect the gain at level $\theta$. The ladder refutes
 that reading itself. The baseline already receives the labelled box heading, as
 a per-timestep sine--cosine pair for every agent (Fig.~\ref{fig:arch}), and that
 heading estimates the \emph{same} future displacement bearing at $3.9^\circ$ in
-median, better than the $15.1^\circ$ rung's channel at every percentile
+median, better than the $15.1^\circ$ channel at every percentile
 ($9.3^\circ$ against $25.8^\circ$ at the third quartile, $20.1^\circ$ against
 $36.8^\circ$ at the ninetieth). A channel uniformly less accurate than an input
 the model already has still buys $-13.6\%$. Nor does the branch pay for merely
@@ -703,13 +703,13 @@ reads it.
 \textbf{A null at low power looks like a threshold.} We first ran this ladder at
 $579$ scenes, where it reads as a clean detection floor: significant at
 $10.0^\circ$ ($-6.0\%$, $p{=}0.04$), indistinguishable from zero at $15.1^\circ$
-($-1.4\%$, $p{=}0.47$), flat above. At $25$k that second rung is $-13.6\%$. The
+($-1.4\%$, $p{=}0.47$), flat above. At $25$k that second level is $-13.6\%$. The
 $579$ ladder could never have seen it: scaling its own $\theta{=}0$ amplitude
 ($-15.8\%$) by the $25$k decay predicts ${\approx}6.2\%$ there, against that
-rung's MDE of $6.7$\,pp. Scaled the same way, its $24.9^\circ$ rung should have
-read ${\approx}4.7\%$, below that rung's MDE of $6.6$\,pp, so its flat reading
+level's MDE of $6.7$\,pp. Scaled the same way, its $24.9^\circ$ level should have
+read ${\approx}4.7\%$, below that level's MDE of $6.6$\,pp, so its flat reading
 above $15.1^\circ$ was blindness too. Its apparent floor was the angle at which a three-seed
-experiment went blind, and a threshold read off the first non-significant rung is
+experiment went blind, and a threshold read off the first non-significant level is
 a statement about power wearing the clothes of a property of the task. We report
 both ladders in Table~\ref{tab:floor} for that reason.
 
@@ -758,11 +758,11 @@ ${\sim}1.6\%$ cost of the branch that would carry it.
 
 \begin{table}[t]
 \caption{The oracle ladder. A direction-only oracle corrupted by a fixed
-per-agent angular error, each rung labelled by the median bearing error actually
+per-agent angular error, each level labelled by the median bearing error actually
 delivered. Tests are paired $t$ against each seed's own no-pose run, and
-negative favours the oracle. MDE is the minimum effect a rung could detect at $80\%$ power given its
-realised spread. At $25$k scenes every rung converts, out to $44.4^\circ$. The
-last two rungs are held out of Eq.~(\ref{eq:floor}). Even $15.1^\circ$ is worse at every
+negative favours the oracle. MDE is the minimum effect a level could detect at $80\%$ power given its
+realised spread. At $25$k scenes every level converts, out to $44.4^\circ$. The
+last two levels are held out of Eq.~(\ref{eq:floor}). Even $15.1^\circ$ is worse at every
 percentile than the box heading the model already receives. The ladder therefore bounds what a direction channel could buy rather
 than setting an accuracy a cue must reach (Sec.~\ref{sec:floor}). The same ladder at
 $579$ scenes reports a floor at $15.1^\circ$ that is its own MDE: proportionally
@@ -798,8 +798,8 @@ $24.9$--$60.1^\circ$ & 3 & $-0.1$ to $+2.7\%$ & $\ge0.24$ & --- & $5.5$--$9.1$ \
 \textbf{Removing the redundant input does not rescue it.} Redundancy says why
 little is left for facing to add, but it is not by itself a mechanism that blocks
 conversion. So we tested the implied counterfactual: delete the box-heading
-channel, retrain all six cells, and repeat the content test, at the $579$-scene
-rung and eight seeds. Nothing appears, anywhere. The difference in content effect
+channel, retrain all six cells, and repeat the content test, at $579$ scenes
+and eight seeds. Nothing appears, anywhere. The difference in content effect
 between the two conditions is $+2.9$\,pp on the $13{,}006$ moving
 agents, \emph{the wrong sign} for a benefit that redundancy had been masking,
 and $-0.6$\,pp on the stationary ones ($p{=}0.65$). Seed-level
@@ -842,7 +842,7 @@ pose against shuffled reads $+1.2\%$ and $+1.3\%$ ($p{=}0.049$), if anything the
 wrong sign. Nor is the walking majority drowning out a signal there: fine-tuning
 each arm from its clean model for five epochs on standing pedestrians alone
 leaves pose against shuffled on them at $-1.2\%$ ($p{=}0.28$), no better than
-before ($+1.5$\,pp, $p{=}0.36$). The clean rung reproduces our main cells to within $0.4\%$, and a second
+before ($+1.5$\,pp, $p{=}0.36$). The clean condition reproduces our main cells to within $0.4\%$, and a second
 learning rate at $30^\circ$ does no better ($+0.7\%$, $p{=}0.48$). However the heading is degraded,
 facing stays redundant. What a degraded track loses is speed, and the body
 restores it only where the sensor resolves the body (Sec.~\ref{sec:onboard}).
@@ -851,11 +851,11 @@ restores it only where the sensor resolves the body (Sec.~\ref{sec:onboard}).
 \label{sec:earlyfloor}
 Early fusion removes the branch tax (Sec.~\ref{sec:real}), which makes it the
 pathway worth recommending, so we ran the same ladder through it, carrying the
-oracle in the per-timestep agent channels instead of the branch. At a given rung
-the six channels equal the branch's six inputs bit for bit, so the rungs keep
+oracle in the per-timestep agent channels instead of the branch. At a given level
+the six channels equal the branch's six inputs bit for bit, so the levels keep
 their measured-error labels.
 
-At $579$ scenes this ladder reads as a dead pathway. No rung is significant,
+At $579$ scenes this ladder reads as a dead pathway. No level is significant,
 \emph{including the uncorrupted one}: $-4.5\%$ at $\theta{=}0$ ($p{=}0.44$),
 $-1.0\%$ at $5.0^\circ$ ($p{=}0.53$) and $+0.2\%$ at $10.0^\circ$ ($p{=}0.94$),
 and the per-seed pattern looks like a mechanism rather than noise. The side
@@ -865,11 +865,11 @@ $+0.7\%$ and $-0.3\%$), with the two failing seeds sitting at their no-pose leve
 rather than scattering about it. A difference in \emph{how many seeds move at
 all} does not look like something a wide interval explains away.
 
-It was. The MDE at $\theta{=}0$ is $25.5$\,pp, and we re-ran the rung at $25$k
+It was. The MDE at $\theta{=}0$ is $25.5$\,pp, and we re-ran that level at $25$k
 scenes, where the branch ladder's MDE was $1.4$--$2.9$\,pp. Early fusion converts
 the uncorrupted channel there on \emph{every} seed, by $-31.2\%$
 ($p{=}0.0002$, $95\%$ CI $[-32.9,-29.5]$), against the branch's $-34.5\%$ at the
-same rung and denominator, and the corrupted rungs follow, $-19.4\%$ at
+same level and denominator, and the corrupted levels follow, $-19.4\%$ at
 $5.0^\circ$ and $-15.5\%$ at $10.0^\circ$ ($p{\le}0.001$), each within
 $0.4$\,pp of the branch. So the $579$ reading was the same power artifact
 twice over: once in the significance column, and once in a per-seed signature we
@@ -1029,20 +1029,20 @@ separates a benefit from a capacity effect either way. Fourth, do not accept a p
 per-joint skill, because the joints an aggregate flatters may be the ones
 carrying a prior.
 
-\textbf{Limitations.} The largest rung we train is $25$k scenes of the
-$299{,}220$ exported, so the full rung is a compute limit rather than an
+\textbf{Limitations.} The largest scale we train is $25$k scenes of the
+$299{,}220$ exported, so stopping there is a compute limit rather than an
 annotation one. At eight seeds the minimum detectable content effect is
-${\approx}1.25\%$ at $80\%$ power, and the ladders run at $n{=}3$ per rung,
-five on the track rungs (Tables~\ref{tab:floor} and~\ref{tab:onboard}). We test one forecaster, one dataset and one pose
+${\approx}1.25\%$ at $80\%$ power, and the ladders run at $n{=}3$ per level,
+five for track noise (Tables~\ref{tab:floor} and~\ref{tab:onboard}). We test one forecaster, one dataset and one pose
 estimator. We ladder two integration pathways rather than one, but two is not
 every way a cue can enter a model, and the early-fusion ladder stops at
 $10.0^\circ$ (Sec.~\ref{sec:earlyfloor}). The onboard track is simulated:
 Gaussian detection noise through a constant-velocity Kalman filter rather than a
 detector's errors. The pre-fit poses are still estimated from points cropped by
-offboard boxes, the pre-fit control covers the $30$\,cm rung only, and we have
+offboard boxes, the pre-fit control covers the $30$\,cm level only, and we have
 not run either through early fusion. The redundancy
 counterfactual, which deletes the heading channel to see whether facing then
-pays, is run at the $579$-scene rung rather than at $25$k, and its seed-level
+pays, is run at $579$ scenes rather than at $25$k, and its seed-level
 intervals there are wide enough that the agent-level analysis carries the turn
 strata. WOMD ships camera data only as
 quantised tokens, so a camera-based pose or gaze estimate cannot be tested at
