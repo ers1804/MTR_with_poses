@@ -2702,3 +2702,18 @@ table group labels and the general condition. Changed, uncommitted until the use
 - Table II placeholders "---" are "n/a". Numeric ranges with an en dash are written "to",
   "sine--cosine" is "sine and cosine". Left as they are: "gait--speed" and "pose--pose".
 - 7.97 pages, at least four spare lines. Verifier 230 checks and 6 rows.
+
+## 2026-11-13 Table III caption and the abstract carry the graphical abstract's numbers
+
+User asked for a caption that explains the dynamics table without the main text, and for
+the numbers of Fig. 1 to appear in the abstract. Uncommitted until the user decides.
+- Table III caption now says how a row is built (sort the 2,272 by one measure, quartiles of
+  568), what a cell is (own pose against a stranger's, negative favours own pose), what
+  tracker error means, and the reading (grows with tracker error, not with the manoeuvre).
+- Abstract adds: "Of these, the 2,272 with a second of future also gain 2.1% over no pose
+  (p=0.039), and 4.0% (p=0.003) on the half with the larger tracker error, a split chosen
+  after the result." The population is named because Table II gives 1.99% (p=0.041) for
+  the full stratum of 2,365, and a bare "2.1%" would contradict it. Abstract is 239 words.
+- Cuts to hold eight pages: the Practice sentence no longer repeats the 0.78 (it stays in
+  Sec. IV-E), and the low-power paragraph of Sec. V-A is one sentence shorter with the same
+  numbers. 7.97 pages, one to two spare lines. Verifier 230 checks and 6 rows.
