@@ -2496,3 +2496,38 @@ lines, the hierarchical-bootstrap sentence, the agent-level restatement and n=3 
 heading-removal paragraph, the standing fine-tune aside, the keypoint-spread clause in related
 work, the HMR2.0 sentence. verify_paper_numbers.py: 228 number checks and 6 rebuilt table rows
 pass, 45 checks skipped by name as cut.
+
+### 2026-11-13 MESH FIGURE BACK IN: returns against the pre-fit body, one pedestrian per stratum
+
+The point-cloud figure cut on 2026-11-12 (e064d74) is back as Fig. 2 (fig:pcmesh), rebuilt.
+Dynamics table and onboard examples were committed first (dd40d2a).
+
+WHAT CHANGED IN THE FIGURE. The old one drew Waymo Open Perception segments
+(/home/erik/big1/mpjpe_eval) by range band, and its caption said the far-range articulation
+"is largely the AMASS prior". That was wrong about its own panels: the script read amass/raw,
+which convert_amass.py writes before HuMoR and NeMF, so the meshes were pre-fit all along.
+The new one draws scored WOMD validation pedestrians, the population of the result:
+- strata of mean returns over the observed second, cut at 30, 100 and 200 (5,584 / 6,180 /
+  2,350 / 2,372 of the 16,486 in val_agent_pointcount_25k.pkl)
+- per stratum the pedestrian closest to the stratum median, at its frame closest to that mean
+- shown: 18 returns at 42 m, 54 at 45 m, 142 at 24 m, 356 at 13 m. All four are scored in all
+  ten pre-fit 30 cm runs.
+- body = amass_format_motion/raw, the same files export_prefit_poses.py exports
+Rule and picks: paper/iv2027/make_qualitative_pointclouds.py,
+experiments/pointcloud_mesh_examples.json. Needs the lidar-hmr env (smplx) and the NAS.
+
+It shows the input, not the effect. One pedestrian per stratum is an illustration.
+
+PAPER. Float in Sec. III-A, referenced at the pre-fit definition and in the returns paragraph
+of Sec. IV-E (two sentences describing the end panels). Onboard examples are now Fig. 3.
+Cut to hold 8 pages (7.97): the closing paragraph of Sec. V-A ("The ladder is therefore a
+positive control and an upper bound ..."), which Sec. VI and the opening of Sec. V-B restate,
+and the constant-velocity comparison in the general condition (0.310 m at 2 s, with its
+citation). verify_paper_numbers.py: 227 number checks and 6 table rows pass, 46 skipped as cut.
+
+REVIEW of the mesh figure (independent, same day). Picks, pairing, stage and scale reproduced,
+no defect. Mesh and point centroids agree to 0.10 to 0.18 m on the four pedestrians. One
+wording point: in the 18-return panel two returns sit on the upper thigh (heights 0.38 to 0.83
+of the body), so "none on the legs" became "between thigh and shoulder, with none on the head
+or the lower legs". The script now writes the height range of the returns on each body and
+the verifier asserts both descriptions against it.

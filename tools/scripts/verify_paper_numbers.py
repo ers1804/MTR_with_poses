@@ -321,6 +321,7 @@ CUT = {
     ('standing-only fine-tune (Sec. V-B)', 'content p'),
     ('standing-only fine-tune (Sec. V-B)', 'change vs init (pp)'),
     ('standing-only fine-tune (Sec. V-B)', 'change vs init p'),
+    ('2 s headroom (Sec. V-F)', 'constant-velocity ADE at 2 s (m)'),
 }
 
 
@@ -962,6 +963,23 @@ def main() -> int:
             (g, 'smallest error: stranger on all seeds', bot['stranger_all_seeds'], '32'),
         ]
         assert len(OX['shown']) == 4 and OX['epoch'] == 30    # "four", "final epoch"
+    PM = load('pointcloud_mesh_examples.json')
+    if PM:
+        # Fig. pcmesh cites no number beyond the stratum cuts. What Sec. IV-E says about
+        # its two end panels has to hold for the frames that are drawn.
+        shown = {e['stratum']: e for e in PM['shown']}
+        assert PM['strata_cut_at'] == [30, 100, 200] and len(shown) == 4
+        assert shown['<30']['frame_returns'] < 30 and shown['>=200']['frame_returns'] >= 200
+        # heights as a fraction of the drawn body: knee about 0.28, chin about 0.87.
+        # "between thigh and shoulder, none on the head or the lower legs"
+        assert 0.30 <= shown['<30']['returns_height_min']
+        assert shown['<30']['returns_height_max'] <= 0.86
+        # "from head to foot"
+        assert shown['>=200']['returns_height_min'] <= 0.10
+        assert shown['>=200']['returns_height_max'] >= 0.90
+        assert all(lo <= shown[k]['mean_returns'] < hi for k, lo, hi in
+                   (('<30', 0, 30), ('30-100', 30, 100), ('100-200', 100, 200),
+                    ('>=200', 200, float('inf'))))
 
     skipped = [c for c in checks if (c[0], c[1]) in CUT]
     stale = sorted(CUT - {(c[0], c[1]) for c in checks})

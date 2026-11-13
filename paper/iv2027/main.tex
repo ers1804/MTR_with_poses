@@ -191,7 +191,18 @@ weakening it, and it does not reach the stationary-onset analysis, whose events
 are all below $0.3$\,m/s. A second property bears on Sec.~\ref{sec:onboard}: the
 motion-prior stage fits each sequence against the box track, so the completed
 body is not independent of that track. We call the per-frame LiDAR-HMR output
-that precedes it the pre-fit pose.
+that precedes it the pre-fit pose (Fig.~\ref{fig:pcmesh}).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{fig_pointcloud_mesh.pdf}
+\caption{LiDAR returns (black) and the pre-fit SMPL body estimated from them
+(blue), at one metric scale. One scored pedestrian per stratum of mean returns
+over the observed second, cut at $30$, $100$ and $200$: the pedestrian at the
+stratum median, in its frame closest to that mean. Titles give the frame's
+returns and range.}
+\label{fig:pcmesh}
+\end{figure}
 
 Our first pass at this study was invalid. The export keyed pose clips by a
 scene-local object identifier, so clips collided across scenes and nearly
@@ -482,7 +493,9 @@ pre-fit than on fitted poses in the top stratum ($p{=}0.015$), and against the
 fitted stranger the effect is $-2.6\%$ ($p{=}0.03$). The fitted poses show no gradient ($-5.3$,
 $-5.4$, $-4.1$ and $-6.0\%$, $p{=}0.41$), as a leak that does not depend on the
 sensor would not. On the offboard track the same stratum is null
-(Sec.~\ref{sec:hide}).
+(Sec.~\ref{sec:hide}). In the example of Fig.~\ref{fig:pcmesh} below $30$
+returns the points lie between thigh and shoulder, with none on the head or the
+lower legs. In the one with at least $200$ they cover the body from head to foot.
 
 \textbf{It follows the tracker's error, not the manoeuvre.}
 Table~\ref{tab:dyn} splits the $2{,}272$ well-resolved pedestrians with at least
@@ -635,11 +648,6 @@ against a stranger's pose, top-$1$ ADE is $-2.07\%$ ($p{=}0.11$, MDE
 $3.7$\,pp), best-mode rank $-0.93\%$ ($p{=}0.22$) and endpoint mode spread
 $+0.17\%$ ($p{=}0.53$), over the same $16{,}486$ agents.
 
-The ladder is therefore a positive control and an upper bound on what any
-direction channel through this branch could buy if it knew the future.
-An observation-time cue buys selection only to the extent that it predicts the
-realised mode beyond what the model's existing inputs already predict.
-
 \textbf{A null at low power looks like a threshold.} At $579$ scenes this
 ladder read as a detection floor, significant at $10.0^\circ$ and not at
 $15.1^\circ$ ($-1.4\%$, $p{=}0.47$), where the $25$k ladder gives $-13.6\%$. That
@@ -743,10 +751,7 @@ untested here. The clean condition reproduces our main cells to within $0.4\%$.
 Two results locate where pose could have helped. At $2$\,s, \minADE is
 $0.097$\,m at $25$k scenes, and a perfect future-direction oracle through the same branch removes
 only $1.4$\,cm of it ($-14.7\%$): in absolute terms there is almost nothing for
-any cue to win. That is the forecaster's own residual, not constant velocity.
-Single-mode constant-velocity
-extrapolation~\cite{scholler2020constant} gives $0.310$\,m at $2$\,s on the same
-validation split, about three times the model's best-of-six error. At long
+any cue to win. At long
 horizons the residual is dominated by destination and intent, which body
 configuration does not disclose.
 

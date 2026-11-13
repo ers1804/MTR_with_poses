@@ -1,0 +1,61 @@
+{
+ "strata_cut_at": [
+  30,
+  100,
+  200
+ ],
+ "shown": [
+  {
+   "stratum": "<30",
+   "n_pedestrians": 5584,
+   "median_mean_returns": 18.25,
+   "scenario_id": "6da6efd28653b8ff",
+   "object_id": "6784",
+   "mean_returns": 18.25,
+   "frame_returns": 18,
+   "frame_time_stamp": 300080,
+   "range_m": 41.96125793457031,
+   "returns_height_min": 0.38236199359395706,
+   "returns_height_max": 0.8310406168163844
+  },
+  {
+   "stratum": "30-100",
+   "n_pedestrians": 6180,
+   "median_mean_returns": 52.54545454545455,
+   "scenario_id": "46c7423473c5c097",
+   "object_id": "4903",
+   "mean_returns": 52.54545454545455,
+   "frame_returns": 54,
+   "frame_time_stamp": 100030,
+   "range_m": 44.82189178466797,
+   "returns_height_min": -0.07748250766855791,
+   "returns_height_max": 1.0069367870245995
+  },
+  {
+   "stratum": "100-200",
+   "n_pedestrians": 2350,
+   "median_mean_returns": 136.1818181818182,
+   "scenario_id": "5d261d36f27f94d4",
+   "object_id": "5562",
+   "mean_returns": 136.1818181818182,
+   "frame_returns": 142,
+   "frame_time_stamp": 402960,
+   "range_m": 23.613361358642578,
+   "returns_height_min": -0.11230285552252187,
+   "returns_height_max": 1.0457191927121705
+  },
+  {
+   "stratum": ">=200",
+   "n_pedestrians": 2372,
+   "median_mean_returns": 356.5454545454545,
+   "scenario_id": "b928a58863557440",
+   "object_id": "4906",
+   "mean_returns": 356.45454545454544,
+   "frame_returns": 356,
+   "frame_time_stamp": 300000,
+   "range_m": 13.45582389831543,
+   "returns_height_min": -0.04241780560291419,
+   "returns_height_max": 0.9430997698836375
+  }
+ ]
+}
