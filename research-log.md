@@ -2680,3 +2680,25 @@ the three encodings. 7.97 pages. Verifier 230 checks and 6 rows.
 Probed the margin afterwards: six more lines fit, nine do not. Used two of them to say in
 the setup that we run the pipeline's second version, whose fit adds the box term (user
 agreed). Xu et al. stays out.
+
+## 2026-11-13 style pass over the whole paper (user asked: scientific, not diary)
+
+Read end to end. No semicolons in prose, no em dashes in prose, no italic emphasis outside
+table group labels and the general condition. Changed, uncommitted until the user decides:
+- Setup: subsection "Data and a data-integrity failure" is now "Data". The paragraph that
+  began "Our first pass at this study was invalid" now states the correction as a property
+  of applying the pipeline to WOMD (its export groups clips by object identifier, WOMD
+  identifiers are scene-local). Same numbers.
+- Narrative past tense to present: "We therefore ran the positive control", "we reran",
+  "we degraded", "we scored", "So we deleted ... retrained ... repeated", "We rotated",
+  "We calibrated".
+- Diary phrasing: "It read to us as", "this ladder read as a detection floor ... seeds went
+  blind", "What the two runs establish", "would have flagged the leak before any run",
+  "And returns are", "the effect you would act on".
+- Internal jargon: "ranking columns" to "ranking metrics", "clean cell" and "main cells" to
+  "counterpart" and "main results", "all six cells" to "all arms", "tax" to "cost" (also in
+  the architecture figure, which also lost an italic "or").
+- Abstract closes with "We recommend measuring ..." instead of an imperative.
+- Table II placeholders "---" are "n/a". Numeric ranges with an en dash are written "to",
+  "sine--cosine" is "sine and cosine". Left as they are: "gait--speed" and "pose--pose".
+- 7.97 pages, at least four spare lines. Verifier 230 checks and 6 rows.

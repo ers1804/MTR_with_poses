@@ -46,8 +46,8 @@ offboard track. With poses that never saw the track the gain is $1.3\%$
 ($p{=}0.10$), and $3.5\%$ ($p{=}0.010$, uncorrected) on pedestrians with at
 least $200$ LiDAR returns. An oracle through
 the same branch converts the agent's own future bearing, so the pathway is not
-the obstacle. Before integrating a modality, measure what it carries beyond the
-model's existing inputs at the quality a vehicle will have, and check which
+the obstacle. We recommend measuring what a modality carries beyond the
+model's existing inputs at the quality a vehicle will have, and checking which
 labels its own pipeline consumed.
 \end{abstract}
 
@@ -145,7 +145,7 @@ None reports a shuffled-pose arm.
 
 \begin{figure*}[t]
 \centering
-% scaled to hold the 8-page allowance; the figure is vector and loses no legibility
+% scaled to hold the 8-page allowance. The figure is vector and loses no legibility.
 \resizebox{0.92\textwidth}{!}{\input{fig_architecture}}
 \caption{The two arms differ only in whose body enters the model. The
 content-test switch~(1) feeds the predictor either the pedestrian's own SMPL
@@ -160,7 +160,7 @@ input. Solid orange~(2): the pose branch (late fusion). Dashed~(3): early fusion
 \section{Setup}
 \label{sec:setup}
 
-\subsection{Data and a data-integrity failure}
+\subsection{Data}
 We use WOMD~\cite{ettinger2021waymo} with SMPL~\cite{loper2015smpl} poses
 recovered from LiDAR by the Waymo-3DSkelMo pipeline~\cite{zhu2025waymo3dskelmo},
 which fits per-frame bodies with LiDAR-HMR~\cite{fan2023lidarhmr} and completes
@@ -196,14 +196,13 @@ returns and range.}
 \label{fig:pcmesh}
 \end{figure}
 
-Our first pass at this study was invalid. The export keyed pose clips by a
-scene-local object identifier, so clips collided across scenes and nearly
-every training sequence carried another pedestrian's body. A per-scene re-export
-($299{,}220$ scenes, $1.81$M sequences) cut the median error between root heading
-and travel direction from $41.5^\circ$ to $11.4^\circ$ and raised the
-gait--speed correlation from $r{=}0.26$ to $0.58$. The failure is silent:
-training converges and losses look normal. Every number here is from the
-corrected export.
+Applying the pipeline to WOMD requires one correction. Its export groups pose
+clips by object identifier, and WOMD identifiers are unique only within a scene,
+so nearly every training sequence carries another pedestrian's body. Grouping per scene ($299{,}220$ scenes, $1.81$M
+sequences) cuts the median error between root heading and travel direction from
+$41.5^\circ$ to $11.4^\circ$ and raises the gait--speed correlation from
+$r{=}0.26$ to $0.58$. The uncorrected export fails silently, since training
+converges and losses look normal. All results use the corrected export.
 
 \subsection{Arms and the content test}
 Three arms share one architecture (Fig.~\ref{fig:arch}). The no-pose arm receives trajectories and map.
@@ -280,7 +279,7 @@ $p$ (content) & $0.52$ & $0.56$ & $0.93$ \\
 
 
 \subsection{The null on offboard tracks, and its bound}
-Table~\ref{tab:ladder} trains all three arms at three scales. Data alone improves
+Table~\ref{tab:ladder} reports all three arms at three scales. Data alone improves
 the baseline by $19.2\%$, while the content test is null at every scale, in
 \minADE, in \minFDE ($+0.45\%$, $-0.28\%$ and $+0.33\%$, $p\ge0.61$) and in miss
 rate at $2$\,m, where it is
@@ -301,7 +300,7 @@ its sign against pose.
 
 \subsection{Two effects that are real, and are not pose}
 \label{sec:real}
-\textbf{A branch-capacity tax.} At $25$k both pose arms are worse than no-pose
+\textbf{A branch-capacity cost.} At $25$k both pose arms are worse than no-pose
 ($+1.66\%$ at $p{=}5{\times}10^{-4}$ and $+1.63\%$ at $p{=}0.048$) and indistinguishable
 from each other. An extra input branch costs ${\sim}1.6\%$ whether it carries the
 right body or the wrong one. Both arms also train with the auxiliary pose loss,
@@ -333,8 +332,8 @@ A null measured through one pathway invites the objection that the pathway is
 dead, and the shuffled control does not dispose of it: a branch that transmits
 nothing would also fail to tell its own body from a stranger's.
 
-We therefore ran the positive control. The oracle arm of
-Sec.~\ref{sec:setup} is predictive by construction, and it keeps the branch, its
+The oracle arm of Sec.~\ref{sec:setup} is the positive control. It is
+predictive by construction, and it keeps the branch, its
 parameter count, its input dimensionality and its per-frame validity masks
 exactly as the pose arm has them, so the oracle is visible only where a real
 pose would have been.
@@ -382,7 +381,7 @@ most of what they measure is a label, not a body.
 \begin{table}[t]
 \caption{Degraded inputs at $25$k scenes, $n{=}3$ seeds per arm for
 the frame rotation and $n{=}5$ for track noise. Loss is the no-pose baseline
-against its clean cell on the seeds both share, and negative favours pose. The
+against its clean counterpart on the seeds both share, and negative favours pose. The
 frame rotation leaves the clean heading readable, so it is not an
 onboard-quality heading (Sec.~\ref{sec:belowfloor}). The
 fitted poses saw the offboard track, so their track-noise rows overstate what the
@@ -396,7 +395,7 @@ by mean LiDAR returns.}
 \toprule
 Degraded input & Loss & Content & $p$ & vs.\ no-pose \\
 \midrule
-None & --- & $+0.41\%$ & $0.60$ & $+1.97\%$ \\
+None & n/a & $+0.41\%$ & $0.60$ & $+1.97\%$ \\
 \multicolumn{5}{@{}l}{\emph{Agent frame rotated by a fixed error $\mathcal{N}(0,\sigma^2)$}}\\
 $\sigma{=}15^\circ$ & $+5.8\%$  & $-0.14\%$ & $0.90$ & $-0.39\%$ \\
 $\sigma{=}30^\circ$ & $+12.6\%$ & $-0.11\%$ & $0.93$ & $+1.34\%$ \\
@@ -405,8 +404,8 @@ $s{=}10$\,cm & $+14.1\%$ & $-2.08\%$ & $0.005$ & $-1.21\%$ \\
 $s{=}30$\,cm & $+32.3\%$ & $-5.32\%$ & $0.002$ & $-4.06\%$ \\
 \multicolumn{5}{@{}l}{\emph{Track at $s{=}30$\,cm, pre-fit poses}}\\
 All pedestrians & $+32.3\%$ & $-1.34\%$ & $0.10$ & $+0.36\%$ \\
-\quad $<30$ returns & --- & $-0.34\%$ & $0.72$ & $+1.82\%$ \\
-\quad $\ge200$ returns & --- & $-3.47\%$ & $0.010$ & $-1.99\%$ \\
+\quad $<30$ returns & n/a & $-0.34\%$ & $0.72$ & $+1.82\%$ \\
+\quad $\ge200$ returns & n/a & $-3.47\%$ & $0.010$ & $-1.99\%$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -438,7 +437,7 @@ against shuffled ($p{=}0.005$) and $-1.21\%$ against no pose ($p{=}0.07$). It
 sits where gait would put it. On the $8{,}757$ pedestrians walking at $0.8$ to
 $1.6$\,m/s it is $-3.3\%$ ($p{=}0.008$) at $10$\,cm and $-6.8\%$ ($p{=}0.0002$)
 at $30$\,cm, while on the $3{,}336$ standing at prediction time it is
-significant at neither. It read to us as a stride restoring the speed the tracker
+significant at neither. This is the pattern of a stride restoring the speed the tracker
 lost.
 
 \textbf{Most of it is the label.} The fitted poses are not independent of the
@@ -459,10 +458,10 @@ removes $71\%$ of the squared speed error that regressor leaves, the pre-fit
 pose about a fifth and a stranger's $1\%$. At $10$\,cm
 the shares are $21\%$ and under $2\%$.
 
-We therefore reran both pose arms at $30$\,cm on the pre-fit poses, which see
+We therefore train both pose arms at $30$\,cm on the pre-fit poses, which see
 only the points inside the box. Files, agents, tracks and the stranger assigned
 to each pedestrian are unchanged, and the two shuffled arms agree ($+0.40\%$,
-$p{=}0.54$). Own pose now beats a stranger's by $1.34\%$ ($p{=}0.10$, CI
+$p{=}0.54$). Own pose then beats a stranger's by $1.34\%$ ($p{=}0.10$, CI
 $[-3.1,+0.4]$) and does not beat no pose ($+0.36\%$, $p{=}0.54$). At fixed epochs $26$,
 $28$ and $30$ it reads $-1.4$, $-2.6$ and $-1.5\%$, significant at the second
 only ($p{=}0.02$). The fit
@@ -558,9 +557,9 @@ of the perception validation
 set~\cite{sun2020waymoperception,zheng2022keypoints} the fitted poses are less
 accurate than the pre-fit ones ($94.8$ against $90.7$\,mm MPJPE, aligned at the
 hip midpoint), and the loss is at the knees and ankles.
-And returns are one of two stratifications we scored at this noise level, four strata
+Finally, returns are one of two stratifications scored at this noise level, four strata
 each, so $p{=}0.010$ is uncorrected over eight strata, and the splits of
-Table~\ref{tab:dyn} were chosen after that result and subdivide its stratum. What the two runs establish is that the same body adds nothing to
+Table~\ref{tab:dyn} were chosen after that result and subdivide its stratum. The two experiments establish that the same body adds nothing to
 an offboard track and that a pose fitted to a labelled track inherits the
 label. That it adds to a causal track where the sensor resolves it rests on one
 stratification.
@@ -572,7 +571,7 @@ stratification.
 \label{sec:floor}
 The content test bounds what pose is worth, and the oracle of
 Sec.~\ref{sec:poscontrol} shows the branch can carry information. Neither says
-what kind of information this pathway turns into accuracy, so we degraded
+what kind of information this pathway turns into accuracy, so we degrade
 the oracle.
 
 Each level of Table~\ref{tab:floor} feeds the branch the same direction-only
@@ -587,7 +586,7 @@ epoch, as a real estimator's error is a property of the observation.
 At $25$k scenes every level converts, and the gain stays large: $-34.50\%$ with an
 exact bearing, $-19.77\%$ at $5.0^\circ$, $-15.68\%$ at $10.0^\circ$ and
 $-13.57\%$ at $15.1^\circ$, all at $p\le0.0016$ against minimum detectable
-effects of $1.4$--$2.9$\,pp. The decay is not a single exponential.
+effects of $1.4$ to $2.9$\,pp. The decay is not a single exponential.
 Two terms fit it to $0.4$\,pp:
 \begin{equation}
 \Delta\minADE(\theta) \;\approx\; -\big[\,13.1\% + 21.4\%\cdot e^{-\theta/4.4^\circ}\,\big],
@@ -604,7 +603,7 @@ $-6.92\%$ ($p{=}0.013$, CI $[-10.3,-3.5]$), so about half of it is left.
 \textbf{The angular axis is not an acceptance threshold.} It is tempting to read
 $\theta$ as the accuracy a cue must reach. The ladder refutes that reading
 itself. The baseline already receives the labelled box heading, as
-a per-timestep sine--cosine pair for every agent (Fig.~\ref{fig:arch}), and that
+a per-timestep sine and cosine pair for every agent (Fig.~\ref{fig:arch}), and that
 heading estimates the same future displacement bearing at $3.9^\circ$ in
 median, better than the $15.1^\circ$ channel at every percentile
 ($9.3^\circ$ against $25.8^\circ$ at the third quartile, $20.1^\circ$ against
@@ -619,7 +618,7 @@ splits the gain, and the two terms behave differently in ways that identify them
 Per-agent records at each run's own best epoch, paired between arms on
 $16{,}486$ agents and averaged over seeds, put the persistent term at the end of
 the trajectory: refitting the decomposition at each horizon leaves the precision
-half-life at $2.9$--$3.9^\circ$ throughout, while the persistent share of the
+half-life at $2.9$ to $3.9^\circ$ throughout, while the persistent share of the
 gain rises from $21\%$ of the $2$\,s error reduction to $39\%$ at $8$\,s and
 $53\%$ at the endpoint. The selection reading predicts more: corrupting the bearing should barely affect which of the
 six modes is right. It does not. The gap between the top-ranked mode and the best
@@ -634,16 +633,16 @@ $3^\circ$ of error destroys.
 only through the decoder's scoring step, which keeps six of $64$ intention
 queries: a better ranking changes which six survive.
 That is also where a pose effect could hide from our headline metric, so we
-scored the ranking columns directly on the $25$k arms. They are null as well:
+score the ranking metrics directly on the $25$k arms. They are null as well:
 against a stranger's pose, top-$1$ ADE is $-2.07\%$ ($p{=}0.11$, MDE
 $3.7$\,pp), best-mode rank $-0.93\%$ ($p{=}0.22$) and endpoint mode spread
 $+0.17\%$ ($p{=}0.53$), over the same $16{,}486$ agents.
 
-\textbf{A null at low power looks like a threshold.} At $579$ scenes this
-ladder read as a detection floor, significant at $10.0^\circ$ and not at
+\textbf{A null at low power looks like a threshold.} At $579$ scenes the same
+ladder is significant at $10.0^\circ$ and not at
 $15.1^\circ$ ($-1.4\%$, $p{=}0.47$), where the $25$k ladder gives $-13.6\%$. That
-level's MDE at $579$ scenes was $6.7$\,pp: the floor was the angle at which three
-to five seeds went blind.
+level's MDE at $579$ scenes is $6.7$\,pp, so the apparent threshold is the angle
+at which three to five seeds lose power.
 
 \subsection{Why body facing does not pay}
 \label{sec:belowfloor}
@@ -657,8 +656,8 @@ future displacement bearing at $3.9^\circ$ ($+3$\,s) and $7.1^\circ$ ($+8$\,s)
 in median, while SMPL facing reaches $12.3^\circ$ ($n{=}5{,}824$) and $15.1^\circ$
 ($n{=}6{,}206$). Box heading is the better estimate at every percentile we
 measured, the two differ by $10.0^\circ$ in per-agent median, and both derive
-from the same returns. We calibrated the SMPL forward axis against the
-box heading before measuring either.
+from the same returns. The SMPL forward axis is calibrated against the
+box heading before either is measured.
 
 Most of its accuracy is the trajectory restated. $95.5\%$ of the scored
 agents move, and for a mover the pipeline snaps root orientation to the direction
@@ -677,12 +676,12 @@ estimates the same quantity at $25.2^\circ$, and paired on the same events SMPL
 is $7.3^\circ$ worse in median (Wilcoxon $p{=}2.6{\times}10^{-43}$). Nor does
 pose take over where perception degrades: over those events the gap
 favours the box heading in all ten testable strata ($p<10^{-5}$ each) and
-widens with range, to $+32.9^\circ$ at $41$--$75$\,m, because both derive
+widens with range, to $+32.9^\circ$ at $41$ to $75$\,m, because both derive
 from the same returns.
 
 Facing is therefore redundant where it is accurate and inaccurate where it would
-be non-redundant, and neither half of that squeeze is the selection signal the
-oracle trades on. What survives it is what the content test measures directly:
+be non-redundant, and in neither case is it the selection signal the
+oracle supplies. What survives it is what the content test measures directly:
 $+0.04\%$ at $25$k scenes, bounded to $\pm1.7\%$.
 
 \begin{table}[t]
@@ -713,30 +712,30 @@ $44.4^\circ$ & 3 & $-6.92\%$ & $0.0127$ & $[-10.3,-3.5]$ & $4.2$ \\
 
 \textbf{Removing the redundant input does not rescue it.} Redundancy says why
 little is left for facing to add, but it is not by itself a mechanism that blocks
-conversion. So we deleted the box-heading channel, retrained all six cells and
-repeated the content test, at $579$ scenes and eight seeds. Nothing appears. The
+conversion. We therefore delete the box-heading channel, retrain all arms and repeat
+the content test at $579$ scenes and eight seeds. No benefit appears. The
 difference in content effect between the two conditions is $+2.9$\,pp on the
 $13{,}006$ moving agents, the wrong sign for a benefit that redundancy
 had been masking, and $-0.6$\,pp on the stationary ones ($p{=}0.65$). Deleting the channel
 costs the no-pose baseline only $1.5\%$ on movers, because velocity stays in the
-input, so there was never much room for facing to fill.
+input, so there is little room for facing to fill.
 
 \textbf{A frame-rotation control, not a degraded heading.} The heading the
 baseline receives is an offboard label too (Sec.~\ref{sec:onboard}), so it may
 be better than a deployed tracker's, and facing might pay only where it is
 worse. Deleting the channel cannot test that: MTR's agent-centric frame, and
 the intention anchors defined in it, stay aligned to the clean heading. We
-rotated that frame by a fixed per-agent error $\mathcal{N}(0,\sigma^2)$, which
-frame, anchors and map inherit, and repeated the content test at $25$k scenes
+rotate that frame by a fixed per-agent error $\mathcal{N}(0,\sigma^2)$, which
+frame, anchors and map inherit, and repeat the content test at $25$k scenes
 and three seeds (Table~\ref{tab:onboard}). The no-pose baseline loses $5.8\%$
 at $\sigma{=}15^\circ$ and $12.6\%$ at $30^\circ$, and pose recovers none of
 it: $-0.14\%$ ($p{=}0.90$) and $-0.11\%$ ($p{=}0.93$) against shuffled. This
 does not test a degraded heading, for two reasons. The per-timestep heading
 channel stays the clean heading expressed in the rotated frame, so the model
-can read the error we added. And the pose root stays in world coordinates, so
-the body could not have stated the correction. The control measures the cost of
+can read the added error. And the pose root stays in world coordinates, so
+the body cannot state the correction. The control measures the cost of
 a misaligned frame, and whether facing pays under an onboard-quality heading is
-untested here. The clean condition reproduces our main cells to within $0.4\%$.
+untested here. The clean condition reproduces the main results to within $0.4\%$.
 
 \subsection{A general condition}
 Two results locate where pose could have helped. At $2$\,s, \minADE is
@@ -769,10 +768,10 @@ inputs the model already receives, take those inputs at the quality a vehicle
 will have, and ask what the cue's own pipeline was fitted to. None of this costs
 training. A simulated causal tracker is a few lines in a data loader, and our
 fitted poses predicted the labelled speed with $R^2{=}0.94$, and with $0.78$ on
-moving pedestrians seen through fewer than $30$ returns, which would have
-flagged the leak before any run. Second, an oracle ladder is worth its handful
-of runs as a positive control and an upper bound on the pathway, if its MDE is
-below the effect you would act on (Sec.~\ref{sec:floor}). Third, the cost of an extra
+moving pedestrians seen through fewer than $30$ returns, which flags
+the leak before any training. Second, an oracle ladder is worth its few
+runs as a positive control and an upper bound on the pathway, if its MDE is
+below the effect one would act on (Sec.~\ref{sec:floor}). Third, the cost of an extra
 branch (${\sim}1.6\%$ here, at the best-epoch operating point) is easily
 mistaken for a modality effect in either direction. A shuffled-pose control
 separates the two, and early fusion avoids the cost while still reading the
