@@ -483,41 +483,44 @@ pre-fit than on fitted poses in the top stratum ($p{=}0.015$), and against the
 fitted stranger the effect is $-2.6\%$ ($p{=}0.03$). The fitted poses show no gradient ($-5.3$,
 $-5.4$, $-4.1$ and $-6.0\%$, $p{=}0.41$), as a leak that does not depend on the
 sensor would not. On the offboard track the same stratum is null
-(Sec.~\ref{sec:hide}). In the example of Fig.~\ref{fig:pcmesh} below $30$
-returns the points lie between thigh and shoulder, with none on the head or the
-lower legs. In the one with at least $200$ they cover the body from head to foot.
+(Sec.~\ref{sec:hide}). In the examples of Fig.~\ref{fig:pcmesh} the points lie between thigh and
+shoulder below $30$ returns and cover the body from head to foot with at least $200$.
 
 \textbf{It follows the tracker's error, not the manoeuvre.}
 Table~\ref{tab:dyn} splits the $2{,}272$ well-resolved pedestrians with at least
-$1$\,s of future two ways. By what the pedestrian goes on to do, the four
-manoeuvre measures of Sec.~\ref{sec:hide}, own pose beats the stranger's in all
-$16$ quartiles ($-1.2$ to $-6.0\%$) and no measure shows a trend: top and bottom
-quartile differ by $-0.4$ to $+2.6$ points ($p\ge0.19$). By how wrong the
-tracker is at prediction time, the effect is $-1.5\%$ in the quartile with the
-smallest velocity error and $-4.6\%$ in the largest, a difference of $3.1$
-points ($p{=}0.001$), and $-0.3\%$ against $-5.8\%$ over position error ($5.5$
-points, $p{=}0.001$). The detection noise is drawn independently of the
-pedestrian, and the trend holds on complete one-second histories alone ($2.3$
-points, $p{=}0.004$), so it is not the filter's cold start. On all pedestrians it is $2.3$
-points over position error ($p{=}0.008$) and $1.4$ over velocity error
-($p{=}0.09$). Against no pose, own pose is $-2.1\%$ on the $2{,}272$
-($p{=}0.039$): $-4.0\%$ on the half with the larger velocity error
-($p{=}0.003$) and $+0.1\%$ on the other ($p{=}0.96$). The fitted poses do the opposite. Their gain does not follow the
-tracker's error ($p{=}0.08$ and $0.87$) and shrinks with the manoeuvre, from
-$-8.4\%$ to $-3.5\%$ over constant-velocity residual ($p{=}0.013$), as a leaked
-speed is worth most where the pedestrian keeps it. Fig.~\ref{fig:onboardex}
-shows four pedestrians from the quartile with the largest tracker error.
+$1$\,s of future two ways and scores own pose against no pose, $-2.1\%$ on all
+of them ($p{=}0.039$). By how wrong the tracker is at prediction time, the gain
+is absent in the quartile with the smallest velocity error ($+0.4\%$) and
+$-3.3\%$ in the largest, a difference of $3.7$ points ($p{=}0.013$), and
+$+0.1\%$ against $-5.0\%$ over position error ($5.1$ points, $p{=}0.019$,
+examples in Fig.~\ref{fig:onboardex}). On the half with the larger velocity
+error it is $-4.0\%$ ($p{=}0.003$) and on the other $+0.1\%$ ($p{=}0.96$). The
+detection noise is drawn independently of the pedestrian, and the trend holds
+on complete one-second histories alone ($4.0$ points, $p{=}0.019$), so it is
+not the filter's cold start. On all pedestrians it is weaker ($1.0$ and $1.9$
+points, $p{=}0.08$ and $0.10$). By what
+the pedestrian goes on to do, the four manoeuvre measures of
+Sec.~\ref{sec:hide}, the gain is largest in the lowest quartile of every
+measure ($-3.4$ to $-5.6\%$) and shrinks toward the highest, by $3.8$ points
+over constant-velocity residual ($p{=}0.048$) and $4.1$ over speed range
+($p{=}0.019$). Against a stranger's pose, which holds the branch fixed, own
+pose is ahead in all $24$ quartiles, with the same trend over tracker error
+($3.1$ and $5.5$ points, both $p{=}0.001$) and none over the manoeuvre
+($p\ge0.19$). The fitted poses' gain over a stranger's does not
+follow the tracker's error ($p{=}0.08$ and $0.87$) and shrinks with the
+manoeuvre, from $-8.4\%$ to $-3.5\%$ over constant-velocity residual
+($p{=}0.013$), as a leaked speed is worth most where the pedestrian keeps it.
 
 \begin{table}[t]
 \caption{Where the pre-fit gain sits. Each row sorts the $2{,}272$ pedestrians
 with at least $200$ returns and $1$\,s of future by one measure and cuts them
-into quartiles of $568$ (Q1 lowest). Cells give the content effect at
-$s{=}30$\,cm: \minADE with the pedestrian's own pose against a stranger's, in
+into quartiles of $568$ (Q1 lowest). Cells give the gain at
+$s{=}30$\,cm: \minADE with the pedestrian's own pose against no pose, in
 percent over $n{=}5$ seeds, negative favouring own pose. Tracker error is the
 distance of the tracked state from the label at the last observed frame.
 Trend is Q4 minus Q1 in points
 with its paired $p$, and asterisks mark $p{<}0.05$, uncorrected. The gain grows
-with the tracker's error and not with the manoeuvre.}
+with the tracker's error and shrinks with the manoeuvre.}
 \label{tab:dyn}
 \centering
 \footnotesize
@@ -527,13 +530,13 @@ with the tracker's error and not with the manoeuvre.}
  & Q1 & Q2 & Q3 & Q4 & Trend ($p$) \\
 \midrule
 \multicolumn{6}{@{}l}{\emph{Tracker error at prediction time}}\\
-Velocity & $-1.5$ & $-2.0$ & $-5.8^{*}$ & $-4.6^{*}$ & $-3.1$ ($0.001$) \\
-Position & $-0.3$ & $-5.1^{*}$ & $-2.6^{*}$ & $-5.8^{*}$ & $-5.5$ ($0.001$) \\
+Velocity & $+0.4$ & $-0.2$ & $-4.7^{*}$ & $-3.3^{*}$ & $-3.7$ ($0.013$) \\
+Position & $+0.1$ & $-1.2$ & $-1.8$ & $-5.0^{*}$ & $-5.1$ ($0.019$) \\
 \multicolumn{6}{@{}l}{\emph{Manoeuvre over the labelled $8$\,s future}}\\
-Constant-velocity residual & $-4.6^{*}$ & $-2.5$ & $-1.3$ & $-4.9^{*}$ & $-0.4$ ($0.66$) \\
-Heading variation & $-4.7$ & $-2.2$ & $-4.7^{*}$ & $-2.3$ & $+2.4$ ($0.37$) \\
-Speed range & $-6.0^{*}$ & $-4.5^{*}$ & $-1.2$ & $-3.4^{*}$ & $+2.6$ ($0.19$) \\
-Peak acceleration & $-4.8^{*}$ & $-2.6$ & $-2.4^{*}$ & $-4.5^{*}$ & $+0.3$ ($0.86$) \\
+Constant-velocity residual & $-5.0^{*}$ & $-1.9$ & $-2.2$ & $-1.2$ & $+3.8$ ($0.048$) \\
+Heading variation & $-3.4^{*}$ & $-1.3$ & $-2.0$ & $-1.9^{*}$ & $+1.5$ ($0.21$) \\
+Speed range & $-5.6^{*}$ & $-3.3^{*}$ & $+0.4$ & $-1.5$ & $+4.1$ ($0.019$) \\
+Peak acceleration & $-3.8^{*}$ & $-2.4^{*}$ & $-0.9$ & $-1.6$ & $+2.2$ ($0.25$) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -646,8 +649,7 @@ $+0.17\%$ ($p{=}0.53$), over the same $16{,}486$ agents.
 
 \textbf{A null at low power looks like a threshold.} At $579$ scenes the same
 ladder is significant at $10.0^\circ$ and not at $15.1^\circ$ ($-1.4\%$,
-$p{=}0.47$, MDE $6.7$\,pp), where the $25$k ladder gives $-13.6\%$. The apparent
-threshold is the angle at which three to five seeds lose power.
+$p{=}0.47$, MDE $6.7$\,pp), where the $25$k ladder gives $-13.6\%$.
 
 \subsection{Why body facing does not pay}
 \label{sec:belowfloor}
@@ -803,7 +805,7 @@ simulated onboard tracker own pose beats a stranger's by $5.3\%$, and three
 quarters of that is the offboard label, carried in by a pose pipeline that fits
 the gait to the track. Poses that never saw the track gain a non-significant
 $1.3\%$ overall and $3.5\%$ on the best-resolved bodies, the latter in one
-stratification, where it grows with the tracker's error and with no manoeuvre. The results are one mechanism: a cue pays only for what it carries
+stratification, where it grows with the tracker's error. The results are one mechanism: a cue pays only for what it carries
 beyond the model's existing inputs, an offboard track leaves the body nothing to
 add, and a cue fitted to a label carries the label.
 

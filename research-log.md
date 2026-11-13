@@ -2717,3 +2717,30 @@ the numbers of Fig. 1 to appear in the abstract. Uncommitted until the user deci
 - Cuts to hold eight pages: the Practice sentence no longer repeats the 0.78 (it stays in
   Sec. IV-E), and the low-power paragraph of Sec. V-A is one sentence shorter with the same
   numbers. 7.97 pages, one to two spare lines. Verifier 230 checks and 6 rows.
+
+## 2026-11-13 Table III now scores own pose against no pose (user, after Prof. Flohr)
+
+Flohr asked for the benefit on filtered scenarios, e.g. acceleration above x. The user asked
+to swap the table's quantity from own pose against a stranger's to own pose against no pose
+and to adapt the text. Uncommitted until the user decides.
+- Cells and trends come from pose_vs_nopose and Q4_minus_Q1_vs_nopose in
+  experiments/position_noise_dynamics.json (already computed, no new run). The verifier
+  rebuilds the six rows from those keys and checks the paragraph's numbers (236 checks).
+- Tracker error: velocity +0.4, -0.2, -4.7*, -3.3*, trend -3.7 (p=0.013). Position +0.1,
+  -1.2, -1.8, -5.0*, trend -5.1 (p=0.019). On full histories the velocity trend is 4.0
+  points (p=0.019). On all pedestrians 1.0 and 1.9 points (p=0.08, 0.10).
+- Manoeuvre: the gain against no pose is largest in the lowest quartile of every measure
+  (-3.4 to -5.6%) and shrinks toward the highest. Trend +3.8 over constant-velocity residual
+  (p=0.048), +4.1 over speed range (p=0.019), +1.5 heading variation (p=0.21), +2.2 peak
+  acceleration (p=0.25). Uncorrected. So the old "no trend with the manoeuvre" (true against
+  a stranger's pose, p>=0.19) becomes "shrinks with the manoeuvre" against no pose.
+- The text keeps one sentence with the stranger comparison, which holds the branch fixed:
+  ahead in all 24 quartiles, tracker-error trends 3.1 and 5.5 points (both p=0.001), none
+  over the manoeuvre. The stranger arm is worse than no pose in the top manoeuvre quartiles
+  (+3.9% CV residual, +3.1% peak acceleration), which is where the difference between the
+  two readings comes from. That is not tested as a trend and not claimed in the paper.
+- Peak acceleration is the largest one-frame speed change at 10 Hz (median 4.9 m/s^2 on the
+  2,272), so it mostly measures label jitter. Told the user. Speed range is the robust row.
+- Cuts to hold eight pages: the Fig. 3 description is one sentence, the low-power paragraph
+  lost its closing sentence, the conclusion no longer says "and with no manoeuvre", the
+  all-pedestrians trends are in one parenthesis. 7.97 pages, no spare line to speak of.

@@ -909,37 +909,45 @@ def main() -> int:
         hi, al = DY['returns>=200'], DY['all_returns']
         Q = ('Q1', 'Q2', 'Q3', 'Q4')
         man = ('cv_residual', 'heading_total_var', 'speed_range', 'max_accel')
-        cells = [hi[a][q]['content'] for a in man for q in Q]
-        trends = [hi[a]['Q4_minus_Q1'] for a in man]
+        KEY, TREND = 'pose_vs_nopose', 'Q4_minus_Q1_vs_nopose'    # what Table dyn prints
         v, x = hi['tracker_vel_err'], hi['tracker_pos_err']
-        fv = hi['full_history_only']['tracker_vel_err']['Q4_minus_Q1']
+        fv = hi['full_history_only']['tracker_vel_err'][TREND]
         cvf = hi['cv_residual']
-        assert all(c['rel'] < 0 for c in cells)             # "in all 16 quartiles"
+        q1 = [hi[a]['Q1'][KEY]['rel'] for a in man]
+        # "largest in the lowest quartile of every measure"
+        assert all(hi[a]['Q1'][KEY]['rel'] == min(hi[a][q][KEY]['rel'] for q in Q) for a in man)
+        # against a stranger's pose: "ahead in all 24 quartiles"
+        assert all(hi[a][q]['content']['rel'] < 0 for a in DY['_meta']['axes'] for q in Q)
         assert len({hi[a][q]['n_agents'] for a in hi if a in DY['_meta']['axes'] for q in Q}) == 1
         checks += [
             (g, 'pedestrians', hi['all']['n_agents'], '2{,}272'),
             (g, 'pedestrians per quartile', v['Q1']['n_agents'], '568'),
-            (g, 'manoeuvre quartiles, smallest', min(abs(c['rel']) for c in cells), '1.2'),
-            (g, 'manoeuvre quartiles, largest', max(abs(c['rel']) for c in cells), '6.0'),
-            (g, 'manoeuvre trend, lowest', min(t['rel'] for t in trends), '-0.4'),
-            (g, 'manoeuvre trend, highest', max(t['rel'] for t in trends), '2.6'),
-            (g, 'manoeuvre trend, smallest p', min(t['p'] for t in trends), '0.19'),
-            (g, 'velocity error Q1', abs(v['Q1']['content']['rel']), '1.5'),
-            (g, 'velocity error Q4', abs(v['Q4']['content']['rel']), '4.6'),
-            (g, 'velocity error trend (pp)', abs(v['Q4_minus_Q1']['rel']), '3.1'),
-            (g, 'velocity error trend p', v['Q4_minus_Q1']['p'], '0.001'),
-            (g, 'position error Q1', abs(x['Q1']['content']['rel']), '0.3'),
-            (g, 'position error Q4', abs(x['Q4']['content']['rel']), '5.8'),
-            (g, 'position error trend (pp)', abs(x['Q4_minus_Q1']['rel']), '5.5'),
-            (g, 'position error trend p', x['Q4_minus_Q1']['p'], '0.001'),
-            (g, 'full histories, velocity trend', abs(fv['rel']), '2.3'),
-            (g, 'full histories, velocity trend p', fv['p'], '0.004'),
-            (g, 'all returns, position trend',
-             abs(al['tracker_pos_err']['Q4_minus_Q1']['rel']), '2.3'),
-            (g, 'all returns, position trend p', al['tracker_pos_err']['Q4_minus_Q1']['p'], '0.008'),
-            (g, 'all returns, velocity trend',
-             abs(al['tracker_vel_err']['Q4_minus_Q1']['rel']), '1.4'),
-            (g, 'all returns, velocity trend p', al['tracker_vel_err']['Q4_minus_Q1']['p'], '0.09'),
+            (g, 'velocity error Q1', v['Q1'][KEY]['rel'], '0.4'),
+            (g, 'velocity error Q4', abs(v['Q4'][KEY]['rel']), '3.3'),
+            (g, 'velocity error trend (pp)', abs(v[TREND]['rel']), '3.7'),
+            (g, 'velocity error trend p', v[TREND]['p'], '0.013'),
+            (g, 'position error Q1', x['Q1'][KEY]['rel'], '0.1'),
+            (g, 'position error Q4', abs(x['Q4'][KEY]['rel']), '5.0'),
+            (g, 'position error trend (pp)', abs(x[TREND]['rel']), '5.1'),
+            (g, 'position error trend p', x[TREND]['p'], '0.019'),
+            (g, 'full histories, velocity trend', abs(fv['rel']), '4.0'),
+            (g, 'full histories, velocity trend p', fv['p'], '0.019'),
+            (g, 'all returns, velocity trend', abs(al['tracker_vel_err'][TREND]['rel']), '1.0'),
+            (g, 'all returns, velocity trend p', al['tracker_vel_err'][TREND]['p'], '0.08'),
+            (g, 'all returns, position trend', abs(al['tracker_pos_err'][TREND]['rel']), '1.9'),
+            (g, 'all returns, position trend p', al['tracker_pos_err'][TREND]['p'], '0.10'),
+            (g, 'manoeuvre Q1, smallest gain', min(abs(r) for r in q1), '3.4'),
+            (g, 'manoeuvre Q1, largest gain', max(abs(r) for r in q1), '5.6'),
+            (g, 'CV residual trend (pp)', cvf[TREND]['rel'], '3.8'),
+            (g, 'CV residual trend p', cvf[TREND]['p'], '0.048'),
+            (g, 'speed range trend (pp)', hi['speed_range'][TREND]['rel'], '4.1'),
+            (g, 'speed range trend p', hi['speed_range'][TREND]['p'], '0.019'),
+            (g, 'vs stranger, velocity trend (pp)', abs(v['Q4_minus_Q1']['rel']), '3.1'),
+            (g, 'vs stranger, velocity trend p', v['Q4_minus_Q1']['p'], '0.001'),
+            (g, 'vs stranger, position trend (pp)', abs(x['Q4_minus_Q1']['rel']), '5.5'),
+            (g, 'vs stranger, position trend p', x['Q4_minus_Q1']['p'], '0.001'),
+            (g, 'vs stranger, manoeuvre trend, smallest p',
+             min(hi[a]['Q4_minus_Q1']['p'] for a in man), '0.19'),
             (g, 'fitted, velocity trend p', v['Q4_minus_Q1_fitted']['p'], '0.08'),
             (g, 'fitted, position trend p', x['Q4_minus_Q1_fitted']['p'], '0.87'),
             (g, 'fitted, CV residual Q1', abs(cvf['Q1']['content_fitted']['rel']), '8.4'),
@@ -954,10 +962,10 @@ def main() -> int:
                         ('cv_residual', 'Constant-velocity residual'),
                         ('heading_total_var', 'Heading variation'),
                         ('speed_range', 'Speed range'), ('max_accel', 'Peak acceleration')):
-            t = hi[a]['Q4_minus_Q1']
-            pt = f'{t["p"]:.3f}' if t['p'] < 0.01 else f'{t["p"]:.2f}'
+            t = hi[a][TREND]
+            pt = f'{t["p"]:.3f}' if t['p'] < 0.1 else f'{t["p"]:.2f}'
             rows.append((g, f'row: {name}', ' & '.join(
-                [name] + [cell(hi[a][q]['content']) for q in Q]
+                [name] + [cell(hi[a][q][KEY]) for q in Q]
                 + [f'${t["rel"]:+.1f}$ (${pt}$)']) + r' \\'))
     OX = load('onboard_examples.json')
     if OX:
