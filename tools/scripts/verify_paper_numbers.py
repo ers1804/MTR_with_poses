@@ -322,6 +322,10 @@ CUT = {
     ('standing-only fine-tune (Sec. V-B)', 'change vs init (pp)'),
     ('standing-only fine-tune (Sec. V-B)', 'change vs init p'),
     ('2 s headroom (Sec. V-F)', 'constant-velocity ADE at 2 s (m)'),
+    ('oracle ladder 25k (Table I)', 'single-exp residual 1.5'),
+    ('oracle ladder 25k (Table I)', 'single-exp residual 3.2'),
+    ('oracle ladder 25k (Table I)', 'single-exp residual 0.3'),
+    ('oracle ladder 25k (Table I)', 'single-exp residual 2.5'),
 }
 
 
@@ -963,6 +967,33 @@ def main() -> int:
             (g, 'smallest error: stranger on all seeds', bot['stranger_all_seeds'], '32'),
         ]
         assert len(OX['shown']) == 4 and OX['epoch'] == 30    # "four", "final epoch"
+    GA = load('graphical_abstract.json')
+    if GA:
+        # Fig. gabs draws its bars from position_noise_dynamics.json. These tie what it
+        # prints to its caption and to the sentence of Sec. IV-E that states the same.
+        g = 'graphical abstract (Fig. gabs, Sec. IV-E)'
+        al, up = GA['all'], GA['upper_half']
+        checks += [
+            (g, 'own vs no pose, all', abs(al['own_vs_nopose']['rel']), '2.1'),
+            (g, 'own vs no pose, all, p', al['own_vs_nopose']['p'], '0.039'),
+            (g, 'own vs no pose, upper half', abs(up['own_vs_nopose']['rel']), '4.0'),
+            (g, 'own vs no pose, upper half, p', up['own_vs_nopose']['p'], '0.003'),
+            (g, 'pedestrians', al['n_pedestrians'], '2{,}272'),
+        ]
+        assert GA['noise_cm'] == 30 and GA['min_returns'] == 200 and GA['axis'] == 'tracker_vel_err'
+        assert up['n_pedestrians'] * 2 == al['n_pedestrians']                  # "the half"
+        # the asterisks it prints, and "a stranger's pose does not" lower minADE
+        assert al['own_vs_nopose']['rel'] < 0 and up['own_vs_nopose']['rel'] < 0
+        assert al['own_vs_nopose']['p'] < 0.05 and up['own_vs_nopose']['p'] < 0.05
+        assert al['stranger_vs_nopose']['rel'] > 0 and up['stranger_vs_nopose']['rel'] > 0
+        assert al['stranger_vs_nopose']['p'] >= 0.05 and up['stranger_vs_nopose']['p'] >= 0.05
+        # "the example is from Fig. onboardex", and the order its three lines show
+        if OX:
+            e = OX['shown']['abcd'.index(GA['example']['panel'])]
+            assert (e['scenario_id'], e['object_id']) == (GA['example']['scenario_id'],
+                                                          GA['example']['object_id'])
+        d = GA['example']['minADE_drawn']
+        assert d['own'] < d['nopose'] < d['stranger'], d
     PM = load('pointcloud_mesh_examples.json')
     if PM:
         # Fig. pcmesh cites no number beyond the stratum cuts. What Sec. IV-E says about

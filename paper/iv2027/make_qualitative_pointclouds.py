@@ -104,7 +104,8 @@ def vertices(model, s: dict) -> np.ndarray:
     return o.vertices[0].numpy().astype(np.float64)
 
 
-def draw(ax, V: np.ndarray, faces: np.ndarray, P: np.ndarray) -> None:
+def draw(ax, V: np.ndarray, faces: np.ndarray, P: np.ndarray, color: str = C_BODY,
+         alpha: float = 0.26, point_size: float = 1.6) -> None:
     """Body-centred frame at one metric scale, the widest horizontal extent across the view."""
     c = V.mean(0)
     Vc, Pc = V - c, P - c
@@ -116,12 +117,13 @@ def draw(ax, V: np.ndarray, faces: np.ndarray, P: np.ndarray) -> None:
     R = np.array([[ca, -sa, 0.0], [sa, ca, 0.0], [0.0, 0.0, 1.0]])
     Vc, Pc = Vc @ R.T, Pc @ R.T
 
-    tri = Poly3DCollection(Vc[faces], alpha=0.26, linewidths=0)
-    tri.set_facecolor(C_BODY)
+    tri = Poly3DCollection(Vc[faces], alpha=alpha, linewidths=0)
+    tri.set_facecolor(color)
     tri.set_edgecolor('none')
     ax.add_collection3d(tri)
-    ax.scatter(Pc[:, 0], Pc[:, 1], Pc[:, 2], s=1.6, c=C_POINT, depthshade=False,
-               edgecolors='none', zorder=10)
+    if len(Pc):                                  # an empty 3D scatter still leaves a mark
+        ax.scatter(Pc[:, 0], Pc[:, 1], Pc[:, 2], s=point_size, c=C_POINT, depthshade=False,
+                   edgecolors='none', zorder=10)
     # every body stands on the same line, so a shorter one is not drawn floating
     rh, zh = 0.62, 1.05
     z0 = Vc[:, 2].min() - 0.10

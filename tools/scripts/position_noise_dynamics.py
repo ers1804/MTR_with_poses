@@ -18,7 +18,8 @@ that. It does score the axis on full 11-frame histories alone, which removes the
 start.
 
 Quartiles and the top decile are cut inside the scored population, the design of the
-offboard test. The manoeuvre covariates need 10 valid future steps, so tracks that end
+offboard test. The two halves at the median are scored as well, for the graphical abstract,
+and every row also carries the stranger arm against no pose. The manoeuvre covariates need 10 valid future steps, so tracks that end
 within a second drop out, and every axis is scored on the pedestrians that have them.
 
 Reads experiments/eval_agent_manoeuvre.pkl, val_agent_pointcount_25k.pkl,
@@ -54,10 +55,11 @@ SPEED_BANDS = {'stationary': (0.0, 0.3), 'slow': (0.3, 0.8), 'walking': (0.8, 1.
 
 
 def strata(v: np.ndarray) -> tuple[dict, list]:
-    """Quartiles and the top decile of v, cut on v itself."""
+    """Quartiles, the top decile and the two halves of v, cut on v itself."""
     q = np.percentile(v, [25, 50, 75, 90])
     return ({'Q1': v <= q[0], 'Q2': (v > q[0]) & (v <= q[1]), 'Q3': (v > q[1]) & (v <= q[2]),
-             'Q4': v > q[2], 'top10': v > q[3]}, [float(x) for x in q])
+             'Q4': v > q[2], 'top10': v > q[3], 'lower_half': v <= q[1], 'upper_half': v > q[1]},
+            [float(x) for x in q])
 
 
 def main() -> None:
@@ -93,6 +95,7 @@ def main() -> None:
                     nopose_minADE=float(np.mean([X['nopose', s][mask].mean() for s in seeds])),
                     content=ci(rel('pre_pose', 'pre_shuf', mask)),
                     pose_vs_nopose=ci(rel('pre_pose', 'nopose', mask)),
+                    stranger_vs_nopose=ci(rel('pre_shuf', 'nopose', mask)),
                     content_fitted=ci(rel('fit_pose', 'fit_shuf', mask)))
 
     def show(name: str, r: dict) -> None:

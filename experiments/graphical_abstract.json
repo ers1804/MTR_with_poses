@@ -1,0 +1,44 @@
+{
+ "noise_cm": 30,
+ "min_returns": 200,
+ "axis": "tracker_vel_err",
+ "all": {
+  "n_pedestrians": 2272,
+  "own_vs_nopose": {
+   "rel": -2.0704979253871203,
+   "p": 0.038927097831649
+  },
+  "stranger_vs_nopose": {
+   "rel": 1.5368767305945807,
+   "p": 0.052444987018963204
+  }
+ },
+ "upper_half": {
+  "n_pedestrians": 1136,
+  "own_vs_nopose": {
+   "rel": -3.97263966846529,
+   "p": 0.003194439929581542
+  },
+  "stranger_vs_nopose": {
+   "rel": 1.2568499760015794,
+   "p": 0.13403125975625724
+  }
+ },
+ "example": {
+  "scenario_id": "3b46a18eb0636bb7",
+  "object_id": "6275",
+  "panel": "a",
+  "mean_returns": 500.3636363636364,
+  "frame_returns": 495,
+  "minADE_mean": {
+   "own": 1.6124723553657532,
+   "stranger": 3.3726308822631834,
+   "nopose": 2.7215213060379027
+  },
+  "minADE_drawn": {
+   "own": 1.246748685836792,
+   "stranger": 3.378640651702881,
+   "nopose": 2.6229124069213867
+  }
+ }
+}

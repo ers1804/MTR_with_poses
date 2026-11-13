@@ -18,8 +18,13 @@ epoch-30 counts and are not comparable cell by cell with the best-epoch table. E
 is the best of six modes of one seed.
 Panels are drawn in the pedestrian's label frame at prediction time.
 
+The no-pose runs of the same noise level are read as well. They take no part in the
+selection or in this figure. Their predictions for the shown examples go into the two
+output files, for make_graphical_abstract.py.
+
 Usage:  python paper/iv2027/make_onboard_examples.py [--n 4]
-Writes paper/iv2027/fig_onboard_examples.pdf and experiments/onboard_examples.json.
+Writes paper/iv2027/fig_onboard_examples.pdf, experiments/onboard_examples.json and
+experiments/onboard_examples_drawn.pkl, the drawn coordinates of the shown examples.
 """
 from __future__ import annotations
 
@@ -44,6 +49,7 @@ SCEN = os.environ.get(
     'SCEN', '/home/erik/big1/waymo_agent_batch_25k/processed_scenarios_validation')
 SEEDS = (101, 202, 303, 404, 505)
 ARMS = {'own': 'cross_attn_pe_with_map', 'stranger': 'cross_attn_pe_with_map_shufflepose'}
+NOPOSE_CFG = 'no_pose_with_map_posnoise30_scale25k'
 MIN_RETURNS, CUR, FULL_FUTURE = 200, 10, 80
 # Two categorical hues, validated for colour-vision deficiency on white. Truth and tracker
 # are ink and grey, so hue only ever separates the two arms.
@@ -51,9 +57,13 @@ C_OWN, C_STRANGER, C_INK, C_TRACK = '#2a78d6', '#eb6834', '#0b0b0b', '#8a8985'
 
 
 def load(arm: str, seed: int) -> dict:
-    cfg = f'{ARMS[arm]}_prefit_posnoise30_scale25k'
-    path = os.path.join(METRICS, f'mtr+pose_data_{cfg}', f'PF_25k_{cfg}_lr25_s{seed}', 'eval',
-                        'eval_with_train', 'epoch_30', 'result.pkl')
+    if arm == 'nopose':          # has no pose input, so one run serves fitted and pre-fit
+        cfg, tag = NOPOSE_CFG, f'PN_25k_{NOPOSE_CFG}_lr25_s{seed}'
+    else:
+        cfg = f'{ARMS[arm]}_prefit_posnoise30_scale25k'
+        tag = f'PF_25k_{cfg}_lr25_s{seed}'
+    path = os.path.join(METRICS, f'mtr+pose_data_{cfg}', tag, 'eval', 'eval_with_train',
+                        'epoch_30', 'result.pkl')
     out = {}
     for item in pickle.load(open(path, 'rb')):
         for r in (item if isinstance(item, list) else [item]):
@@ -71,6 +81,56 @@ def label_track(key: tuple) -> np.ndarray:
     info = pickle.load(open(glob.glob(os.path.join(SCEN, f'sample_{key[0]}_*.pkl'))[0], 'rb'))
     ids = [str(x) for x in info['track_infos']['object_id']]
     return np.asarray(info['track_infos']['trajs'])[ids.index(key[1])]
+
+
+def example(k: tuple, R: dict) -> dict:
+    """Everything one panel draws, in the pedestrian's label frame at prediction time."""
+    g, c = R['own', SEEDS[0]][k]['gt'], label_track(k)
+    o, h = c[CUR, :2].astype(np.float64), float(c[CUR, 6])
+    rot = np.array([[np.cos(h), np.sin(h)], [-np.sin(h), np.cos(h)]])
+
+    def T(p):
+        return (np.asarray(p, np.float64) - o) @ rot.T
+
+    fv, pv = g[CUR + 1:, 9] > 0, g[:CUR + 1, 9] > 0
+    t = (np.arange(30) + 1) / 10.0
+    return dict(
+        scenario_id=k[0], object_id=k[1], frame=lambda mode: T(mode[fv]),
+        own=[T(R['own', s][k]['mode'][fv]) for s in SEEDS],
+        stranger=[T(R['stranger', s][k]['mode'][fv]) for s in SEEDS],
+        truth=T(g[CUR + 1:, :2][fv]),
+        # the tracker: what it reported, and where its velocity says the pedestrian is going
+        tracked=T(g[:CUR + 1, :2][pv]),
+        tracker_cv=T(g[CUR, :2][None] + g[CUR, 7:9][None] * t[:, None]),
+        label_history=T(c[:CUR + 1, :2][c[:CUR + 1, 9] > 0]),
+        own_minADE=float(np.mean([R['own', s][k]['ade'] for s in SEEDS])),
+        stranger_minADE=float(np.mean([R['stranger', s][k]['ade'] for s in SEEDS])),
+        # per seed, to pick a representative line per arm
+        ade={a: [float(R[a, s][k]['ade']) for s in SEEDS] for a in ARMS})
+
+
+def draw_example(ax, d: dict) -> None:
+    """One panel: five seeds per arm, the label, the tracked history and its extrapolation."""
+    for arm, col in (('stranger', C_STRANGER), ('own', C_OWN)):
+        for p in d[arm]:
+            ax.plot(*np.vstack([[0, 0], p]).T, color=col, lw=0.9, alpha=0.9,
+                    solid_capstyle='round', zorder=3 if arm == 'own' else 2)
+    ax.plot(*d['tracked'].T, ls='none', marker='o', ms=2.2, mfc=C_TRACK, mec='white', mew=0.3,
+            zorder=4)
+    ax.plot(*d['label_history'].T, color=C_INK, lw=0.8, zorder=5)
+    ax.plot(*np.vstack([[0, 0], d['truth']]).T, color=C_INK, lw=1.6, solid_capstyle='round',
+            zorder=6)
+    ax.plot(0, 0, 'o', ms=3.6, mfc=C_INK, mec='white', mew=0.7, zorder=7)
+    ax.margins(0.07)
+    ax.set_aspect('equal', adjustable='datalim')
+    # 3 s of constant velocity, kept out of the panel's extent
+    ax.plot(*d['tracker_cv'].T, color=C_TRACK, lw=0.8, ls=(0, (3, 2)), zorder=1, scalex=False,
+            scaley=False)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    for sp in ax.spines.values():
+        sp.set_linewidth(0.4)
+        sp.set_color('#c9c8c2')
 
 
 def main() -> None:
@@ -110,45 +170,26 @@ def main() -> None:
                     tracker_vel_err=float(ve[i]), tracker_pos_err=float(trk[keys[i]]['pos_err']),
                     speed0=float(man[keys[i]]['speed0']), returns=float(pc[keys[i]]['n_mean']))
                for i in shown])
-    json.dump(facts, open(os.path.join(REPO, 'experiments', 'onboard_examples.json'), 'w'), indent=1)
     print(json.dumps({k: v for k, v in facts.items() if k != 'shown'}, indent=1))
+    drawn = [example(keys[i], R) for i in shown]
+    N = {s: load('nopose', s) for s in SEEDS}
+    for d, e in zip(drawn, facts['shown']):
+        k = (d['scenario_id'], d['object_id'])
+        # the stored future of every run is the label, so one mask and one frame serve all
+        d['nopose'] = [d['frame'](N[s][k]['mode']) for s in SEEDS]
+        d['ade']['nopose'] = [float(N[s][k]['ade']) for s in SEEDS]
+        e['nopose_minADE'] = float(np.mean(d['ade']['nopose']))
+        del d['frame']
+    json.dump(facts, open(os.path.join(REPO, 'experiments', 'onboard_examples.json'), 'w'), indent=1)
+    pickle.dump(drawn, open(os.path.join(REPO, 'experiments', 'onboard_examples_drawn.pkl'), 'wb'))
 
     plt.rcParams.update({'font.family': 'serif', 'font.size': 7, 'pdf.fonttype': 42,
                          'font.serif': ['Liberation Serif', 'DejaVu Serif']})
     ncol = 2
     nrow = int(np.ceil(len(shown) / ncol))
     fig, axes = plt.subplots(nrow, ncol, figsize=(3.45, 0.98 * nrow + 0.26))
-    t = (np.arange(30) + 1) / 10.0
-    for ax, i, tag in zip(np.atleast_1d(axes).ravel(), shown, 'abcdefgh'):
-        k = keys[i]
-        g, c = R['own', SEEDS[0]][k]['gt'], label_track(k)
-        o, h = c[CUR, :2].astype(np.float64), float(c[CUR, 6])
-        rot = np.array([[np.cos(h), np.sin(h)], [-np.sin(h), np.cos(h)]])
-
-        def T(p):
-            return (np.asarray(p, np.float64) - o) @ rot.T
-
-        fv, pv = g[CUR + 1:, 9] > 0, g[:CUR + 1, 9] > 0
-        truth = T(g[CUR + 1:, :2][fv])
-        for arm, col in (('stranger', C_STRANGER), ('own', C_OWN)):
-            for s in SEEDS:
-                p = T(R[arm, s][k]['mode'][fv])
-                ax.plot(*np.vstack([[0, 0], p]).T, color=col, lw=0.9, alpha=0.9,
-                        solid_capstyle='round', zorder=3 if arm == 'own' else 2)
-        # the tracker: what it reported, and where its velocity says the pedestrian is going
-        # (3 s of constant velocity, kept out of the panel's extent)
-        ax.plot(*T(g[:CUR + 1, :2][pv]).T, ls='none', marker='o', ms=2.2, mfc=C_TRACK,
-                mec='white', mew=0.3, zorder=4)
-        ax.plot(*T(c[:CUR + 1, :2][c[:CUR + 1, 9] > 0]).T, color=C_INK, lw=0.8, zorder=5)
-        ax.plot(*np.vstack([[0, 0], truth]).T, color=C_INK, lw=1.6, solid_capstyle='round', zorder=6)
-        ax.plot(0, 0, 'o', ms=3.6, mfc=C_INK, mec='white', mew=0.7, zorder=7)
-        ax.margins(0.07)
-        ax.set_aspect('equal', adjustable='datalim')
-        ax.plot(*T(g[CUR, :2][None] + g[CUR, 7:9][None] * t[:, None]).T, color=C_TRACK, lw=0.8,
-                ls=(0, (3, 2)), zorder=1, scalex=False, scaley=False)
-        ax.set_xticks([]); ax.set_yticks([])
-        for sp in ax.spines.values():
-            sp.set_linewidth(0.4); sp.set_color('#c9c8c2')
+    for ax, i, d, tag in zip(np.atleast_1d(axes).ravel(), shown, drawn, 'abcdefgh'):
+        draw_example(ax, d)
         ax.set_title(f'({tag})  own {ade["own"][i].mean():.2f} m, stranger '
                      f'{ade["stranger"][i].mean():.2f} m', loc='left', fontsize=6.5, pad=2,
                      color=C_INK)

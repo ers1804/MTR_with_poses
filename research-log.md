@@ -2531,3 +2531,93 @@ wording point: in the 18-return panel two returns sit on the upper thigh (height
 of the body), so "none on the legs" became "between thigh and shoulder, with none on the head
 or the lower legs". The script now writes the height range of the returns on each body and
 the verifier asserts both descriptions against it.
+
+### 2026-11-13 GRAPHICAL ABSTRACT on page 1 (Fig. 1, fig:gabs)
+
+The user asked for a small graphical abstract. It is a page-1 figure at the top of the right
+column: left, the content test as a picture (the same model and track, the own body in blue or
+a stranger's in orange, both pre-fit bodies of scored pedestrians). Right, three bars of "lower
+minADE with own pose (%)" at 25k scenes, read from the result files and not typed in:
+- offboard labels: 0.0 (n.s.)                     top1_content_25k.json
+- simulated onboard tracker, 30 cm: 5.3, split into 1.3 (n.s., what the pre-fit poses keep)
+  and 4.0 hatched "label leak"                    position_noise_ladder.json
+- same tracker, leak removed, >=200 returns: 3.5 (p = 0.010), caption says uncorrected
+                                                  position_noise_subpopulation.json
+Script paper/iv2027/make_graphical_abstract.py (lidar-hmr env, NAS), facts in
+experiments/graphical_abstract.json, verifier group "graphical abstract (Fig. gabs)".
+The oracle (-34.5%) is left out: it would need a broken axis.
+
+Figures are renumbered: architecture 2, point cloud 3, onboard examples 4.
+
+CUT to hold 8 pages (7.99, and the layout takes about four more lines before it spills):
+- introduction: "Both reasons can be checked quantitatively, and cheaply ...", "We make three
+  contributions.", "and it is the comparison a practitioner should demand ...", the R^2 pair
+  (0.94 against 0.44, still in Sec. IV-E and VI), the 579-scene ladder sentence of the third
+  contribution (Sec. V-A keeps the low-power paragraph)
+- setup: the identity-keyed-joins rationale shortened, the inference sentence shortened
+- Sec. IV-A: the three raw minADE values of the fine-tune
+- Sec. V-A: the four single-exponential residuals, the NMS and 2.5 m radius detail,
+  "Four fifths of the term survive a 25 deg median error."
+- conclusion: the closing "Before integrating a modality ..." sentence (abstract and Sec. VI
+  keep it)
+Cuts did not move the last page one for one: the columns absorb a few lines in their glue.
+
+REVIEW of the graphical abstract (independent, same day). Sources, signs, the split and the
+p labels reproduced, no defect. One wording point taken: the third row said "leak removed",
+which is stronger than the paper's own audit (the pre-fit poses are still estimated from
+points cropped by offboard boxes). It now says "pre-fit pose" and the caption defines it.
+Noted in passing: top1_content_25k.json gives p = 0.944 for the offboard content test where
+Table I and the abstract give 0.93. Both n.s., the graphic prints only n.s.
+
+GRAPHICAL ABSTRACT REDONE (same day, user's direction): "We shouldn't mention what didn't work
+in this graphical abstract but rather what worked. So this should show that we have a benefit
+using an onboard tracker with your own pose." The offboard-null and leak bars are gone. The
+graphic now has three parts, all on the 30 cm tracker with pre-fit poses and >=200 returns:
+- left: the body of one pedestrian with its LiDAR returns (291)
+- middle: that pedestrian's forecast, own pose against a stranger's, with label and tracked
+  history. It is panel (c) of the onboard examples, so it is selected on the effect, and the
+  caption says so.
+- right: lower minADE with own pose by quartile of tracker velocity error, 1.5, 2.0, 5.8*,
+  4.6*, and 3.5* over all 2,272 (position_noise_dynamics.json)
+Not shown as a benefit: the fitted-pose 5.3%, because three quarters of it is the label leak.
+make_onboard_examples.py now exposes example() and draw_example() and writes
+experiments/onboard_examples_drawn.pkl. Its figure is unchanged in the trajectories (text
+pixels differ between matplotlib builds, committed PDF kept).
+Caption is six lines, the cuts of the first version stand, 8 pages with about three lines of
+tolerance. Risk noted to the user: page 1 now leads with the result that rests on one
+stratification, and the 10 cm level is still running.
+
+REVIEW of the redone graphic (independent, same day). No defect: the bars are the pre-fit
+content effect, the body is the pedestrian of the example, the example predictions come from
+the pre-fit runs, and the refactor of make_onboard_examples.py leaves its figure as it was.
+Taken: the quartiles are not monotone (5.8 in Q3, 4.6 in Q4), so the caption says "in the
+upper half of the tracker's velocity error" and cites Table III, whose 2,272 pedestrians the
+3.5 is read on. Left as is: the dashed tracker line in the example points backward (it is the
+tracker's velocity, explained in the Fig. 4 caption), and each line is a seed's best of six
+modes (also in the Fig. 4 caption).
+
+GRAPHICAL ABSTRACT, THIRD VERSION (same day, user: "add the comparison without pose into the
+trajectory graph. Also it isn't very clear what you try to show with the minADE bar graph").
+- Trajectory panel now has three models, own pose, a stranger's pose and no pose, one line
+  each (the seed with the median error of its five), plus label and tracked history. The
+  dashed tracker extrapolation is dropped here.
+- The bar chart is replaced. It now reads "minADE against no pose (%)" on the 2,272
+  well-resolved pedestrians: own pose -2.07% (p=0.039), stranger +1.54% (p=0.052). On the half
+  with the larger tracker velocity error (1,136): own -3.97% (p=0.003), stranger +1.26%
+  (p=0.13). For reference the other half: own +0.06%, stranger +1.87% (both n.s.).
+  position_noise_dynamics.py gained the two halves and stranger_vs_nopose, earlier values
+  unchanged.
+- No-pose predictions: epoch_30/result.pkl of PN_25k_no_pose_with_map_posnoise30 for seeds
+  202 to 505 pulled from Helma (read-only rsync) to big1/heading_noise_metrics, s101 was there.
+- EXAMPLE CHANGED from panel (c) to panel (a). Mean minADE own / stranger / no pose on the
+  four Fig. 4 examples: (a) 1.61 / 3.37 / 2.72, (b) 1.37 / 2.71 / 1.61, (c) 0.45 / 1.16 / 0.49,
+  (d) 0.63 / 1.34 / 0.86. On (c) no pose is as good as own pose, so it does not show the
+  comparison. (a) is the first by the Fig. 4 rule (largest gain over the stranger), which does
+  not use the no-pose arm. Told the user.
+- Caveat: the example lines are final-epoch predictions, also for the no-pose model, while the
+  bars are best-epoch. The paper avoids fixed-epoch comparisons of the no-pose arm in numbers.
+  This one is an illustration.
+- Paper: Sec. IV-E states the two no-pose numbers. Further cuts for space: raw minADE values of
+  the oracle at 579 scenes (IV-C), "since this subpopulation is defined per pedestrian" (IV-D),
+  "Its two arms have identical input dimensionality ..." (IV-B). 7.98 pages, about four lines
+  of tolerance. Verifier 228 checks and 6 rows.
