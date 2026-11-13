@@ -980,6 +980,13 @@ def main() -> int:
             (g, 'own vs no pose, upper half, p', up['own_vs_nopose']['p'], '0.003'),
             (g, 'pedestrians', al['n_pedestrians'], '2{,}272'),
         ]
+        # the half the graphic leaves out, which Sec. IV-E states beside the other
+        lo = (load('position_noise_dynamics.json') or {}).get('returns>=200', {}).get(
+            GA['axis'], {}).get('lower_half')
+        if lo:
+            checks += [(g, 'own vs no pose, lower half', lo['pose_vs_nopose']['rel'], '0.1'),
+                       (g, 'own vs no pose, lower half, p', lo['pose_vs_nopose']['p'], '0.96')]
+            assert lo['pose_vs_nopose']['rel'] > 0
         assert GA['noise_cm'] == 30 and GA['min_returns'] == 200 and GA['axis'] == 'tracker_vel_err'
         assert up['n_pedestrians'] * 2 == al['n_pedestrians']                  # "the half"
         # the asterisks it prints, and "a stranger's pose does not" lower minADE

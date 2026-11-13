@@ -69,9 +69,10 @@ pose~\cite{saadatnejad2024socialtransmotion,gao2025socialpose,salzmann2023robots
 \caption{Under a simulated onboard tracker ($30$\,cm noise), a pedestrian's
 own SMPL pose from LiDAR lowers \minADE against no pose by $2.1\%$ on the
 well-resolved pedestrians of Table~\ref{tab:dyn}, and by $4.0\%$ on the half
-with the larger tracker velocity error. A stranger's pose does not. The poses
-never saw the track, asterisks mark $p{<}0.05$, uncorrected, and the example is
-from Fig.~\ref{fig:onboardex}, selected on the effect, each model's median seed.}
+with the larger tracker velocity error, a split chosen after the result. A
+stranger's pose does not. The poses never saw the track, asterisks mark
+$p{<}0.05$, uncorrected, and the example is from Fig.~\ref{fig:onboardex},
+selected on the effect, each model's median seed and best of six modes.}
 \label{fig:gabs}
 \end{figure}
 
@@ -510,8 +511,8 @@ pedestrian, and the trend holds on complete one-second histories alone ($2.3$
 points, $p{=}0.004$), so it is not the filter's cold start. On all pedestrians it is $2.3$
 points over position error ($p{=}0.008$) and $1.4$ over velocity error
 ($p{=}0.09$). Against no pose, own pose is $-2.1\%$ on the $2{,}272$
-($p{=}0.039$) and $-4.0\%$ on the half with the larger velocity error
-($p{=}0.003$). The fitted poses do the opposite. Their gain does not follow the
+($p{=}0.039$): $-4.0\%$ on the half with the larger velocity error
+($p{=}0.003$) and $+0.1\%$ on the other ($p{=}0.96$). The fitted poses do the opposite. Their gain does not follow the
 tracker's error ($p{=}0.08$ and $0.87$) and shrinks with the manoeuvre, from
 $-8.4\%$ to $-3.5\%$ over constant-velocity residual ($p{=}0.013$), as a leaked
 speed is worth most where the pedestrian keeps it. Fig.~\ref{fig:onboardex}

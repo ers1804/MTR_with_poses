@@ -2621,3 +2621,10 @@ trajectory graph. Also it isn't very clear what you try to show with the minADE 
   the oracle at 579 scenes (IV-C), "since this subpopulation is defined per pedestrian" (IV-D),
   "Its two arms have identical input dimensionality ..." (IV-B). 7.98 pages, about four lines
   of tolerance. Verifier 228 checks and 6 rows.
+
+REVIEW of the third graphic (independent, came back after the commit 15cb43c). Numbers
+recomputed from the loaders and matched, no defect. Its main point: the "half with larger
+tracker error" is a split made after the result, not a column of Table III, and the half the
+graphic leaves out shows nothing (own pose +0.06% against no pose, p = 0.96). Prepared as a
+follow-up, uncommitted until the user decides: the caption says "a split chosen after the
+result" and "best of six modes", and the Sec. IV-E sentence gives both halves.
