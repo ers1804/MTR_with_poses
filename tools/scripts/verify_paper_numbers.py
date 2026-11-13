@@ -821,14 +821,18 @@ def main() -> int:
     FO = load('facing_vs_observation_length.json')
     if FO:
         checks.append(('stationary onset (Sec. V-B)', 'onset events', FO['overall']['n'], '1{,}705'))
-    MP = load('full_pipeline_mpjpe.json')
+    MP = load('pose_accuracy_fit_vs_prefit.json')
     if MP:
         g = 'fitted vs pre-fit pose accuracy (Sec. IV-E)'
-        m = MP['paired_vs_lidar_hmr_stage_ts_aligned']['root_aligned']
-        checks += [(g, 'fitted MPJPE mm', m['full_mean'], '92.7'),
-                   (g, 'pre-fit MPJPE mm', m['lidar_hmr_mean'], '87.6'),
-                   (g, 'frames', m['n'], '347')]
-        assert m['full_mean'] > m['lidar_hmr_mean']        # "no more accurate"
+        d, J = MP['fitted_minus_prefit_mm']['root_aligned'], MP['per_joint_root_aligned_mm']
+        checks += [(g, 'fitted MPJPE mm', MP['fitted']['root_aligned_mm']['mean'], '94.8'),
+                   (g, 'pre-fit MPJPE mm', MP['prefit']['root_aligned_mm']['mean'], '90.7'),
+                   (g, 'frames', MP['n_frames'], '1{,}789')]
+        assert d['lo'] > 0                                 # "less accurate"
+        # "the loss is at the knees and ankles": every leg joint loses more than any other
+        gain = {k: v['fitted'] - v['prefit'] for k, v in J.items()}
+        legs = [k for k in gain if 'KNEE' in k or 'ANKLE' in k]
+        assert min(gain[k] for k in legs) > 10 > 4 > max(v for k, v in gain.items() if k not in legs)
     HD = load('horizon_decomposition.json')
     if HD:
         checks.append(('metric definition (Sec. III-C)', 'share with a full 8 s future (%)',

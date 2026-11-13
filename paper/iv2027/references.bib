@@ -310,8 +310,11 @@
 @article{fan2023lidarhmr,
   title   = {{LiDAR-HMR}: {3D} Human Mesh Recovery from {LiDAR}},
   author  = {Fan, Bohao and Zheng, Wenzhao and Feng, Jianjiang and Zhou, Jie},
-  journal = {arXiv preprint arXiv:2311.11971},
-  year    = {2023}
+  journal = {IEEE Transactions on Multimedia},
+  volume  = {27},
+  pages   = {6962--6975},
+  year    = {2025},
+  doi     = {10.1109/TMM.2025.3590928}
 }
 
 % ---------------------------------------------------------------------------
@@ -457,4 +460,52 @@
   title     = {You Mostly Walk Alone: Analyzing Feature Attribution in Trajectory Prediction},
   booktitle = {International Conference on Learning Representations (ICLR)},
   year      = {2022},
+}
+
+% ---------------------------------------------------------------------------
+% Added 2026-11-13 after the literature review. Venue, pages and DOI from Crossref.
+% ---------------------------------------------------------------------------
+@inproceedings{li2023keypoints,
+  title     = {Pedestrian Crossing Action Recognition and Trajectory Prediction with {3D} Human Keypoints},
+  author    = {Li, Jiachen and Shi, Xinwei and Chen, Feiyu and Stroud, Jonathan and Zhang, Zhishuai and Lan, Tian and Mao, Junhua and Kang, Jeonhyung and Refaat, Khaled S. and Yang, Weilong and Ie, Eugene and Li, Congcong},
+  booktitle = {2023 IEEE International Conference on Robotics and Automation (ICRA)},
+  pages     = {1463--1470},
+  year      = {2023},
+  doi       = {10.1109/ICRA48891.2023.10160273}
+}
+
+@inproceedings{chen2024womdlidar,
+  title     = {{WOMD-LiDAR}: Raw Sensor Dataset Benchmark for Motion Forecasting},
+  author    = {Chen, Kan and Ge, Runzhou and Qiu, Hang and Al-Rfou, Rami and Qi, Charles R. and Zhou, Xuanyu and Yang, Zoey and Ettinger, Scott and Sun, Pei and Leng, Zhaoqi and Baniodeh, Mustafa and Bogun, Ivan and Wang, Weiyue and Tan, Mingxing and Anguelov, Dragomir},
+  booktitle = {2024 IEEE International Conference on Robotics and Automation (ICRA)},
+  pages     = {4766--4773},
+  year      = {2024},
+  doi       = {10.1109/ICRA57147.2024.10610651}
+}
+
+@inproceedings{weng2022mtp,
+  title     = {{MTP}: Multi-hypothesis Tracking and Prediction for Reduced Error Propagation},
+  author    = {Weng, Xinshuo and Ivanovic, Boris and Pavone, Marco},
+  booktitle = {2022 IEEE Intelligent Vehicles Symposium (IV)},
+  pages     = {1218--1225},
+  year      = {2022},
+  doi       = {10.1109/IV51971.2022.9827273}
+}
+
+@inproceedings{xu2024realworld,
+  title     = {Towards Motion Forecasting with Real-World Perception Inputs: Are End-to-End Approaches Competitive?},
+  author    = {Xu, Yihong and Chambon, Lo{\"i}ck and Zablocki, {\'E}loi and Chen, Micka{\"e}l and Alahi, Alexandre and Cord, Matthieu and P{\'e}rez, Patrick},
+  booktitle = {2024 IEEE International Conference on Robotics and Automation (ICRA)},
+  pages     = {18428--18435},
+  year      = {2024},
+  doi       = {10.1109/ICRA57147.2024.10610201}
+}
+
+% The Trajectron++ preprocessing took velocities with np.gradient (central differences),
+% which put the position at t+1 into the state at t. Raised and confirmed in this issue.
+@misc{trajectron2021derivatives,
+  title        = {Derivatives of velocities/acceleration},
+  author       = {{StanfordASL}},
+  howpublished = {{Trajectron++} issue 40, \url{https://github.com/StanfordASL/Trajectron-plus-plus/issues/40}},
+  year         = {2021}
 }

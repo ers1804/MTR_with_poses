@@ -87,41 +87,23 @@ offboard label returning through the pose pipeline, which fits the gait to the
 track. Poses that never saw the track appear to pay only where the sensor
 resolves the body (Fig.~\ref{fig:gabs}).
 
-\textbf{A controlled null on offboard tracks.} We measure pose conditioning against a shuffled-pose
-control: the same architecture receiving a different pedestrian's body motion.
-This isolates information content from the capacity cost of an extra branch. The control is null at three training scales, under two integration
-styles and across three pose encodings ($6$D joint rotations, agent-frame root,
-and eight frame-invariant descriptors). An oracle arm, which
-replaces the body with a signal encoding the agent's own future, improves
-\minADE by $34.8\%$ through the same branch, so the null is a property of what
-pose adds to these tracks, not of the plumbing.
-
-\textbf{An onboard-quality track, and a label leak.} We replace WOMD's observed
-history with what a causal tracker would report, per-frame detection noise
-filtered by a forward-only Kalman filter, and repeat the content test. Own pose
-now beats a stranger's by $5.3\%$ at $30$\,cm of detection noise. Three quarters
-of that is not body information. The pose pipeline ends in a motion-prior fit
-whose loss matches the gait to the box track, so the fitted body states the
-clean speed the tracker lost. Rerun on the pre-fit poses, the gain is $1.3\%$
-and no longer significant. On well-resolved bodies it is $3.5\%$ and grows
-with LiDAR returns, a result that rests on one stratification. Within them the
-gain follows the tracker's error and not the pedestrian's manoeuvre.
-
-\textbf{What the pathway converts, and what it does not.} We corrupt that oracle
-with a controlled angular error to ask what kind of information the branch turns
-into accuracy. At $25$k scenes every error level we trained converts, including one uniformly worse
-than an input the model already has, so the ladder does not set an accuracy a
-cue must reach. It separates a precision term with a $3.0^\circ$ half-life from a
-slowly decaying term that is future-side mode selection. Body facing
-supplies neither: it is a noisier copy of the box heading where pedestrians move,
-and reaches $41.2^\circ$ where they do not, the case velocity cannot cover.
+Our contributions are threefold. First, a controlled null. Against the same
+model fed another pedestrian's body, pose adds nothing on WOMD's offboard tracks
+at three training scales, while an oracle through the same branch improves
+\minADE by $34.8\%$. Second, an onboard-quality track and a label leak. Under a
+simulated causal tracker own pose beats a stranger's by $5.3\%$, but three
+quarters of that is the track label returning through the pose pipeline, and
+without it a gain remains only on well-resolved pedestrians. Third, a degraded
+oracle shows that the branch converts even a coarse future direction, so the
+null reflects what body facing carries beyond the box heading.
 
 \section{Related Work}
 Trajectory forecasting on WOMD is dominated by anchor- and query-based
 transformers. We build on MTR~\cite{shi2022mtr}, which is
-representative and strong. Human mesh recovery from LiDAR is
-maturing~\cite{fan2023lidarhmr}, with motion priors used to complete sparse
-observations~\cite{rempe2021humor,he2022nemf,mahmood2019amass}. Intent-focused
+representative and strong. Adding raw LiDAR features to a WOMD forecaster
+leaves pedestrian \minADE at $0.54$\,m~\cite{chen2024womdlidar}. Human mesh recovery from LiDAR is
+maturing~\cite{fan2023lidarhmr}, with motion priors completing sparse
+observations~\cite{he2022nemf,mahmood2019amass}. Intent-focused
 work on pedestrian datasets~\cite{rasouli2019pie,fang2018pedestrian} targets
 crossing decisions rather than metric trajectories. Kress
 et al.~\cite{kress2022pose} report pose-based gains for vulnerable road users
@@ -144,9 +126,12 @@ is a well-resolved body, the one condition under which our track-free poses
 appear to pay (Sec.~\ref{sec:onboard}). Le et al.~\cite{le2026legsoverarms}
 localise the JRDB gain to lower-body 3D keypoints ($13\%$ ADE).
 
-The closest published setting to ours already reports approximately our result.
-Social-Pose also evaluates on Pedestrians and Cyclists in Road Traffic, the one
-vehicle-captured dataset there, and with ground-truth 3D pose ADE moves
+The two vehicle-captured settings closest to ours report small effects.
+Li et al.~\cite{li2023keypoints} add 3D keypoints to a predictor on the Waymo
+perception set, and $4$\,s \minADE moves from $0.249$ to $0.239$\,m in a
+single run.
+Social-Pose also evaluates on Pedestrians and Cyclists in Road Traffic, and
+with ground-truth 3D pose ADE moves
 from $0.58$ to $0.57$\,m, by $0.01$\,m or less for all five architectures
 tested, against the ${\approx}25\%$ the same encoder delivers on JTA. Two
 properties separate the remaining positive settings from an AV stack.
@@ -179,8 +164,10 @@ input. Solid orange~(2): the pose branch (late fusion). Dashed~(3): early fusion
 We use WOMD~\cite{ettinger2021waymo} with SMPL~\cite{loper2015smpl} poses
 recovered from LiDAR by the Waymo-3DSkelMo pipeline~\cite{zhu2025waymo3dskelmo},
 which fits per-frame bodies with LiDAR-HMR~\cite{fan2023lidarhmr} and completes
-them using AMASS-trained motion
-priors~\cite{mahmood2019amass,rempe2021humor,he2022nemf}. Poses cover the $11$
+them with a NeMF motion prior trained on
+AMASS~\cite{he2022nemf,mahmood2019amass}. We run its released second
+version, whose fit adds a term that keeps the joints inside the labelled box.
+Poses cover the $11$
 observed frames, and the prediction horizon is $8$\,s at $10$\,Hz. In every
 arm the model sees the map and the pedestrians that carry poses. Vehicles,
 cyclists and the ego vehicle are not in its input. Every predicted agent
@@ -459,7 +446,9 @@ track. The motion-prior stage~\cite{he2022nemf} is a latent optimisation whose
 loss predicts the root translation from the local body motion and matches it to
 the box track, so the fit pulls the gait toward a stride that reproduces the
 offboard displacement. The model input holds joint rotations only and covers
-only the $11$ observed frames, so auditing the input does not reveal it. A check
+only the $11$ observed frames, so auditing the input does not reveal it.
+Derived inputs have carried labels before: central-difference velocities gave
+Trajectron++ the next position~\cite{trajectron2021derivatives}. A check
 without training does. On the $11{,}588$ validation pedestrians with a pose on every observed frame, gradient-boosted
 trees predict the clean one-second speed from body pose alone, root excluded,
 with $R^2{=}0.94$ from the fitted pose and $0.44$ from the pre-fit one. On
@@ -560,12 +549,15 @@ extends the tracker's velocity over $3$\,s.}
 \end{figure}
 
 Three caveats bound this. The tracker is simulated, with Gaussian detection
-noise rather than a detector's correlated, occlusion-driven errors. The pre-fit
+noise rather than a detector's correlated, occlusion-driven errors, and it
+never switches or fragments an identity, errors that degrade forecasts on real
+tracker output~\cite{weng2022mtp}. The pre-fit
 poses are per-frame and unsmoothed, so a prior fitted to the body alone might
-recover more, though on the $347$ frames with labelled
-keypoints~\cite{sun2020waymoperception,zheng2022keypoints} the fitted
-poses are no more accurate than the pre-fit ones ($92.7$ against $87.6$\,mm
-MPJPE).
+recover more. The fit used here does not: on $1{,}789$ keypoint-labelled frames
+of the perception validation
+set~\cite{sun2020waymoperception,zheng2022keypoints} the fitted poses are less
+accurate than the pre-fit ones ($94.8$ against $90.7$\,mm MPJPE, aligned at the
+hip midpoint), and the loss is at the knees and ankles.
 And returns are one of two stratifications we scored at this noise level, four strata
 each, so $p{=}0.010$ is uncorrected over eight strata, and the splits of
 Table~\ref{tab:dyn} were chosen after that result and subdivide its stratum. What the two runs establish is that the same body adds nothing to

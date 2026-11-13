@@ -1,0 +1,131 @@
+{
+ "_meta": {
+  "workspace": "/home/erik/big1/mpjpe_eval113",
+  "fitted_root": "/home/erik/NAS/publicdatasets/generated/final_30fps/validation",
+  "n_boot": 4000,
+  "note": "Waymo perception validation, frames with LiDAR keypoint labels and both hips. Neutral SMPL, zero shape, 13 shared joints. Per-frame mean over labelled joints, then over frames. root_aligned subtracts the hip midpoint on both sides. unaligned is the protocol of the pipeline's own evaluation. The paired interval resamples pedestrians."
+ },
+ "n_labelled": 1862,
+ "n_without_both_hips": 73,
+ "n_without_prefit": 0,
+ "n_without_fitted": 0,
+ "n_frames": 1789,
+ "n_pedestrians": 534,
+ "n_segments": 77,
+ "prefit": {
+  "root_aligned_mm": {
+   "mean": 90.73213712657565,
+   "median": 77.03451279322519
+  },
+  "unaligned_mm": {
+   "mean": 94.31309737464959,
+   "median": 78.00766303507898
+  },
+  "rigid_aligned_mm": {
+   "mean": 72.16184961162605,
+   "median": 63.98837837769331
+  }
+ },
+ "fitted": {
+  "root_aligned_mm": {
+   "mean": 94.81682293993269,
+   "median": 82.82414005507304
+  },
+  "unaligned_mm": {
+   "mean": 152.68728946863635,
+   "median": 92.72616534163778
+  },
+  "rigid_aligned_mm": {
+   "mean": 76.34067201418756,
+   "median": 67.73314083787474
+  }
+ },
+ "prefit_left_right_swapped_root_aligned_mm": 312.424422725819,
+ "fitted_minus_prefit_mm": {
+  "root_aligned": {
+   "mean": 4.084685813357038,
+   "lo": 1.7709370882522129,
+   "hi": 6.3518665462594255,
+   "n_fitted_worse": 1155
+  },
+  "unaligned": {
+   "mean": 58.374192093986764,
+   "lo": 37.241281010378934,
+   "hi": 84.2909759893168,
+   "n_fitted_worse": 1242
+  },
+  "rigid_aligned": {
+   "mean": 4.178822402561503,
+   "lo": 2.6098893525512152,
+   "hi": 6.106637563777433,
+   "n_fitted_worse": 1155
+  }
+ },
+ "per_joint_root_aligned_mm": {
+  "LEFT_SHOULDER": {
+   "n": 1753,
+   "prefit": 87.3250195990942,
+   "fitted": 85.72596179224188
+  },
+  "LEFT_ELBOW": {
+   "n": 1646,
+   "prefit": 91.21105322699259,
+   "fitted": 91.80465243462872
+  },
+  "LEFT_WRIST": {
+   "n": 1639,
+   "prefit": 118.30525572480627,
+   "fitted": 115.97975267869427
+  },
+  "LEFT_HIP": {
+   "n": 1789,
+   "prefit": 39.791448145054055,
+   "fitted": 38.04469956335624
+  },
+  "LEFT_KNEE": {
+   "n": 1748,
+   "prefit": 81.48532581006442,
+   "fitted": 94.22114847222977
+  },
+  "LEFT_ANKLE": {
+   "n": 1730,
+   "prefit": 116.59059133095647,
+   "fitted": 130.15494057839683
+  },
+  "RIGHT_SHOULDER": {
+   "n": 1750,
+   "prefit": 89.0126254328871,
+   "fitted": 87.78743802234635
+  },
+  "RIGHT_ELBOW": {
+   "n": 1646,
+   "prefit": 91.5193943483102,
+   "fitted": 91.10343169739889
+  },
+  "RIGHT_WRIST": {
+   "n": 1626,
+   "prefit": 125.3791439606505,
+   "fitted": 128.4281986057478
+  },
+  "RIGHT_HIP": {
+   "n": 1789,
+   "prefit": 39.791448145055774,
+   "fitted": 38.04469956335975
+  },
+  "RIGHT_KNEE": {
+   "n": 1763,
+   "prefit": 78.40094066911232,
+   "fitted": 92.83562986570502
+  },
+  "RIGHT_ANKLE": {
+   "n": 1756,
+   "prefit": 114.02559023169113,
+   "fitted": 128.19556737553248
+  },
+  "HEAD": {
+   "n": 1688,
+   "prefit": 111.60824282213466,
+   "fitted": 114.95735955545523
+  }
+ }
+}

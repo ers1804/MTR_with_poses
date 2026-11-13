@@ -2628,3 +2628,55 @@ tracker error" is a split made after the result, not a column of Table III, and 
 graphic leaves out shows nothing (own pose +0.06% against no pose, p = 0.96). Prepared as a
 follow-up, uncommitted until the user decides: the caption says "a split chosen after the
 result" and "best of six modes", and the Sec. IV-E sentence gives both halves.
+
+## 2026-11-13 (afternoon) literature review follow-up: accuracy recheck, citations, contributions
+
+RECHECK of the fitted-pose accuracy sentence (user asked, the old numbers were ours).
+New script tools/scripts/pose_accuracy_fit_vs_prefit.py, written without the pipeline's
+evaluation code, writes experiments/pose_accuracy_fit_vs_prefit.json.
+- Old sentence: 347 frames, fitted 92.7 mm against pre-fit 87.6 mm.
+- 92.7 reproduces exactly. 87.6 does not belong to the pre-fit pose: it was computed on the
+  30 fps interpolated stage (amass/30fps). On amass/raw, the stage the paper calls pre-fit
+  and export_prefit_poses.py exports, the same 347 frames give 88.8 mm. Same body pose
+  (rigid-aligned error identical, 72.4), a few frames differ in root orientation.
+- The 347 frames were the first 40 perception validation segments (24 with labels). The
+  113-segment workspace big1/mpjpe_eval113 was already extracted, and the fitted poses exist
+  for all of it. On its 1,789 frames (534 pedestrians, 77 segments, both hips labelled):
+  pre-fit 90.7 mm (median 77.0), fitted 94.8 mm (median 82.8), hip-midpoint aligned, 13
+  joints, zero shape. Fitted minus pre-fit +4.1 mm, 95% CI [+1.8, +6.4], bootstrap over
+  pedestrians. On the 347 alone: +3.9 [-0.5, +8.7].
+- Per joint the loss is in the legs: knees +12.7 / +14.4 mm, ankles +13.6 / +14.2 mm, every
+  other joint within -2.3 to +3.3 mm.
+- Guards: left and right swapped scores 312 mm, every frame matches a fitted frame at dt = 0.
+- Why the pipeline's paper reports 86.9 mm (LiDAR-HMR) and 139.1 mm (NeMF): its
+  evaluation/metrics.py does not align the root. Unaligned, ours are 94.3 and 152.7 mm
+  (median 78.0 and 92.7). Same direction as published, the gap is global placement.
+- The labelled frames are close pedestrians: 1,350 of 1,789 have at least 200 returns, 30
+  have fewer than 100. The figure says nothing about sparse bodies.
+- Paper now: "on 1,789 keypoint-labelled frames ... less accurate ... (94.8 against 90.7 mm
+  MPJPE, aligned at the hip midpoint), and the loss is at the knees and ankles."
+
+PIPELINE DESCRIPTION checked against /home/erik/ssd2/Waymo-3DSkelMo (README: second version).
+- HuMoR is a preprocessing step only (humor/process_waymo_data.py, data format, contacts,
+  velocities). The motion prior is NeMF alone. Setup sentence corrected, HuMoR citation
+  dropped from the paper (it was also the one reference we could spare).
+- The fit loss is rot + 10 pos + orient + 10 trans + 10 bbox (application_waymo.yaml). The
+  box term is not in the published loss, it came with the second version. The paper's
+  description of the leak (translation predicted from local motion and matched to the box
+  track) stands.
+
+CITATIONS (venue, pages, DOI from Crossref):
+- LiDAR-HMR is now IEEE Trans. Multimedia 27, 6962-6975, 2025.
+- Added Li et al. ICRA 2023 (3D keypoints, Waymo perception, 4 s minADE 0.249 to 0.239 m,
+  single run), WOMD-LiDAR ICRA 2024 (pedestrian minADE 0.54 with and without LiDAR
+  features), MTP IV 2022 (identity switches and fragments, in the tracker caveat), and the
+  Trajectron++ issue 40 as precedent for a label carried by a derived input.
+- Xu et al. ICRA 2024 was written in and taken out again for space (one tracker reference).
+
+CONTRIBUTIONS rewritten to a lead-in and three items, 110 words instead of 338. Numbers
+dropped from the introduction, all still in the body: 1.3%, 3.5%, 3.0 deg half-life, 41.2 deg,
+the three encodings. 7.97 pages. Verifier 230 checks and 6 rows.
+
+Probed the margin afterwards: six more lines fit, nine do not. Used two of them to say in
+the setup that we run the pipeline's second version, whose fit adds the box term (user
+agreed). Xu et al. stays out.
