@@ -269,7 +269,7 @@ RETIRED = [
 ]
 
 
-# Numbers that left the paper in the cut to eight pages (2026-11-12). Their results stay
+# Numbers that left the paper in the cuts to eight pages (2026-11-12, two rounds). Their results stay
 # in experiments/ and their checks stay below, but a check whose number is no longer
 # written can only pass by coincidence (the test is "the string occurs somewhere"), so
 # these are skipped by name instead of being left to pass or fail at random. Remove an
@@ -300,6 +300,27 @@ CUT = {
     ('per-joint recovery (Table V)', 'knee/ankle skill high'),
     ('per-joint recovery (Table V)', 'elbow skill low'),
     ('per-joint recovery (Table V)', 'elbow skill high'),
+    # 2026-11-12, second cut: room for the table and figure of where the pre-fit gain sits
+    ('detection floor (Table II)', 'rung 15.1 effect the 579 ladder should have expected'),
+    ('heading-removal counterfactual (Sec. V-B)', 'movers DiD agent-level low'),
+    ('heading-removal counterfactual (Sec. V-B)', 'movers DiD agent-level high'),
+    ('heading-removal counterfactual (Sec. V-B)', 'stationary DiD agent-level low'),
+    ('heading-removal counterfactual (Sec. V-B)', 'stationary DiD agent-level high'),
+    ('heading-removal counterfactual (Sec. V-B)', 'top-decile turn DiD agent-level'),
+    ('heading-removal counterfactual (Sec. V-B)', 'top-decile turn agent-level low'),
+    ('heading-removal counterfactual (Sec. V-B)', 'top-decile turn agent-level high'),
+    ('per-joint recovery (Table V)', 'leg spread ratio low'),
+    ('per-joint recovery (Table V)', 'leg spread ratio high'),
+    ('per-joint recovery (Table V)', 'arm spread ratio low'),
+    ('per-joint recovery (Table V)', 'arm spread ratio high'),
+    ('early-fusion oracle at 25k (Sec. IV-B)', 'theta=0 CI lo (n=3)'),
+    ('early-fusion oracle at 25k (Sec. IV-B)', 'theta=0 CI hi (n=3)'),
+    ('early-fusion ladder at 25k, corrupted rungs (Sec. V-C)', '5.0 deg rel (n=3)'),
+    ('early-fusion ladder at 25k, corrupted rungs (Sec. V-C)', '10.0 deg rel (n=3)'),
+    ('standing-only fine-tune (Sec. V-B)', 'content after fine-tune'),
+    ('standing-only fine-tune (Sec. V-B)', 'content p'),
+    ('standing-only fine-tune (Sec. V-B)', 'change vs init (pp)'),
+    ('standing-only fine-tune (Sec. V-B)', 'change vs init p'),
 }
 
 
@@ -598,11 +619,10 @@ def main() -> int:
 
     EF = load('detection_floor_ef25k.json')
     if EF and EF.get('rungs'):
-        g = 'early-fusion ladder at 25k (Sec. V-C)'
+        g = 'early-fusion oracle at 25k (Sec. IV-B)'
         r0 = min(EF['rungs'], key=lambda r: r['median_err_deg'])
-        # n is in the label on purpose: this queue is in flight, so when the third
-        # seed lands these four values move and the mismatch is the signal to
-        # refresh Sec. V-C rather than evidence that it is wrong.
+        # n is in the label on purpose, so a change in the seed count shows up as a
+        # mismatch.
         checks += [
             (g, f'theta=0 rel (n={r0["n"]})', abs(r0['rel']), '31.2'),
             (g, f'theta=0 p (n={r0["n"]})', r0['p'], '0.0002'),
@@ -873,6 +893,76 @@ def main() -> int:
             (g, f'10.0 deg rel (n={R[10]["n"]})', abs(R[10]['rel']), '15.5'),
         ]
 
+    rows = []     # (group, label, a table row rebuilt from the artifact, verbatim)
+    DY = (load('position_noise_dynamics.json') or {})
+    if DY.get('returns>=200'):
+        g = 'pre-fit gain by tracker error and manoeuvre (Sec. IV-E, Table dyn)'
+        hi, al = DY['returns>=200'], DY['all_returns']
+        Q = ('Q1', 'Q2', 'Q3', 'Q4')
+        man = ('cv_residual', 'heading_total_var', 'speed_range', 'max_accel')
+        cells = [hi[a][q]['content'] for a in man for q in Q]
+        trends = [hi[a]['Q4_minus_Q1'] for a in man]
+        v, x = hi['tracker_vel_err'], hi['tracker_pos_err']
+        fv = hi['full_history_only']['tracker_vel_err']['Q4_minus_Q1']
+        cvf = hi['cv_residual']
+        assert all(c['rel'] < 0 for c in cells)             # "in all 16 quartiles"
+        assert len({hi[a][q]['n_agents'] for a in hi if a in DY['_meta']['axes'] for q in Q}) == 1
+        checks += [
+            (g, 'pedestrians', hi['all']['n_agents'], '2{,}272'),
+            (g, 'pedestrians per quartile', v['Q1']['n_agents'], '568'),
+            (g, 'manoeuvre quartiles, smallest', min(abs(c['rel']) for c in cells), '1.2'),
+            (g, 'manoeuvre quartiles, largest', max(abs(c['rel']) for c in cells), '6.0'),
+            (g, 'manoeuvre trend, lowest', min(t['rel'] for t in trends), '-0.4'),
+            (g, 'manoeuvre trend, highest', max(t['rel'] for t in trends), '2.6'),
+            (g, 'manoeuvre trend, smallest p', min(t['p'] for t in trends), '0.19'),
+            (g, 'velocity error Q1', abs(v['Q1']['content']['rel']), '1.5'),
+            (g, 'velocity error Q4', abs(v['Q4']['content']['rel']), '4.6'),
+            (g, 'velocity error trend (pp)', abs(v['Q4_minus_Q1']['rel']), '3.1'),
+            (g, 'velocity error trend p', v['Q4_minus_Q1']['p'], '0.001'),
+            (g, 'position error Q1', abs(x['Q1']['content']['rel']), '0.3'),
+            (g, 'position error Q4', abs(x['Q4']['content']['rel']), '5.8'),
+            (g, 'position error trend (pp)', abs(x['Q4_minus_Q1']['rel']), '5.5'),
+            (g, 'position error trend p', x['Q4_minus_Q1']['p'], '0.001'),
+            (g, 'full histories, velocity trend', abs(fv['rel']), '2.3'),
+            (g, 'full histories, velocity trend p', fv['p'], '0.004'),
+            (g, 'all returns, position trend',
+             abs(al['tracker_pos_err']['Q4_minus_Q1']['rel']), '2.3'),
+            (g, 'all returns, position trend p', al['tracker_pos_err']['Q4_minus_Q1']['p'], '0.008'),
+            (g, 'all returns, velocity trend',
+             abs(al['tracker_vel_err']['Q4_minus_Q1']['rel']), '1.4'),
+            (g, 'all returns, velocity trend p', al['tracker_vel_err']['Q4_minus_Q1']['p'], '0.09'),
+            (g, 'fitted, velocity trend p', v['Q4_minus_Q1_fitted']['p'], '0.08'),
+            (g, 'fitted, position trend p', x['Q4_minus_Q1_fitted']['p'], '0.87'),
+            (g, 'fitted, CV residual Q1', abs(cvf['Q1']['content_fitted']['rel']), '8.4'),
+            (g, 'fitted, CV residual Q4', abs(cvf['Q4']['content_fitted']['rel']), '3.5'),
+            (g, 'fitted, CV residual trend p', cvf['Q4_minus_Q1_fitted']['p'], '0.013'),
+        ]
+
+        def cell(c):
+            return f'${c["rel"]:+.1f}' + ('^{*}' if c['p'] < 0.05 else '') + '$'
+
+        for a, name in (('tracker_vel_err', 'Velocity'), ('tracker_pos_err', 'Position'),
+                        ('cv_residual', 'Constant-velocity residual'),
+                        ('heading_total_var', 'Heading variation'),
+                        ('speed_range', 'Speed range'), ('max_accel', 'Peak acceleration')):
+            t = hi[a]['Q4_minus_Q1']
+            pt = f'{t["p"]:.3f}' if t['p'] < 0.01 else f'{t["p"]:.2f}'
+            rows.append((g, f'row: {name}', ' & '.join(
+                [name] + [cell(hi[a][q]['content']) for q in Q]
+                + [f'${t["rel"]:+.1f}$ (${pt}$)']) + r' \\'))
+    OX = load('onboard_examples.json')
+    if OX:
+        g = 'onboard examples (Fig. onboardex)'
+        top, bot = OX['top_quartile'], OX['bottom_quartile']
+        checks += [
+            (g, 'pedestrians in the quartile', top['n'], '568'),
+            (g, 'largest error: own on all seeds', top['own_all_seeds'], '43'),
+            (g, 'largest error: stranger on all seeds', top['stranger_all_seeds'], '28'),
+            (g, 'smallest error: own on all seeds', bot['own_all_seeds'], '33'),
+            (g, 'smallest error: stranger on all seeds', bot['stranger_all_seeds'], '32'),
+        ]
+        assert len(OX['shown']) == 4 and OX['epoch'] == 30    # "four", "final epoch"
+
     skipped = [c for c in checks if (c[0], c[1]) in CUT]
     stale = sorted(CUT - {(c[0], c[1]) for c in checks})
     checks = [c for c in checks if (c[0], c[1]) not in CUT]
@@ -901,6 +991,15 @@ def main() -> int:
         shown = str(val) if isinstance(val, int) else f'{val:.4g}'
         print(f'  {label:<30}{shown:>10}  paper: {written:<10} {status}')
 
+    if rows:
+        print('\ntable rows rebuilt from the artifacts')
+        print('-' * 74)
+    for g, label, row in rows:
+        ok = row in tex
+        print(f'  {label:<40}{"OK" if ok else "NOT IN main.tex"}')
+        if not ok:
+            bad.append((g, label, row, 'that row', 'NOT IN main.tex'))
+
     retired = check_retired(tex)
     print()
     print('retired claims')
@@ -926,7 +1025,8 @@ def main() -> int:
         print(f'{len(retired)} RETIRED CLAIM(S) PRESENT (listed above)')
     if bad or retired:
         return 1
-    print(f'all {len(checks)} number checks pass; no retired claims present')
+    print(f'all {len(checks)} number checks and {len(rows)} table rows pass; '
+          f'no retired claims present')
     return 0
 
 

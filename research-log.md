@@ -2425,3 +2425,74 @@ single-GPU compute and most of its rungs (27-57 deg) only establish that the gai
 n=3 -- 6.4 days, baselines already in hand -- which would state the floor and the tax at one
 scale and incidentally retire 579 from the headline. Everything below the bracket (rung 0's
 -15.8%) is far larger than any plausible tax, so those rungs do not need re-running at scale.
+
+### 2026-11-12 WHERE THE PRE-FIT GAIN SITS: it follows the tracker's error, not the manoeuvre
+
+Asked by Prof. Flohr after the 8-page version: show qualitatively the situations where pose
+helps, and a table of the improvement by dynamics. Scoped to the one content effect that survives
+the label leak: pre-fit poses, 30 cm detection noise, pedestrians with >=200 mean LiDAR returns
+(n=5 seeds, best-epoch per-agent minADE, paired t over seeds). Context for this entry lives in
+experiments/position_noise_ladder.json and position_noise_subpopulation.json; the onboard ladder
+and the leak were not logged here at the time.
+
+Scripts: tools/scripts/tracker_state_error.py (new), tools/scripts/position_noise_dynamics.py
+(new), paper/iv2027/make_onboard_examples.py (new).
+Outputs: experiments/val_tracker_state_posnoise30.pkl, position_noise_dynamics.json,
+onboard_examples.json, paper/iv2027/fig_onboard_examples.pdf.
+
+POPULATION. 2,272 of the 2,372 pedestrians with >=200 returns have the manoeuvre covariates of
+highdyn_covariates.py (eval_agent_manoeuvre.pkl needs 10 valid future steps). On them the content
+effect is -3.54% (p=0.011), vs no-pose -2.07% (p=0.039). Quartiles are cut inside this
+population, 568 pedestrians each.
+
+MANOEUVRE (what the pedestrian goes on to do, 8 s label future). Content %, Q1..Q4, Q4-Q1:
+  CV residual        -4.6*  -2.5   -1.3   -4.9*    -0.4 pp  p=0.66
+  heading variation  -4.7   -2.2   -4.7*  -2.3     +2.4 pp  p=0.37
+  speed range        -6.0*  -4.5*  -1.2   -3.4*    +2.6 pp  p=0.19
+  peak acceleration  -4.8*  -2.6   -2.4*  -4.5*    +0.3 pp  p=0.86
+All 16 cells negative, no trend on any axis. Speed at prediction time: stationary -3.2% (n.s.),
+slow -5.8% (p=0.008), walking -2.6% (p=0.028), fast -4.8% (n.s.). So no manoeuvre type
+concentrates the gain.
+
+TRACKER ERROR (new axis). The 30 cm result.pkl stores the history the model saw, so the tracker's
+state error at the last observed frame can be read per pedestrian against the scenario labels
+(16,611 pedestrians valid there; median 0.205 m and 0.426 m/s; full 11-frame histories 70%).
+  velocity error     -1.5   -2.0   -5.8*  -4.6*    -3.1 pp  p=0.0007
+  position error     -0.3   -5.1*  -2.6*  -5.8*    -5.5 pp  p=0.0013
+The noise is drawn per (scene, object) independently of the pedestrian. Cold start does not
+explain it: on full 11-frame histories alone the velocity trend is -2.25 pp (p=0.004), and
+short vs full history differ by -1.2 pp (p=0.52). On all returns (13,976 with covariates) the
+trend is -2.26 pp over position error (p=0.008) and -1.37 pp over velocity error (p=0.09).
+
+FITTED POSES DO THE OPPOSITE. Their content effect does not follow the tracker's error (trend
+p=0.08 and 0.87) and shrinks with the manoeuvre: CV residual -8.4 / -6.7 / -8.8 / -3.5, Q4-Q1
++5.0 pp (p=0.013); heading variation +7.0 pp (p=0.021); speed range +5.3 pp (p=0.003). That is
+what a leaked current speed would do, worth most where the pedestrian keeps it. A double
+dissociation between the leak and the body-only effect, on the same agents and seeds.
+
+READ WITH CARE. All of this subdivides the one stratum (of eight scored) that reached p<0.05,
+and the axes were chosen after seeing that result. The tracker-error trend is the part with its
+own support: it is close to a randomised dose and it shows on all returns too. Not explained:
+why the fitted effect is flat in tracker error. A third measure, |tracked speed - label speed|,
+gives the same picture (-5.5 pp, p=0.001) and is not in the JSON.
+
+AD HOC, not in any JSON (epoch-30 predictions, >=200 returns): along-track error -2.6% (p=0.27),
+cross-track -4.0% (p=0.006). In the top velocity-error quartile along-track is -5.7% (p=0.06) and
+cross-track -4.6% (p=0.010); in the bottom quartile along-track is +0.1%. Suggests direction
+everywhere and speed only where the tracker is wrong. One look, not in the paper.
+
+QUALITATIVE FIGURE. Per-pedestrian wins are weak evidence and the figure says so. At epoch 30
+own pose is better on all five seeds for 156 of 2,272 and worse on all five for 118. In the top
+velocity-error quartile 43 vs 28, in the bottom 33 vs 32. The figure shows the four largest mean
+gains among the 25 top-quartile pedestrians with a complete 8 s future and a 5/5 win. Selection
+is on the effect, by a rule fixed in the script and stated in the caption with both counts.
+Contact sheets of winners and losers look alike in kind (turning pedestrians either way).
+
+PAPER (uncommitted at the time of writing). Added Table III (tab:dyn), Fig. 2 (fig:onboardex) and
+one paragraph in Sec. IV-E, one clause each in introduction, caveats and conclusion. Cut to hold
+8 pages: the early-fusion ladder subsection (its -31.2% moved to Sec. IV-B), the seed-count
+paragraph, the tuning paragraph down to one sentence, the low-power paragraph down to three
+lines, the hierarchical-bootstrap sentence, the agent-level restatement and n=3 aside of the
+heading-removal paragraph, the standing fine-tune aside, the keypoint-spread clause in related
+work, the HMR2.0 sentence. verify_paper_numbers.py: 228 number checks and 6 rebuilt table rows
+pass, 45 checks skipped by name as cut.

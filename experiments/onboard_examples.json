@@ -1,0 +1,63 @@
+{
+ "epoch": 30,
+ "n_population": 2272,
+ "velocity_error_q3_ms": 0.533342644572258,
+ "content_epoch30_pct": -3.3532933116372243,
+ "all": {
+  "own_all_seeds": 156,
+  "stranger_all_seeds": 118
+ },
+ "top_quartile": {
+  "n": 568,
+  "own_all_seeds": 43,
+  "stranger_all_seeds": 28
+ },
+ "bottom_quartile": {
+  "n": 568,
+  "own_all_seeds": 33,
+  "stranger_all_seeds": 32
+ },
+ "n_candidates": 25,
+ "shown": [
+  {
+   "scenario_id": "3b46a18eb0636bb7",
+   "object_id": "6275",
+   "own_minADE": 1.6124723553657532,
+   "stranger_minADE": 3.3726308822631834,
+   "tracker_vel_err": 0.578815758228302,
+   "tracker_pos_err": 0.30487361550331116,
+   "speed0": 1.088801622390747,
+   "returns": 500.3636363636364
+  },
+  {
+   "scenario_id": "551181f8acec5c7f",
+   "object_id": "4540",
+   "own_minADE": 1.3652354717254638,
+   "stranger_minADE": 2.71076021194458,
+   "tracker_vel_err": 0.5575581789016724,
+   "tracker_pos_err": 0.2514198124408722,
+   "speed0": 0.577288031578064,
+   "returns": 452.8181818181818
+  },
+  {
+   "scenario_id": "c2095594d636f2f8",
+   "object_id": "6997",
+   "own_minADE": 0.4466887652873993,
+   "stranger_minADE": 1.164886510372162,
+   "tracker_vel_err": 0.6454745531082153,
+   "tracker_pos_err": 0.373538613319397,
+   "speed0": 1.385313868522644,
+   "returns": 291.09090909090907
+  },
+  {
+   "scenario_id": "a8fdd1e39551eae",
+   "object_id": "5983",
+   "own_minADE": 0.6336483120918274,
+   "stranger_minADE": 1.3399131894111633,
+   "tracker_vel_err": 0.667323887348175,
+   "tracker_pos_err": 0.45671215653419495,
+   "speed0": 1.2419848442077637,
+   "returns": 495.6363636363636
+  }
+ ]
+}
