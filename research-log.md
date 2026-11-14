@@ -3224,3 +3224,41 @@ Lesson: nice and the array throttle order jobs by priority, but a job refused by
 limit holds no place. A 1-GPU job of low priority that still fits under the limit starts
 ahead of a 4-GPU job of high priority that does not. Low priority therefore does not keep
 jobs of the same account out of each other's way when a group limit binds.
+
+### 2026-11-14 09:50 Abstract shortened for the submission form
+
+The call asks for an abstract under 200 words and the deadline is November 15, 23:59
+Pacific Time (UTC-8), which is November 16, 08:59 in Germany. The abstract had 239 to 248
+words depending on how numbers are counted. New version: 183 words as pasted into a form,
+195 if every = and < counts as a word. Cut: the sentence that whether pose pays depends on
+the track and on what the pipeline was given, the explanation of the motion-prior fit in
+full, the count of 13,937 pedestrians, p = 0.93 of the offboard difference (the bound of
+1.7% stays), and the long form of the recommendation. Every number that remains is
+unchanged and Fig. 1's numbers (4.9%, +0.9%) are still in it. 8 pages, verifier passes
+(245 checks). Plain text for the form is in the session scratchpad. Uncommitted, waiting
+for the user.
+
+### 2026-11-14 10:40 Paper reordered: pose against no pose first, stranger control second
+
+User: "the reasoning in general should be: pose vs. no pose and the pose vs. stranger's pose
+should be the check for the first comparison to see where the gain comes from", then "Yes,
+I think we should do that." Changed in main.tex, no number in the body changed:
+- Abstract (182 words): each setting now gives own pose against no pose first, then against
+  a stranger's. Offboard 25k: costs 1.7% (p<0.001), as a stranger's does, difference +0.04%.
+  Fitted poses at 30 cm: +4.1% over no pose (p=0.004), 5.3% over a stranger's, three quarters
+  of the latter is the label. Pre-fit: gain over no pose gone (+0.4%, p=0.54), back on at
+  least 200 returns (2.0%, p=0.041, uncorrected), not confirmed held-out (+0.9%, p=0.67),
+  where own pose stays 2.1% ahead of a stranger's and rises with the tracker's velocity
+  error to 4.9%. Dropped from the abstract: the pre-fit content numbers 1.3% and 3.5% (both
+  remain in Sec. IV-E and the conclusion) and the closing recommendation.
+- Introduction: states the two questions in that order. Contributions one and two name the
+  no-pose result before the stranger result.
+- Sec. III-B: the sentence that treated the content test as decisive now says that pose
+  versus no-pose asks whether pose improves the forecast and that pose versus shuffled
+  attributes the outcome.
+Pose against no pose on offboard tracks, recomputed from multiseed_analysis.json: +0.44%
+(p=0.86, 579 scenes), -0.89% (p=0.62, 5k), +1.66% (p=0.0005, 25k), shuffled +1.63% (p=0.047).
+Verifier: new group for these, abstract checks for 4.1, 0.4, 2.0 and 1.7, 251 checks pass.
+8 pages (a first, longer wording ran to 9). Not written into the paper: that the content
+test is the steadier of the two. On offboard tracks it also moves by several points at
+epoch 30 (-5.9, -4.7, -1.7%, all n.s.). Uncommitted, waiting for the user.

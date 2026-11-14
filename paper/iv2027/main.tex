@@ -31,27 +31,22 @@ erik.schuetz@gmx.de}}
 \maketitle
 
 \begin{abstract}
-Gait and facing appear to encode pedestrian intent that a position history
-lacks, which makes body pose an attractive forecasting input. On the Waymo Open
-Motion Dataset (WOMD), with SMPL poses recovered from LiDAR, we find that
-whether pose pays depends on the track it is added to and on what the pose
-pipeline was itself given. The decisive comparison is correct pose against the
-same architecture fed another pedestrian's pose. On WOMD's tracks, offboard
-auto-labels refined with future frames, it returns $+0.04\%$ ($p{=}0.93$) at
-our largest scale, bounded to $\pm1.7\%$. With the history a causal onboard
-tracker would report, own pose beats a stranger's by $5.3\%$ ($p{=}0.002$) at
-$30$\,cm of detection noise. Three quarters of that gain is the label returning
-through the body: the pipeline's motion-prior fit matches the gait to the
-offboard track. With poses that never saw the track the gain is $1.3\%$
-($p{=}0.10$), and $3.5\%$ ($p{=}0.010$, uncorrected) on pedestrians with at
-least $200$ LiDAR returns. On $13{,}937$ such pedestrians in held-out scenes
-it is $2.1\%$ ($p{=}0.12$) and rises with the tracker's velocity error, from
-$0.0\%$ in the lowest quartile to $4.9\%$ in the highest ($p{<}0.001$). Own
-pose does not beat no pose there ($+0.9\%$, $p{=}0.67$). An oracle through
-the same branch converts the agent's own future bearing, so the pathway is not
-the obstacle. We recommend measuring what a modality carries beyond the
-model's existing inputs at the quality a vehicle will have, and checking which
-labels its own pipeline consumed.
+Body pose appears to carry pedestrian intent that a position history lacks. On
+the Waymo Open Motion Dataset (WOMD), with SMPL poses from LiDAR, we compare
+own pose with no pose, and with a stranger's pose to attribute the outcome. On
+WOMD's tracks, offboard auto-labels refined with future frames, own pose costs
+$1.7\%$ against no pose at our largest scale ($p{<}0.001$), as a stranger's
+does (difference $+0.04\%$, bounded to $\pm1.7\%$). Under a simulated onboard
+tracker ($30$\,cm noise) it gains $4.1\%$ ($p{=}0.004$), and $5.3\%$ over a
+stranger's ($p{=}0.002$), but three quarters of the latter is the offboard
+label returning through the pose pipeline. With poses that never saw the track
+the gain over no pose vanishes ($+0.4\%$, $p{=}0.54$). It reappears on
+pedestrians with at least $200$ LiDAR returns ($2.0\%$, $p{=}0.041$,
+uncorrected), but held-out scenes do not confirm it ($+0.9\%$, $p{=}0.67$).
+There own pose stays $2.1\%$ ahead of a stranger's ($p{=}0.12$), rising with
+the tracker's velocity error from $0.0\%$ to $4.9\%$ across its quartiles
+($p{<}0.001$). An oracle through the same branch converts the agent's future
+bearing, so the pathway is not the obstacle.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -80,26 +75,28 @@ selected on the effect, each model's median seed and best of six modes.}
 \label{fig:gabs}
 \end{figure}
 
-This paper reports that, on the labelled tracks of the Waymo Open Motion
-Dataset (WOMD), pose conditioning does not measurably improve pedestrian
-trajectory accuracy, and that the reason is the track it is added to. WOMD's boxes are offboard
+We ask first whether a forecaster given pose beats the same forecaster without
+it, and second whether a difference is due to the pedestrian's own body, which
+a control fed a stranger's pose decides. On the labelled tracks of the Waymo
+Open Motion Dataset (WOMD) pose beats neither no pose nor a stranger's pose,
+and the reason is the track it is added to. WOMD's boxes are offboard
 auto-labels, refined with the whole track, future frames
-included~\cite{ettinger2021waymo,qi2021offboard}. Against that track the body
+included~\cite{ettinger2021waymo,qi2021offboard}, and against that track the body
 restates what the model already knows. Against the history a causal onboard
-tracker would report, the same body appears to pay, and most of that gain is the
+tracker would report, own pose beats both, but most of that gain is the
 offboard label returning through the pose pipeline, which fits the gait to the
-track. Poses that never saw the track beat a stranger's where the body is
-resolved and the tracker is wrong, and do not beat no pose on held-out scenes
-(Fig.~\ref{fig:gabs}).
+track. Poses that never saw the track do not beat no pose on held-out scenes,
+and beat a stranger's only where the body is resolved and the tracker is
+wrong (Fig.~\ref{fig:gabs}).
 
-Our contributions are threefold. First, a controlled null. Against the same
-model fed another pedestrian's body, pose adds nothing on WOMD's offboard tracks
-at three training scales, while an oracle through the same branch improves
-\minADE by $34.8\%$. Second, an onboard-quality track and a label leak. Under a
-simulated causal tracker own pose beats a stranger's by $5.3\%$, but three
-quarters of that is the track label returning through the pose pipeline, and
-without it own pose beats a stranger's only where the tracker is wrong, and
-does not beat no pose on held-out scenes. Third, a degraded
+Our contributions are threefold. First, a controlled null. On WOMD's offboard
+tracks pose improves neither on no pose nor on the same model fed another
+pedestrian's body at three training scales, while an oracle through the same
+branch improves \minADE by $34.8\%$. Second, an onboard-quality track and a label leak. Under a
+simulated causal tracker own pose beats no pose by $4.1\%$ and a stranger's by
+$5.3\%$, but three quarters of the latter is the track label returning through
+the pose pipeline, and without it own pose does not beat no pose on held-out
+scenes and beats a stranger's only where the tracker is wrong. Third, a degraded
 oracle shows that the branch converts even a coarse future direction, so the
 null reflects what body facing carries beyond the box heading.
 
@@ -230,9 +227,10 @@ predicts a future pose sequence under an auxiliary loss (a geodesic rotation
 term and a mixture likelihood term, weight $0.1$ each): the stranger's in the
 shuffled arm and the pedestrian's own elsewhere, the oracle included.
 
-Pose versus no-pose confounds information with branch capacity and the auxiliary
-loss, while pose versus shuffled holds both fixed and isolates content. We call the latter the content test and treat it
-as decisive. Relative differences are $(A-B)/B$, so negative favours $A$.
+Pose versus no-pose asks whether pose improves the forecast, and confounds
+information with branch capacity and the auxiliary loss. Pose versus shuffled
+holds both fixed, isolates content and so attributes the outcome. We call it
+the content test. Relative differences are $(A-B)/B$, so negative favours $A$.
 
 Inference is over seeds, the unit the treatment is applied to. Unless flagged,
 every comparison between trained arms is a paired $t$-test on per-seed

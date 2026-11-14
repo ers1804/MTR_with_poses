@@ -766,6 +766,7 @@ def main() -> int:
             (g, f'30 cm fixed-epoch min (n={n30})', min(fe), '5.2'),
             (g, f'30 cm fixed-epoch max (n={n30})', max(fe), '5.8'),
             (g, f'30 cm vs no-pose (n={n30})', abs(R[30]['pose_vs_nopose']['rel']), '4.06'),
+            (g, f'30 cm vs no-pose, abstract (n={n30})', abs(R[30]['pose_vs_nopose']['rel']), '4.1'),
             (g, f'30 cm vs no-pose p (n={n30})', R[30]['pose_vs_nopose']['p'], '0.004'),
             (g, f'10 cm content (n={n10})', abs(c10['rel']), '2.08'),
             (g, f'10 cm content p (n={n10})', c10['p'], '0.005'),
@@ -789,11 +790,12 @@ def main() -> int:
         n, c, d = p['n'], p['content'], p['content_prefit_minus_final']
         checks += [
             (g, f'content (n={n})', abs(c['rel']), '1.34'),
-            (g, f'content, abstract (n={n})', abs(c['rel']), '1.3'),
+            (g, f'content, conclusion (n={n})', abs(c['rel']), '1.3'),
             (g, f'content p (n={n})', c['p'], '0.10'),
             (g, f'content CI lo (n={n})', abs(c['lo']), '3.1'),
             (g, f'content CI hi (n={n})', c['hi'], '0.4'),
             (g, f'vs no-pose (n={n})', p['pose_vs_nopose']['rel'], '0.36'),
+            (g, f'vs no-pose, abstract (n={n})', p['pose_vs_nopose']['rel'], '0.4'),
             (g, f'vs no-pose p (n={n})', p['pose_vs_nopose']['p'], '0.54'),
             (g, 'shuffled arms agree', p['prefit_shuffled_vs_final_shuffled']['rel'], '0.40'),
             (g, 'shuffled arms agree p', p['prefit_shuffled_vs_final_shuffled']['p'], '0.54'),
@@ -824,11 +826,12 @@ def main() -> int:
             (g, '100-200 returns content', abs(m2['content']['rel']), '1.4'),
             (g, '>=200 returns n', hi['n_agents'], '2{,}365'),
             (g, '>=200 returns content', abs(hi['content']['rel']), '3.47'),
-            (g, '>=200 returns content, abstract', abs(hi['content']['rel']), '3.5'),
+            (g, '>=200 returns content, conclusion', abs(hi['content']['rel']), '3.5'),
             (g, '>=200 returns p', hi['content']['p'], '0.010'),
             (g, '>=200 returns CI lo', abs(hi['content']['lo']), '5.6'),
             (g, '>=200 returns CI hi', abs(hi['content']['hi']), '1.4'),
             (g, '>=200 returns vs no-pose', abs(hi['pose_vs_nopose']['rel']), '1.99'),
+            (g, '>=200 returns vs no-pose, abstract', abs(hi['pose_vs_nopose']['rel']), '2.0'),
             (g, '>=200 returns vs no-pose p', hi['pose_vs_nopose']['p'], '0.041'),
             (g, 'gradient, top minus bottom (pp)', abs(gr['prefit']['top_minus_bottom']['rel']), '3.1'),
             (g, 'gradient p', gr['prefit']['top_minus_bottom']['p'], '0.004'),
@@ -892,6 +895,20 @@ def main() -> int:
             r_, p_ = _pair(a, b, 'last_eval_minADE')
             assert r_ < 0, (name, r_)                      # the paper prints them negative
             checks += [(g, f'{name} content', abs(r_), rel), (g, f'{name} p', p_, pv)]
+        # pose versus no pose on offboard tracks, which the abstract and the introduction
+        # lead with since 2026-11-14: n.s. at the two smaller scales, a cost at 25k
+        g = 'pose vs no-pose on offboard tracks (Table ladder, abstract)'
+        cost = MS['pairs']['scale25k_nopose->scale25k_xattn_pe']['paired']['rel_diff_pct']
+        _, p25 = _pair('scale25k_xattn_pe', 'scale25k_nopose', 'best_minADE')
+        r579, p579 = _pair('map_xattn_pe_fix', 'map_nopose_fix', 'best_minADE')
+        r5k, p5k = _pair('scale5k_lr5_xattn_pe', 'scale5k_lr5_nopose', 'best_minADE')
+        rsh, psh = _pair('scale25k_shufflepose', 'scale25k_nopose', 'best_minADE')
+        checks += [(g, '25k pose vs no-pose', cost, '1.66'),
+                   (g, '25k pose vs no-pose, abstract', cost, '1.7'),
+                   (g, '25k shuffled vs no-pose', rsh, '1.63')]
+        assert p25 < 0.001                                 # abstract: p < 0.001
+        assert p579 > 0.05 and p5k > 0.05 and cost > 0     # 'improves neither on no pose ...'
+        assert psh < 0.05 and rsh > 0                      # 'as a stranger's does'
         g = 'agent-frame-root content test (Sec. III-B)'
         r_, p_ = _pair('fa_agentrot', 'fa_agentrot_shuf', 'best_minADE')
         checks += [(g, 'content', r_, '0.68'), (g, 'p', p_, '0.49')]
