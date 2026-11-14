@@ -3238,7 +3238,7 @@ unchanged and Fig. 1's numbers (4.9%, +0.9%) are still in it. 8 pages, verifier 
 (245 checks). Plain text for the form is in the session scratchpad. Uncommitted, waiting
 for the user.
 
-### 2026-11-14 10:40 Paper reordered: pose against no pose first, stranger control second
+### 2026-11-14 10:10 Paper reordered: pose against no pose first, stranger control second
 
 User: "the reasoning in general should be: pose vs. no pose and the pose vs. stranger's pose
 should be the check for the first comparison to see where the gain comes from", then "Yes,
@@ -3262,3 +3262,102 @@ Verifier: new group for these, abstract checks for 4.1, 0.4, 2.0 and 1.7, 251 ch
 8 pages (a first, longer wording ran to 9). Not written into the paper: that the content
 test is the steadier of the two. On offboard tracks it also moves by several points at
 epoch 30 (-5.9, -4.7, -1.7%, all n.s.). Uncommitted, waiting for the user.
+
+### 2026-11-14 10:32 Helma revision queue released
+
+User: "You can submit the jobs to Helma. I just meant that you shouldn't change the priority
+settings of my existing jobs in the queue." scontrol release 1322077 at 10:32. Nice 4000 and
+the throttle of three are unchanged, the dependent arrays 1322078, 1322079 and 1326148 follow.
+The account runs 23 GPUs of the other project at this moment. The six pending 4-GPU jobs of
+the other project are planned for 21:51 to 00:27 and were not touched. If they show the
+group-limit reason again while revision tasks run, that is reported and left to the user.
+
+### 2026-11-14 10:45 Pre-submission review of everything, four independent passes
+
+User: "Can you do another review of everything ... because every single result is a null
+now?" Four read-only passes ran in parallel: a referee report, a consistency check against
+the morning's reordering, an audit of the paper's numbers against experiments/*.json, and a
+code audit of whether a pipeline defect could produce the nulls. Each finding acted on was
+checked against the text, the code or the result files first.
+
+Not every result is a null. Bounded null: own against stranger's pose on offboard tracks.
+Null or unconfirmed: pose against no pose in every clean setting. Positive and robust: the
+oracle, the label leak (the best-supported result), the cost of the branch, and the trend of
+the content effect with tracker error, which replicated on held-out scenes.
+
+Pipeline audit (pre-fit arms, 300 to 600 validation scenes on SSD): no defect that would make
+pose look useless. Time alignment, masks, encoding, the derangement, the simulated tracker and
+evaluation are clean, and own against stranger's is unbiased at the dataset level. Findings:
+- The auxiliary future-pose loss never has targets. WOMD releases LiDAR for the observed
+  second only, so fitted and pre-fit files hold rows for that second alone (checked on big1:
+  11 rows, 1.00 s, identical timestamps in both exports). The paper said every pose arm
+  trains with that loss and named it as a confound of pose against no pose. Corrected.
+- In the pose arms every agent token passes through the branch's fusion MLP (non-residual),
+  which the no-pose arm lacks. Now stated where the branch cost is discussed.
+- Reported by the audit, not rechecked by me: pre-fit root yaw is more than 90 deg from the
+  box heading on 23% of moving frames and jumps by more than 90 deg between 12.5% of
+  consecutive frames. The fitted pipeline hides this by snapping the root to the direction of
+  travel, which is itself read off the track. A lead for January: a prior fitted to the body
+  alone. A linear probe on 1,000 scenes found own pose adds 1 to 1.5 points of R2 over the
+  30 cm tracker's history for speed and 3 s displacement, a stranger's pose subtracts.
+
+Numbers audit: every abstract, table and conclusion value reproduces. Corrected: Table ladder
+content at 5k is -1.01 (was -1.02, a sign-flipped (shuffled - pose)/pose), the shuffled arm's
+cost is +1.62 at full precision (was +1.63), t statistics dropped from the footnote, epoch-30
+pose against no pose at n=3 is 7.4% by the paper's convention (was 8.0), the horizon shares
+25/40/54% are on the 5,888 agents with a full future (text said 16,486), the bootstrap in
+Sec. IV-D is over seeds and pedestrians.
+
+Text corrections: "poses that never saw the track" replaced everywhere (they are cropped by
+offboard boxes), the body carries the no-pose-first order (Sec. IV-A, IV-E, Table ladder
+title, conclusion), comparators named in the conclusion and the Fig. onboardex caption,
+p=0.041 flagged uncorrected, the held-out pass says which scenes it counts, "the reason is
+the track" softened to "the evidence points to", Sec. V retitled "What Limits Pose on Offboard
+Tracks", the architecture figure says labelled box heading. Added: a stranger's pose costs
+about what own pose returns, and the fitted-pose result shows the branch reads joint
+rotations. Cut to pay for it: the bound on the fast half-life, the per-seed ranges of the two
+half-lives, the per-pedestrian error remark, the duplicate heading limitation, the loss-term
+details of the inactive head. Abstract 182 words, 8 pages, verifier 249 checks pass.
+
+Left for the user: whether to make the label leak the headline contribution, and whether the
+eight-seed replication of Sec. IV-B and IV-D may stay (it rests on avo_confirmation.json).
+
+### 2026-11-14 11:05 Eight-seed claims replaced by the paper's own 25k arms, contribution reframed
+
+User, on the two questions above: "1. I agree with the referee. 2. If you think it makes
+sense, they can stay, if not, they should go."
+
+The eight seeds go. They are the confirmation arms of the removed search (a search-selected
+pose representation, seeds 202 to 909, `experiments/avo_confirmation.json`), not the 144-d
+cross-attention arm the paper reports, and the paper called them "an eight-seed replication
+of the content test". The retired-claims list of 2026-11-04 already says no claim may lean
+on them. Its pattern now also catches "eight-seed replication".
+
+Replaced by the same analysis on the 25k arms of the ladder table (five seeds, best
+validation epoch, 16,486 agents), `tools/scripts/offboard_content_by_horizon_and_manoeuvre.py`
+-> `experiments/offboard_content_by_horizon_manoeuvre.json`:
+
+- Content test by horizon: -0.64% at 2 s (p=0.46), +0.10% at 4 s (p=0.90), +0.06% at 8 s
+  (p=0.93). Null at every horizon. On the 5,888 agents with a full future: -0.78%, -0.09%,
+  -0.07%.
+- Twenty manoeuvre tests (quartiles and top decile of constant-velocity residual, heading
+  change, speed range, peak acceleration, 13,976 agents with the four defined): one below
+  0.05. Top decile of heading change (1,398 agents): own pose -2.01% against a stranger's
+  (p=0.009, all five seeds negative, 0.19 after Bonferroni over twenty). In the same stratum
+  own pose is +1.86% against no pose (p=0.078) and the stranger's pose +3.97% (p=0.031). So
+  the stranger costs more there, and own pose still does not beat no pose. The old text said
+  "null in all 20 tests", which was true of the search's arms only. The 579-scene heading
+  ablation shows nothing comparable on its top decile of turn (+0.96%, n=8, p=0.75).
+- Sec. IV-B, pose against no pose at epoch 30: now the ladder's own arms from
+  `multiseed_analysis.json`, +4.6% at 579 scenes (n=5, p=0.26) and -5.2% at 25k (n=5,
+  p=0.30). The three-seed 7.4% and the eight-seed 0.9% are out.
+- The multiplicity paragraph now counts three content tests below 0.05 outside the onboard
+  ladder, one for pose and two for the stranger, and no longer says their direction speaks
+  against a pose mechanism.
+
+Contribution (referee's point): the contributions paragraph leads with the three controls
+(stranger's pose, pre-fit poses, oracle), then the label leak, then the bounds: no gain on
+offboard tracks, a benefit on onboard-quality tracks neither shown nor excluded. The last
+abstract sentence names the leak and the three controls as the contribution. Title unchanged.
+Abstract 183 words (199 with every = and < counted separately), 8 pages, verifier 260 checks
+pass. Not committed.

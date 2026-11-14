@@ -134,8 +134,10 @@ RETIRED = [
     dict(pat=r'coding agent|directed architecture search|directed search',
          why='the search is not reported in the submission',
          instead='the controlled null across scale, encoding and integration'),
-    dict(pat=r'eight-seed confirmation|acceptance floor|development half',
-         why='these all describe the removed search and its confirmation arms',
+    dict(pat=r'eight-seed confirmation|eight-seed replication|acceptance floor|development half',
+         why='these all describe the removed search and its confirmation arms (until 2026-11-14 '
+             'Sec. IV-D still quoted them as an "eight-seed replication of the content test"; '
+             'they train a different, search-selected pose representation)',
          instead='nothing -- the evidence they supported is simply not claimed'),
     dict(pat=r'-1\.21',
          why="the removed search's confirmation-arm effect",
@@ -359,6 +361,12 @@ CUT = {
     ('oracle ladder 25k (Table I)', 'single-exp residual 3.2'),
     ('oracle ladder 25k (Table I)', 'single-exp residual 0.3'),
     ('oracle ladder 25k (Table I)', 'single-exp residual 2.5'),
+    # 2026-11-14: cut to make room for the corrections from the pre-submission review
+    ('ladder refit on six levels (Sec. V-A)', 'fast half-life, lowest seed'),
+    ('ladder refit on six levels (Sec. V-A)', 'fast half-life, highest seed'),
+    ('ladder refit on six levels (Sec. V-A)', 'slow half-life, lowest seed'),
+    ('ladder refit on six levels (Sec. V-A)', 'slow half-life, highest seed'),
+    ('ladder refit on six levels (Sec. V-A)', 'residual with a 4 deg fast half-life'),
 }
 
 
@@ -903,9 +911,16 @@ def main() -> int:
         r579, p579 = _pair('map_xattn_pe_fix', 'map_nopose_fix', 'best_minADE')
         r5k, p5k = _pair('scale5k_lr5_xattn_pe', 'scale5k_lr5_nopose', 'best_minADE')
         rsh, psh = _pair('scale25k_shufflepose', 'scale25k_nopose', 'best_minADE')
+        # full-precision arm means: the 4-decimal per-seed cells give 1.63 for the shuffled
+        # arm and -1.02 for the 5k content test, both off by 0.01 (found 2026-11-14)
+        cost_sh = MS['pairs']['scale25k_nopose->scale25k_shufflepose']['paired']['rel_diff_pct']
+        c5 = MS['pairs']['scale5k_lr5_xattn_pe->scale5k_lr5_shufflepose']['paired']
         checks += [(g, '25k pose vs no-pose', cost, '1.66'),
                    (g, '25k pose vs no-pose, abstract', cost, '1.7'),
-                   (g, '25k shuffled vs no-pose', rsh, '1.63')]
+                   (g, '25k shuffled vs no-pose', cost_sh, '1.62'),
+                   (g, '5k content, (pose - shuffled) / shuffled',
+                    abs((c5['mean_a'] - c5['mean_b']) / c5['mean_b'] * 100), '1.01')]
+        assert c5['mean_a'] < c5['mean_b']                 # printed negative
         assert p25 < 0.001                                 # abstract: p < 0.001
         assert p579 > 0.05 and p5k > 0.05 and cost > 0     # 'improves neither on no pose ...'
         assert psh < 0.05 and rsh > 0                      # 'as a stranger's does'
@@ -915,6 +930,39 @@ def main() -> int:
         g = 'miss rate at 2 m, content (Sec. IV-A)'
         checks += [(g, '25k', _pair('scale25k_xattn_pe', 'scale25k_shufflepose', 'best_MR2m')[0], '2.2'),
                    (g, 'fine-tuned', _pair('ft_xattn_pe_fix', 'ft_shufflepose_fix', 'best_MR2m')[0], '4.3')]
+    HD = load('horizon_decomposition.json')
+    if HD:
+        # the shares kept at 2 s, 8 s and the endpoint are computed on full-future agents
+        checks.append(('horizon shares (Sec. V-A)', 'agents with a full 8 s future',
+                       HD['summary']['n_full_future'], '5{,}888'))
+    if MS:
+        # The sign of pose versus no pose at a fixed late epoch, on the arms of the ladder
+        # table. Until 2026-11-14 this sentence quoted a three-seed and an eight-seed figure
+        # from other runs; the eight seeds were the removed search's confirmation arms.
+        g = 'pose vs no-pose at epoch 30 (Sec. IV-B)'
+        r579, p579 = _pair('map_xattn_pe_fix', 'map_nopose_fix', 'last_eval_minADE')
+        r25, p25 = _pair('scale25k_xattn_pe', 'scale25k_nopose', 'last_eval_minADE')
+        assert r579 > 0 > r25, (r579, r25)                 # 'worse' at 579, 'better' at 25k
+        assert p579 > 0.05 and p25 > 0.05, (p579, p25)     # 'both n.s.'
+        checks += [(g, '579 scenes', abs(r579), '4.6'), (g, '25k scenes', abs(r25), '5.2')]
+    HM = load('offboard_content_by_horizon_manoeuvre.json')
+    if HM:
+        g = 'content by horizon and manoeuvre at 25k (Sec. IV-D)'
+        h2, h4 = HM['horizons']['minADE_2s']['all'], HM['horizons']['minADE_4s']['all']
+        assert h2['rel'] < 0 < h4['rel']                   # printed as -0.6 and +0.1
+        sm = HM['manoeuvre_summary']
+        assert sm['n_tests'] == 20 and sm['n_below_005'] == 1, sm       # 'one of 20 tests'
+        top = HM['manoeuvre']['heading_change']['top_decile']
+        assert sm['below_005'][0]['measure'] == 'heading_change'
+        assert top['rel'] < 0 < top['vs_nopose']['rel']    # 'ahead of a stranger's', 'behind no pose'
+        checks += [(g, '2 s', abs(h2['rel']), '0.6'), (g, '2 s p', h2['p'], '0.46'),
+                   (g, '4 s', h4['rel'], '0.1'), (g, '4 s p', h4['p'], '0.90'),
+                   (g, 'agents with the four measures', HM['n_with_manoeuvre'], '13{,}976'),
+                   (g, 'top heading-change decile, content', abs(top['rel']), '2.0'),
+                   (g, 'top heading-change decile, p', top['p'], '0.009'),
+                   (g, 'top heading-change decile, Bonferroni', top['p'] * sm['n_tests'], '0.19'),
+                   (g, 'top heading-change decile, vs no pose', top['vs_nopose']['rel'], '1.9'),
+                   (g, 'top heading-change decile, vs no pose p', top['vs_nopose']['p'], '0.08')]
     FO = load('facing_vs_observation_length.json')
     if FO:
         checks.append(('stationary onset (Sec. V-B)', 'onset events', FO['overall']['n'], '1{,}705'))
