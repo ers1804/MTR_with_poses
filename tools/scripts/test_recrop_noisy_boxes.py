@@ -195,6 +195,7 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('mode', choices=('noise', 'crop'))
     ap.add_argument('scenes', nargs='*')
-    ap.add_argument('--mtr', default='/home/erik/ssd2/gitprojects/MTR_rev_wt')
+    ap.add_argument('--mtr', help='checkout whose dataset code the noise is compared with',
+                    default=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     a = ap.parse_args()
     test_noise(a.mtr) if a.mode == 'noise' else test_crop(a.scenes)
