@@ -15,6 +15,9 @@ files, for every predicted pedestrian valid there in both:
 
 Usage: python tools/scripts/tracker_state_error.py [noise_cm]
 Writes experiments/val_tracker_state_posnoise<noise_cm>.pkl.
+
+For another set of scenes (heldout_replication.py), RESULT names the result.pkl, SCEN the
+scenario directory and SUFFIX is appended to the output's name.
 """
 from __future__ import annotations
 
@@ -35,8 +38,9 @@ CUR = 10
 def main() -> None:
     rung = int(sys.argv[1]) if len(sys.argv) > 1 else 30
     cfg = f'cross_attn_pe_with_map_prefit_posnoise{rung:02d}_scale25k'
-    path = os.path.join(METRICS, f'mtr+pose_data_{cfg}', f'PF_25k_{cfg}_lr25_s101', 'eval',
-                        'eval_with_train', 'epoch_30', 'result.pkl')
+    path = os.environ.get('RESULT') or os.path.join(
+        METRICS, f'mtr+pose_data_{cfg}', f'PF_25k_{cfg}_lr25_s101', 'eval', 'eval_with_train',
+        'epoch_30', 'result.pkl')
     tracked = {}
     for item in pickle.load(open(path, 'rb')):
         for r in (item if isinstance(item, list) else [item]):
@@ -61,7 +65,8 @@ def main() -> None:
                 n_obs=int((t[:CUR + 1, 9] > 0).sum()))
     assert future_differs == 0, 'the stored future is not the label'
 
-    dst = os.path.join(REPO, 'experiments', f'val_tracker_state_posnoise{rung:02d}.pkl')
+    dst = os.path.join(REPO, 'experiments',
+                       f'val_tracker_state_posnoise{rung:02d}{os.environ.get("SUFFIX", "")}.pkl')
     pickle.dump(out, open(dst, 'wb'))
     pe = np.array([v['pos_err'] for v in out.values()])
     ve = np.array([v['vel_err'] for v in out.values()])

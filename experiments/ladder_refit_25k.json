@@ -1,0 +1,120 @@
+{
+ "_meta": {
+  "source": "/home/erik/ssd2/gitprojects/MTR_with_poses/experiments/detection_floor_25k.json",
+  "levels_deg": [
+   0.0,
+   5.0,
+   10.0,
+   15.1,
+   24.9,
+   44.4
+  ],
+  "n_seeds": 3,
+  "note": "gain is minus the relative minADE change against no pose, in percent. Two exponentials on all six levels. per_seed fits each seed's own ladder. profile holds the fast half-life fixed and refits the rest."
+ },
+ "gain_pct": [
+  34.49896722262019,
+  19.770994734946143,
+  15.683552264739442,
+  13.57337493656066,
+  10.392639014987706,
+  6.923765099254735
+ ],
+ "share_of_exact_gain_kept_pct": [
+  100.0,
+  57.30894669212808,
+  45.46093268106905,
+  39.344293552245546,
+  30.124493141851183,
+  20.06948513726805
+ ],
+ "pooled": {
+  "fast_amplitude_pct": 15.492999600232851,
+  "fast_half_life_deg": 2.063632566220223,
+  "slow_amplitude_pct": 19.00225644650492,
+  "slow_half_life_deg": 29.853122365951755,
+  "max_abs_residual_pp": 0.27008518980123064
+ },
+ "per_seed": [
+  {
+   "fast_amplitude_pct": 18.98614444860657,
+   "fast_half_life_deg": 3.0165355815617683,
+   "slow_amplitude_pct": 15.122471058723114,
+   "slow_half_life_deg": 50.64358183922195,
+   "max_abs_residual_pp": 0.4918577739883858
+  },
+  {
+   "fast_amplitude_pct": 14.660238952662091,
+   "fast_half_life_deg": 1.6101054584879153,
+   "slow_amplitude_pct": 19.673493027104577,
+   "slow_half_life_deg": 24.4872348164277,
+   "max_abs_residual_pp": 0.30441360109201554
+  },
+  {
+   "fast_amplitude_pct": 13.363488054093178,
+   "fast_half_life_deg": 1.623885966610922,
+   "slow_amplitude_pct": 21.659893915386014,
+   "slow_half_life_deg": 26.274512570908552,
+   "max_abs_residual_pp": 0.20391671692193292
+  }
+ ],
+ "fast_half_life_range_deg": [
+  1.6101054584879153,
+  3.0165355815617683
+ ],
+ "slow_half_life_range_deg": [
+  24.4872348164277,
+  50.64358183922195
+ ],
+ "profile": [
+  {
+   "fast_half_life_deg": 0.5,
+   "max_abs_residual_pp": 0.8964699619743968,
+   "slow_half_life_deg": 24.245842829553442
+  },
+  {
+   "fast_half_life_deg": 1.0,
+   "max_abs_residual_pp": 0.7701558876615913,
+   "slow_half_life_deg": 24.970537103327796
+  },
+  {
+   "fast_half_life_deg": 1.5,
+   "max_abs_residual_pp": 0.44988582095735286,
+   "slow_half_life_deg": 26.82171865187413
+  },
+  {
+   "fast_half_life_deg": 2.0,
+   "max_abs_residual_pp": 0.2806235382391833,
+   "slow_half_life_deg": 29.46706052478056
+  },
+  {
+   "fast_half_life_deg": 3.0,
+   "max_abs_residual_pp": 0.8434528146660583,
+   "slow_half_life_deg": 37.04827615899762
+  },
+  {
+   "fast_half_life_deg": 4.0,
+   "max_abs_residual_pp": 1.5446712145670247,
+   "slow_half_life_deg": 50.20098171577206
+  },
+  {
+   "fast_half_life_deg": 5.0,
+   "max_abs_residual_pp": 2.0756293211730323,
+   "slow_half_life_deg": 80.88704312431605
+  },
+  {
+   "fast_half_life_deg": 6.0,
+   "max_abs_residual_pp": 2.47868155867123,
+   "slow_half_life_deg": 255.36041070793834
+  }
+ ],
+ "horizon": {
+  "coarse_level_deg": 15.1,
+  "share_of_exact_gain_kept_pct": {
+   "ADE_2s": 24.9484628340509,
+   "ADE_4s": 18.95777261255109,
+   "ADE_8s": 39.74311419219329,
+   "FDE": 53.59459042261909
+  }
+ }
+}

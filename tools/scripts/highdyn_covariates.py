@@ -16,6 +16,11 @@ Computed per pedestrian, over the 80 future steps (10 Hz), from the trajectory o
   speed0        speed at the current step
 
 Writes {(scene, object_id): {...}} for every pedestrian in the dev+final eval scenes.
+
+Usage: python tools/scripts/highdyn_covariates.py [scenario dir] [scene list] [output pkl]
+Without arguments: the eval scenes, written to experiments/eval_agent_manoeuvre.pkl. The
+three arguments name another set of scenes (heldout_replication.py). WORKERS sets the
+number of processes (default 24).
 """
 from __future__ import annotations
 
@@ -23,6 +28,7 @@ import glob
 import os
 import pickle
 import re
+import sys
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 
@@ -73,20 +79,26 @@ def _scene(path: str) -> list:
 
 
 def main() -> int:
+    scen = sys.argv[1] if len(sys.argv) > 1 else SCEN
+    lists = ([sys.argv[2]] if len(sys.argv) > 2 else
+             [os.path.join(REPO, "data/waymo", f)
+              for f in ("avo_eval_dev_scenes.txt", "avo_eval_final_scenes.txt")])
+    out = (sys.argv[3] if len(sys.argv) > 3 else
+           os.path.join(REPO, "experiments", "eval_agent_manoeuvre.pkl"))
     want = set()
-    for f in ("avo_eval_dev_scenes.txt", "avo_eval_final_scenes.txt"):
-        want |= set(open(os.path.join(REPO, "data/waymo", f)).read().split())
+    for f in lists:
+        want |= set(open(f).read().split())
     print(f"eval scenes: {len(want)}")
 
     by_scene: dict[str, str] = {}
-    for f in glob.glob(os.path.join(SCEN, "sample_*.pkl")):
+    for f in glob.glob(os.path.join(scen, "sample_*.pkl")):
         m = re.match(r"sample_(.+)_\d+\.pkl$", os.path.basename(f))
         if m and m.group(1) in want and m.group(1) not in by_scene:
             by_scene[m.group(1)] = f
     print(f"reading {len(by_scene)} scene files (one per scene)")
 
     cov, done = {}, 0
-    with ProcessPoolExecutor(24) as ex:
+    with ProcessPoolExecutor(int(os.environ.get("WORKERS", "24"))) as ex:
         for part in ex.map(_scene, list(by_scene.values()), chunksize=16):
             for s, o, d in part:
                 cov[(s, o)] = d
@@ -94,7 +106,6 @@ def main() -> int:
             if done % 1000 == 0:
                 print(f"  {done}/{len(by_scene)}", flush=True)
 
-    out = os.path.join(REPO, "experiments", "eval_agent_manoeuvre.pkl")
     pickle.dump(cov, open(out, "wb"))
     print(f"wrote {len(cov)} pedestrians -> {out}")
     v = np.array([c["cv_residual"] for c in cov.values()])

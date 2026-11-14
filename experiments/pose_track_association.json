@@ -1,0 +1,24 @@
+{
+ "_meta": {
+  "poses": "/home/erik/big1/waymo_motion_poses/scale_25k",
+  "scenarios": "/home/erik/big1/waymo_agent_batch_25k",
+  "note": "worst_m is, per pose file, the largest horizontal distance between the root and the box centre of the same scene and object id over the frames the file covers. own_track_nearest counts posed frames on which no other valid agent of the scene has its box centre nearer to the root."
+ },
+ "validation": {
+  "n_scenes": 5171,
+  "n_files": 20034,
+  "n_track_missing": 0,
+  "n_posed_frame_without_box": 6,
+  "median_worst_m": 0.27729997629248615,
+  "p99_worst_m": 0.8101398269740296,
+  "max_worst_m": 3.258219815928304,
+  "share_within_pct": {
+   "0.25": 30.912448836977138,
+   "0.5": 95.67734850753719,
+   "1": 99.53578915843067
+  },
+  "n_frames": 179571,
+  "own_track_nearest_pct_of_frames": 99.04661665859187,
+  "own_track_nearest_on_every_frame_pct_of_files": 96.69062593590895
+ }
+}

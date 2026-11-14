@@ -1,0 +1,28 @@
+{
+ "_meta": {
+  "n_agents": 16486,
+  "n_scenes": 4648,
+  "seeds": [
+   101,
+   202,
+   303,
+   404,
+   505
+  ],
+  "n_boot": 10000,
+  "note": "content effect in percent, own pose against shuffled, 25k scenes, each run at its best epoch. Negative favours own pose. seed_interval is the paired t interval of the paper. The bootstraps are percentile intervals."
+ },
+ "content": 0.05660911067729311,
+ "seed_interval": [
+  -1.5857807586062937,
+  1.6989989799608798
+ ],
+ "scenes_resampled": [
+  -0.3787114775834717,
+  0.5037227372773332
+ ],
+ "seeds_and_scenes_resampled": [
+  -1.0617212368190676,
+  1.300154580508968
+ ]
+}

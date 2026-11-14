@@ -287,6 +287,39 @@ CUT = {
     ('detection floor (Table II)', 'high rungs rel most positive'),
     ('detection floor (Table II)', 'rung 24.9 effect the 579 ladder should have expected'),
     ('detection floor (Table II)', 'rung 24.9 MDE at 579'),
+    # 2026-11-13: Eq. 1 (constant plus one exponential on four levels) left the paper.
+    # tools/scripts/ladder_refit.py fits two exponentials to all six levels instead.
+    ('oracle ladder 25k (Table I)', 'Eq. 1 persistent'),
+    ('oracle ladder 25k (Table I)', 'Eq. 1 amplitude'),
+    ('oracle ladder 25k (Table I)', 'Eq. 1 half-life'),
+    ('oracle ladder 25k (Table I)', 'held-out 24.9 Eq. 1 extrapolation'),
+    # 2026-11-13: cut to make room for the held-out replication of Sec. IV-E
+    ('onboard-track ladder (Sec. IV-E, Table onboard)', '30 cm per-seed min (n=5)'),
+    ('onboard-track ladder (Sec. IV-E, Table onboard)', '30 cm per-seed max (n=5)'),
+    ('label leak through the pose fit (Sec. IV-E)', '10 cm: share removed, fitted'),
+    ('onboard-track ladder (Sec. IV-E, Table onboard)', '10 cm vs no-pose p (n=5)'),
+    ('onboard-track ladder by speed (Sec. IV-E)', 'walking 10 cm content (n=5)'),
+    ('onboard-track ladder by speed (Sec. IV-E)', 'walking 10 cm p (n=5)'),
+    ('pre-fit control by returns, robustness (Sec. IV-E)', 'stranger arms differ in top stratum'),
+    ('pre-fit control by returns, robustness (Sec. IV-E)', 'stranger arms differ, p'),
+    ('pre-fit control by returns, robustness (Sec. IV-E)', 'pre-fit pose vs fitted stranger'),
+    ('pre-fit control by returns, robustness (Sec. IV-E)', 'pre-fit pose vs fitted stranger, p'),
+    ('pre-fit gain by tracker error and manoeuvre (Sec. IV-E, Table dyn)', 'all returns, velocity trend'),
+    ('pre-fit gain by tracker error and manoeuvre (Sec. IV-E, Table dyn)', 'all returns, velocity trend p'),
+    ('pre-fit gain by tracker error and manoeuvre (Sec. IV-E, Table dyn)', 'all returns, position trend'),
+    ('pre-fit gain by tracker error and manoeuvre (Sec. IV-E, Table dyn)', 'all returns, position trend p'),
+    ('pre-fit gain by tracker error and manoeuvre (Sec. IV-E, Table dyn)', 'fitted, velocity trend p'),
+    ('pre-fit gain by tracker error and manoeuvre (Sec. IV-E, Table dyn)', 'fitted, position trend p'),
+    ('pre-fit gain by tracker error and manoeuvre (Sec. IV-E, Table dyn)', 'fitted, CV residual Q1'),
+    ('pre-fit gain by tracker error and manoeuvre (Sec. IV-E, Table dyn)', 'fitted, CV residual Q4'),
+    ('pre-fit gain by tracker error and manoeuvre (Sec. IV-E, Table dyn)', 'fitted, CV residual trend p'),
+    ('onboard examples (Fig. onboardex)', 'smallest error: own on all seeds'),
+    ('onboard examples (Fig. onboardex)', 'smallest error: stranger on all seeds'),
+    ('horizon decomposition (Sec. V-A)', 'persistent share ADE_2s'),
+    ('horizon decomposition (Sec. V-A)', 'persistent share ADE_8s'),
+    ('horizon decomposition (Sec. V-A)', 'persistent share FDE'),
+    ('horizon decomposition (Sec. V-A)', 'precision half-life low across horizons'),
+    ('horizon decomposition (Sec. V-A)', 'precision half-life high across horizons'),
     ('oracle ladder 25k (Table I)', 'persistent_range_pct low'),
     ('oracle ladder 25k (Table I)', 'persistent_range_pct high'),
     ('oracle ladder 25k (Table I)', 'amplitude_range_pct low'),
@@ -477,6 +510,53 @@ def main() -> int:
             # the paper quotes these as the reason the functional form is wrong
             for v, want in zip(fit1['residuals_pp'], ('1.5', '3.2', '0.3', '2.5')):
                 checks.append((g, f'single-exp residual {want}', abs(v), want))
+
+    AS = load('pose_track_association.json')
+    if AS:
+        g = 'pose files sit on their own track (Sec. III-A)'
+        checks.append((g, 'posed frames on which the own track is the nearest box (%)',
+                       AS['validation']['own_track_nearest_pct_of_frames'], '99.0'))
+        assert AS['validation']['n_track_missing'] == 0
+        # files with a posed frame without a valid box are left out of the frame share
+        assert AS['validation']['n_posed_frame_without_box'] < 0.001 * AS['validation']['n_files']
+    SB = load('content_bound_scene_bootstrap.json')
+    if SB:
+        g = 'content bound with scenes resampled (Sec. IV-A)'
+        # The joint seeds-and-scenes percentile interval is not quoted: a percentile bootstrap
+        # over five seeds is narrower than their t-interval by construction.
+        lo, hi = SB['scenes_resampled']
+        checks += [(g, 'scenes resampled, seeds fixed, low', abs(lo), '0.4'),
+                   (g, 'scenes resampled, seeds fixed, high', hi, '0.5')]
+        s_lo, s_hi = SB['seed_interval']
+        assert hi - lo < 0.5 * (s_hi - s_lo)     # "The validation scenes contribute less"
+    CS = load('tracker_cold_start.json')
+    if CS:
+        g = 'tracker cold start (Sec. IV-E caveats)'
+        c = CS['0.3']
+        checks += [(g, 'velocity error after one second', c['1.1 s (11 frames, as in the paper)']['velocity_m_s'], '0.33'),
+                   (g, 'velocity error after three seconds', c['3 s']['velocity_m_s'], '0.16')]
+
+    LR = load('ladder_refit_25k.json')
+    if LR:
+        g = 'ladder refit on six levels (Sec. V-A)'
+        f, prof = LR['pooled'], {x['fast_half_life_deg']: x['max_abs_residual_pp'] for x in LR['profile']}
+        hz = LR['horizon']['share_of_exact_gain_kept_pct']
+        checks += [(g, 'fast amplitude', f['fast_amplitude_pct'], '15.5'),
+                   (g, 'fast half-life', f['fast_half_life_deg'], '2.1'),
+                   (g, 'slow amplitude', f['slow_amplitude_pct'], '19.0'),
+                   (g, 'slow half-life', f['slow_half_life_deg'], '30'),
+                   (g, 'largest residual', f['max_abs_residual_pp'], '0.3'),
+                   (g, 'fast half-life, lowest seed', LR['fast_half_life_range_deg'][0], '1.6'),
+                   (g, 'fast half-life, highest seed', LR['fast_half_life_range_deg'][1], '3.0'),
+                   (g, 'slow half-life, lowest seed', LR['slow_half_life_range_deg'][0], '24'),
+                   (g, 'slow half-life, highest seed', LR['slow_half_life_range_deg'][1], '51'),
+                   (g, 'residual with a 4 deg fast half-life', prof[4.0], '1.5'),
+                   (g, 'gain kept at 15.1 deg, 2 s', hz['ADE_2s'], '25'),
+                   (g, 'gain kept at 15.1 deg, 8 s', hz['ADE_8s'], '40'),
+                   (g, 'gain kept at 15.1 deg, endpoint', hz['FDE'], '54')]
+        assert LR['_meta']['n_seeds'] == 3                                     # "three seeds"
+        assert all(prof[h] < 1.0 for h in (0.5, 1.0, 1.5, 2.0, 3.0))           # "within 1 pp"
+        assert 0.18 <= LR['share_of_exact_gain_kept_pct'][-1] / 100 <= 0.22    # "a fifth"
 
     N = load('nohead_subpopulation.json')
     if N:
@@ -979,33 +1059,75 @@ def main() -> int:
             (g, 'smallest error: stranger on all seeds', bot['stranger_all_seeds'], '32'),
         ]
         assert len(OX['shown']) == 4 and OX['epoch'] == 30    # "four", "final epoch"
+    HO = load('heldout_replication.json')
+    if HO:
+        g = 'held-out replication (Sec. IV-E, abstract)'
+        h, o, fb = HO['heldout'], HO['original'], HO['final_epoch_over_best_epoch_pct']
+        hp, hs, os_ = h['primary'], h['with_a_second_of_future'], o['with_a_second_of_future']
+        qv = h['quartiles_of_tracker_velocity_error']
+        cq = [c['content']['rel'] for c in qv['quartiles']]
+        nq = [c['own_vs_nopose']['rel'] for c in qv['quartiles']]
+        checks += [
+            (g, 'scenes', hp['n_scenes'], '5{,}648'),
+            (g, 'pedestrians', hp['n_agents'], '13{,}937'),
+            (g, 'own vs stranger', abs(hp['content']['rel']), '2.1'),
+            (g, 'own vs stranger, p', hp['content']['p'], '0.12'),
+            (g, 'own vs stranger, CI low', abs(hp['content']['lo']), '5.0'),
+            (g, 'own vs stranger, CI high', hp['content']['hi'], '0.8'),
+            (g, 'original scenes, own vs stranger', abs(o['primary']['content']['rel']), '3.3'),
+            (g, 'original scenes, own vs stranger, p', o['primary']['content']['p'], '0.045'),
+            (g, 'content, velocity error Q2', abs(cq[1]), '1.4'),
+            (g, 'content, velocity error Q3', abs(cq[2]), '1.7'),
+            (g, 'content, velocity error Q4', abs(cq[3]), '4.9'),
+            (g, 'content, velocity trend (pp)', abs(qv['Q4_minus_Q1']['content']['rel']), '4.9'),
+            (g, 'vs no pose, velocity trend (pp)', abs(qv['Q4_minus_Q1']['own_vs_nopose']['rel']), '4.4'),
+            (g, 'vs no pose, velocity trend p', qv['Q4_minus_Q1']['own_vs_nopose']['p'], '0.017'),
+            (g, 'own vs no pose', hs['own_vs_nopose']['rel'], '0.9'),
+            (g, 'own vs no pose, p', hs['own_vs_nopose']['p'], '0.67'),
+            (g, 'own vs no pose, CI low', abs(hs['own_vs_nopose']['lo']), '4.3'),
+            (g, 'own vs no pose, CI high', hs['own_vs_nopose']['hi'], '6.0'),
+            (g, 'original scenes, own vs no pose', abs(os_['own_vs_nopose']['rel']), '0.1'),
+            (g, 'original scenes, stranger vs no pose', os_['stranger_vs_nopose']['rel'], '3.3'),
+            (g, 'original scenes, stranger vs no pose, p', os_['stranger_vs_nopose']['p'], '0.035'),
+            (g, 'own arm, final over best epoch', fb['own']['rel'], '3.1'),
+            (g, 'stranger arm, final over best epoch', fb['stranger']['rel'], '3.3'),
+            (g, 'no-pose arm, final over best epoch', fb['nopose']['rel'], '1.4'),
+            (g, 'pedestrians of the original stratum', os_['n_agents'], '2{,}272'),
+        ]
+        m = HO['_meta']
+        assert m['seeds'] == [101, 202, 303, 404, 505] and m['epoch'] == 30    # "fifteen", "final"
+        assert m['noise_cm'] == 30 and m['min_returns'] == 200
+        # "0.0" in the lowest quartile, "p < 0.001" for the trend, the signs the prose gives
+        assert abs(cq[0]) < 0.05 and qv['Q4_minus_Q1']['content']['p'] < 0.001
+        assert hp['content']['rel'] < 0 and hs['own_vs_nopose']['rel'] > 0 and nq[0] > 0 > nq[3]
+        assert os_['own_vs_nopose']['rel'] < 0 and qv['Q4_minus_Q1']['own_vs_nopose']['rel'] < 0
+        assert os_['own_vs_nopose']['p'] >= 0.05 and hs['own_vs_nopose']['p'] >= 0.05   # 'not confirmed'
+        # the pass reproduced what training stored (up to a mode selection on its threshold)
+        rep = m['reproduces_stored_epoch30']['own']
+        assert rep['n_seeds'] == 5 and rep['largest_abs_difference_m'] < 1e-3
+        assert rep['n_other_mode_selected'] <= 1e-4 * rep['n_compared']
     GA = load('graphical_abstract.json')
     if GA:
-        # Fig. gabs draws its bars from position_noise_dynamics.json. These tie what it
-        # prints to its caption and to the sentence of Sec. IV-E that states the same.
-        g = 'graphical abstract (Fig. gabs, Sec. IV-E)'
-        al, up = GA['all'], GA['upper_half']
+        # Fig. gabs draws its bars from heldout_replication.json. These tie what it prints
+        # to its caption and to the abstract.
+        g = 'graphical abstract (Fig. gabs, abstract)'
+        al, qs = GA['all'], GA['quartiles']
         checks += [
-            (g, 'own vs no pose, all', abs(al['own_vs_nopose']['rel']), '2.1'),
-            (g, 'own vs no pose, all, p', al['own_vs_nopose']['p'], '0.039'),
-            (g, 'own vs no pose, upper half', abs(up['own_vs_nopose']['rel']), '4.0'),
-            (g, 'own vs no pose, upper half, p', up['own_vs_nopose']['p'], '0.003'),
-            (g, 'pedestrians', al['n_pedestrians'], '2{,}272'),
+            (g, 'pedestrians', al['n_pedestrians'], '13{,}350'),
+            (g, 'own vs stranger, highest quartile', abs(qs[3]['own_vs_stranger']['rel']), '4.9'),
+            (g, 'own vs no pose', al['own_vs_nopose']['rel'], '0.9'),
         ]
-        # the half the graphic leaves out, which Sec. IV-E states beside the other
-        lo = (load('position_noise_dynamics.json') or {}).get('returns>=200', {}).get(
-            GA['axis'], {}).get('lower_half')
-        if lo:
-            checks += [(g, 'own vs no pose, lower half', lo['pose_vs_nopose']['rel'], '0.1'),
-                       (g, 'own vs no pose, lower half, p', lo['pose_vs_nopose']['p'], '0.96')]
-            assert lo['pose_vs_nopose']['rel'] > 0
-        assert GA['noise_cm'] == 30 and GA['min_returns'] == 200 and GA['axis'] == 'tracker_vel_err'
-        assert up['n_pedestrians'] * 2 == al['n_pedestrians']                  # "the half"
-        # the asterisks it prints, and "a stranger's pose does not" lower minADE
-        assert al['own_vs_nopose']['rel'] < 0 and up['own_vs_nopose']['rel'] < 0
-        assert al['own_vs_nopose']['p'] < 0.05 and up['own_vs_nopose']['p'] < 0.05
-        assert al['stranger_vs_nopose']['rel'] > 0 and up['stranger_vs_nopose']['rel'] > 0
-        assert al['stranger_vs_nopose']['p'] >= 0.05 and up['stranger_vs_nopose']['p'] >= 0.05
+        assert GA['noise_cm'] == 30 and GA['min_returns'] == 200 and GA['epoch'] == 30
+        assert GA['population'] == 'heldout' and GA['axis'] == 'velocity_error'
+        if HO:
+            assert al['n_pedestrians'] == HO['heldout']['with_a_second_of_future']['n_agents']
+            assert [q['own_vs_stranger']['rel'] for q in qs] == [
+                c['content']['rel'] for c in
+                HO['heldout']['quartiles_of_tracker_velocity_error']['quartiles']]
+        assert len(qs) == 4 and sum(q['n_pedestrians'] for q in qs) == al['n_pedestrians']
+        # "the asterisk" (one), on the highest quartile, and "they gain nothing" against no pose
+        assert [q['own_vs_stranger']['p'] < 0.05 for q in qs] == [False, False, False, True]
+        assert al['own_vs_nopose']['rel'] > 0 and al['own_vs_nopose']['p'] >= 0.05
         # "the example is from Fig. onboardex", and the order its three lines show
         if OX:
             e = OX['shown']['abcd'.index(GA['example']['panel'])]

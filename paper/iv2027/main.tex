@@ -44,9 +44,10 @@ $30$\,cm of detection noise. Three quarters of that gain is the label returning
 through the body: the pipeline's motion-prior fit matches the gait to the
 offboard track. With poses that never saw the track the gain is $1.3\%$
 ($p{=}0.10$), and $3.5\%$ ($p{=}0.010$, uncorrected) on pedestrians with at
-least $200$ LiDAR returns. Of these, the $2{,}272$ with a second of future
-also gain $2.1\%$ over no pose ($p{=}0.039$), and $4.0\%$ ($p{=}0.003$) on the
-half with the larger tracker error, a split chosen after the result. An oracle through
+least $200$ LiDAR returns. On $13{,}937$ such pedestrians in held-out scenes
+it is $2.1\%$ ($p{=}0.12$) and rises with the tracker's velocity error, from
+$0.0\%$ in the lowest quartile to $4.9\%$ in the highest ($p{<}0.001$). Own
+pose does not beat no pose there ($+0.9\%$, $p{=}0.67$). An oracle through
 the same branch converts the agent's own future bearing, so the pathway is not
 the obstacle. We recommend measuring what a modality carries beyond the
 model's existing inputs at the quality a vehicle will have, and checking which
@@ -69,10 +70,11 @@ pose~\cite{saadatnejad2024socialtransmotion,gao2025socialpose,salzmann2023robots
 \centering
 \includegraphics[width=\columnwidth]{fig_graphical_abstract.pdf}
 \caption{Under a simulated onboard tracker ($30$\,cm noise), a pedestrian's
-own SMPL pose from LiDAR lowers \minADE against no pose by $2.1\%$ on the
-well-resolved pedestrians of Table~\ref{tab:dyn}, and by $4.0\%$ on the half
-with the larger tracker velocity error, a split chosen after the result. A
-stranger's pose does not. The poses never saw the track, asterisks mark
+own SMPL pose from LiDAR lowers \minADE against a stranger's pose where the
+tracker is wrong, by $4.9\%$ in the highest quartile of its velocity error.
+Bars are $13{,}350$ held-out pedestrians with at least $200$ returns and
+$1$\,s of future, scored at the final epoch. Against no pose they gain
+nothing ($+0.9\%$, n.s.). The poses never saw the track, the asterisk marks
 $p{<}0.05$, uncorrected, and the example is from Fig.~\ref{fig:onboardex},
 selected on the effect, each model's median seed and best of six modes.}
 \label{fig:gabs}
@@ -86,8 +88,9 @@ included~\cite{ettinger2021waymo,qi2021offboard}. Against that track the body
 restates what the model already knows. Against the history a causal onboard
 tracker would report, the same body appears to pay, and most of that gain is the
 offboard label returning through the pose pipeline, which fits the gait to the
-track. Poses that never saw the track appear to pay only where the sensor
-resolves the body (Fig.~\ref{fig:gabs}).
+track. Poses that never saw the track beat a stranger's where the body is
+resolved and the tracker is wrong, and do not beat no pose on held-out scenes
+(Fig.~\ref{fig:gabs}).
 
 Our contributions are threefold. First, a controlled null. Against the same
 model fed another pedestrian's body, pose adds nothing on WOMD's offboard tracks
@@ -95,7 +98,8 @@ at three training scales, while an oracle through the same branch improves
 \minADE by $34.8\%$. Second, an onboard-quality track and a label leak. Under a
 simulated causal tracker own pose beats a stranger's by $5.3\%$, but three
 quarters of that is the track label returning through the pose pipeline, and
-without it a gain remains only on well-resolved pedestrians. Third, a degraded
+without it own pose beats a stranger's only where the tracker is wrong, and
+does not beat no pose on held-out scenes. Third, a degraded
 oracle shows that the branch converts even a coarse future direction, so the
 null reflects what body facing carries beyond the box heading.
 
@@ -204,7 +208,9 @@ so nearly every training sequence carries another pedestrian's body. Grouping pe
 sequences) cuts the median error between root heading and travel direction from
 $41.5^\circ$ to $11.4^\circ$ and raises the gait--speed correlation from
 $r{=}0.26$ to $0.58$. The uncorrected export fails silently, since training
-converges and losses look normal. All results use the corrected export.
+converges and losses look normal. All results use the corrected export, in
+which the body's root is nearer to its own track's box centre than to any other
+agent's on $99.0\%$ of posed validation frames.
 
 \subsection{Arms and the content test}
 Three arms share one architecture (Fig.~\ref{fig:arch}). The no-pose arm receives trajectories and map.
@@ -219,10 +225,10 @@ to the model's frame. The agent-frame-root encoding does, and its content test
 is null too ($+0.68\%$, $p{=}0.49$, $n{=}3$, MDE $4.3$\,pp). A fourth arm, the oracle, replaces the SMPL features with a six-channel
 encoding of the agent's own future displacement at $3$ and $8$\,s, leaving the
 branch and its masks untouched. It shows the pathway can carry information at
-all (Sec.~\ref{sec:poscontrol}). Every arm with a pose branch, the stranger and
-the oracle included, is also trained to predict the future pose sequence it was
-given, under an auxiliary loss (a geodesic rotation term and a mixture
-likelihood term, weight $0.1$ each). The no-pose arm has no such loss.
+all (Sec.~\ref{sec:poscontrol}). Every arm but the no-pose arm, with pose by branch or by early fusion, also
+predicts a future pose sequence under an auxiliary loss (a geodesic rotation
+term and a mixture likelihood term, weight $0.1$ each): the stranger's in the
+shuffled arm and the pedestrian's own elsewhere, the oracle included.
 
 Pose versus no-pose confounds information with branch capacity and the auxiliary
 loss, while pose versus shuffled holds both fixed and isolates content. We call the latter the content test and treat it
@@ -240,9 +246,10 @@ learning rate at epochs $10$, $20$ and $25$, and the decoder predicts $K{=}6$ mo
 The learning rate is chosen per scale from a grid run separately for each arm:
 $1{\times}10^{-4}$ at $579$ scenes, $5{\times}10^{-5}$ at $5$k and
 $2.5{\times}10^{-5}$ at $25$k, where every arm peaks at the same interior
-optimum. Validation is fixed at $5{,}171$ scenes. Of their $17{,}218$ predicted pedestrians, the $16{,}486$ with at least one valid future step are scored. Headline
+optimum. Validation is a fixed $5{,}171$ of the $27{,}156$ exported validation scenes. Of their $17{,}218$ predicted pedestrians, the $16{,}486$ with at least one valid future step are scored. Headline
 numbers are taken at each run's best validation epoch
-over a fixed evaluation schedule, and Sec.~\ref{sec:real} reports what changes
+over a fixed evaluation schedule, a selection made on the reported set and
+identically for every arm, and Sec.~\ref{sec:real} reports what changes
 under a fixed-epoch rule. Official WOMD mAP needs the full retained prediction
 set, which our per-epoch evaluation does not store, so we report \minADE,
 \minFDE and miss rate at $2$\,m. \minADE averages over a
@@ -291,8 +298,10 @@ detectable content effect is
 $3.5\%$ at $579$ scenes ($n{=}5$), $7.6\%$ at $5$k ($n{=}3$) and $2.2\%$ at
 $25$k ($n{=}5$). The $5$k scale is weak evidence on its own, and the weight
 falls on $25$k, the largest scale and the most sensitive. There the paired
-seed-level interval on the content difference is $[-1.59\%,+1.70\%]$, so the
-data exclude a content effect beyond roughly $1.7\%$ in either direction, and
+seed-level interval on the content difference is $[-1.59\%,+1.70\%]$. The
+validation scenes contribute less: resampling them with the seeds fixed gives
+$[-0.4\%,+0.5\%]$. The
+data thus exclude a content effect beyond roughly $1.7\%$ in either direction, and
 the largest benefit the interval allows is no larger than the $1.6\%$ cost of
 the branch that would carry it.
 
@@ -308,13 +317,11 @@ from each other. An extra input branch costs ${\sim}1.6\%$ whether it carries th
 right body or the wrong one. Both arms also train with the auxiliary pose loss,
 which we did not separate from the branch at this scale.
 
-This is an operating-point statement: it is measured at each run's best
-validation epoch. The sign of a pose-versus-no-pose comparison is not stable under a
-fixed late-epoch rule: at epoch $30$ pose is $8.0\%$ better with $n{=}3$, where
-the no-pose arm had degraded further, and $0.9\%$ worse with $n{=}8$, both
-n.s. and neither resolved at these seed counts. What is stable is that the
-comparison moves with the stopping rule, so we never compare architecturally
-different arms at a fixed late epoch. The content test is not significant under
+This is measured at each run's best validation epoch. Under a fixed
+late-epoch rule the sign of a pose-versus-no-pose comparison is not stable (at
+epoch $30$ pose is $8.0\%$ better with $n{=}3$ and $0.9\%$ worse with $n{=}8$,
+both n.s.), so outside the held-out pass of Sec.~\ref{sec:onboard} we never
+compare architecturally different arms at a fixed late epoch. The content test is not significant under
 either rule, though it is noisier at epoch $30$ ($-5.9\%$, $-4.7\%$ and
 $-1.7\%$ at the three scales, $p{=}0.16$, $0.07$ and $0.60$). Replacing the $144$-d branch with eight frame-invariant descriptors
 fused into the existing agent channels removes the cost ($-0.01\%$ versus
@@ -342,8 +349,7 @@ pose would have been.
 
 Over three seeds at $579$ scenes the oracle arm changes \minADE by $-34.8\%$
 against no pose ($t(2){=}-81.4$, $p{=}1.5{\times}10^{-4}$) and by $-35.6\%$
-against the shuffled arm. The oracle
-reads the future and is not a usable model. It calibrates the pathway: the
+against the shuffled arm. The oracle calibrates the pathway: the
 branch converts information into accuracy at roughly twenty
 times the magnitude of the bound our content test places on pose. The null is
 therefore a statement about what SMPL pose contains, not about whether the
@@ -358,7 +364,7 @@ It is null in all $20$ tests across quartiles and top deciles of
 constant-velocity residual, heading variation, speed range and peak
 acceleration, on the $6{,}764$ of those agents for which the four are defined. It is also null for standing-then-moving pedestrians, the
 subpopulation built to favour it ($n{=}1{,}809$ pedestrians, $+0.38\%$,
-epoch-$30$ checkpoints on an expanded validation split, $p{=}0.80$ by a
+epoch-$30$ checkpoints on all $27{,}156$ validation scenes, $p{=}0.80$ by a
 pedestrian-resampling bootstrap).
 
 It is also null where the body is best measured, which is where a
@@ -382,7 +388,7 @@ most of what they measure is a label, not a body.
 
 \begin{table}[t]
 \caption{Degraded inputs at $25$k scenes, $n{=}3$ seeds per arm for
-the frame rotation and $n{=}5$ for track noise. Loss is the no-pose baseline
+the frame rotation, whose seeds the clean row uses, and $n{=}5$ for track noise. Loss is the no-pose baseline
 against its clean counterpart on the seeds both share, and negative favours pose. The
 frame rotation leaves the clean heading readable, so it is not an
 onboard-quality heading (Sec.~\ref{sec:belowfloor}). The
@@ -422,7 +428,8 @@ at all $954{,}751$ pedestrian time steps we checked. The observed history is as
 clean as the labeller could make it. A deployed stack has a causal tracker
 instead, so we simulate one. Each observed position receives detection noise
 $\mathcal{N}(0,s^2)$ per axis, drawn once rather than per epoch, and a
-forward-only constant-velocity Kalman filter, started at rest (acceleration
+forward-only constant-velocity Kalman filter, started at rest at the first
+observed frame (acceleration
 noise $1$\,m/s$^2$, initial velocity uncertainty $1.5$\,m/s), turns the
 detections into the positions and velocities the model sees. The box heading and
 the future targets are untouched. At prediction time, measured on $675$
@@ -432,22 +439,20 @@ $0.46$\,m/s at $30$\,cm, against a median pedestrian speed of $1.1$\,m/s.
 
 With the pipeline's fitted poses the null breaks (Table~\ref{tab:onboard}). At
 $30$\,cm own pose beats a stranger's by $5.32\%$ ($p{=}0.002$, $95\%$ CI
-$[-7.3,-3.4]$) and beats no pose by $4.06\%$ ($p{=}0.004$), over five seeds. All
-five agree in sign ($-2.7$ to $-6.5\%$), and the mean holds at every fixed late epoch
-($-5.2$ to $-5.8\%$ at epochs $26$, $28$ and $30$). At $10$\,cm it is $-2.08\%$
-against shuffled ($p{=}0.005$) and $-1.21\%$ against no pose ($p{=}0.07$). It
-sits where gait would put it. On the $8{,}757$ pedestrians walking at $0.8$ to
-$1.6$\,m/s it is $-3.3\%$ ($p{=}0.008$) at $10$\,cm and $-6.8\%$ ($p{=}0.0002$)
-at $30$\,cm, while on the $3{,}336$ standing at prediction time it is
-significant at neither. This is the pattern of a stride restoring the speed the tracker
-lost.
+$[-7.3,-3.4]$) and beats no pose by $4.06\%$ ($p{=}0.004$), over five seeds.
+The mean holds at every fixed late epoch
+($-5.2$ to $-5.8\%$ at epochs $26$, $28$ and $30$). It
+sits where gait would put it: on the $8{,}757$ pedestrians walking at $0.8$ to
+$1.6$\,m/s it is $-6.8\%$ ($p{=}0.0002$), while on the $3{,}336$ standing at
+prediction time it is not significant.
 
 \textbf{Most of it is the label.} The fitted poses are not independent of the
 track. The motion-prior stage~\cite{he2022nemf} is a latent optimisation whose
 loss predicts the root translation from the local body motion and matches it to
 the box track, so the fit pulls the gait toward a stride that reproduces the
-offboard displacement. The model input holds joint rotations only and covers
-only the $11$ observed frames, so auditing the input does not reveal it.
+offboard displacement. The fit runs on the observed second alone, so no future frame enters, and
+the model input holds joint rotations only, so auditing the input does not
+reveal it.
 Derived inputs have carried labels before: central-difference velocities gave
 Trajectron++ the next position~\cite{trajectron2021derivatives}. A check
 without training does. On the $11{,}588$ validation pedestrians with a pose on every observed frame, gradient-boosted
@@ -457,8 +462,7 @@ moving pedestrians with fewer than $30$ LiDAR returns it is $0.78$ against less
 than zero: the fitted body knows a speed the sensor could not have shown it.
 Added to a regressor on the $30$\,cm tracker's own state, the fitted pose
 removes $71\%$ of the squared speed error that regressor leaves, the pre-fit
-pose about a fifth and a stranger's $1\%$. At $10$\,cm
-the shares are $21\%$ and under $2\%$.
+pose about a fifth and a stranger's $1\%$.
 
 We therefore train both pose arms at $30$\,cm on the pre-fit poses, which see
 only the points inside the box. Files, agents, tracks and the stranger assigned
@@ -473,18 +477,14 @@ on every seed), and on walkers $-6.8\%$ becomes $-0.8\%$ ($p{=}0.36$).
 \textbf{What survives appears to follow the sensor.} Split by mean LiDAR returns over the
 observed second, the pre-fit content effect is $-0.3\%$ below $30$ returns,
 $-1.0\%$ and $-1.4\%$ in the two middle strata, and $-3.47\%$ ($p{=}0.010$, CI
-$[-5.6,-1.4]$) on the $2{,}365$ pedestrians with at least $200$, where it also
+$[-5.6,-1.4]$) on the $2{,}365$ pedestrians with at least $200$ that every run scores, where it also
 beats no pose ($-1.99\%$, $p{=}0.041$). The top stratum is better than the
 bottom on every seed, by $3.1$ points ($p{=}0.004$), and at every fixed late
-epoch it reads $-3.2$ to $-4.6\%$. The bottom stratum is less settled. At
-those epochs it reads $-1.4$ to $-2.1\%$ (n.s.), so the gap between the two
-narrows to $1.7$ to $2.5$ points. The stranger arm is also $0.9\%$ worse on
-pre-fit than on fitted poses in the top stratum ($p{=}0.015$), and against the
-fitted stranger the effect is $-2.6\%$ ($p{=}0.03$). The fitted poses show no gradient ($-5.3$,
+epoch it reads $-3.2$ to $-4.6\%$. At those epochs the bottom stratum reads
+$-1.4$ to $-2.1\%$ (n.s.), so the gap narrows to $1.7$ to $2.5$ points. The fitted poses show no gradient ($-5.3$,
 $-5.4$, $-4.1$ and $-6.0\%$, $p{=}0.41$), as a leak that does not depend on the
 sensor would not. On the offboard track the same stratum is null
-(Sec.~\ref{sec:hide}). In the examples of Fig.~\ref{fig:pcmesh} the points lie between thigh and
-shoulder below $30$ returns and cover the body from head to foot with at least $200$.
+(Sec.~\ref{sec:hide}).
 
 \textbf{It follows the tracker's error, not the manoeuvre.}
 Table~\ref{tab:dyn} splits the $2{,}272$ well-resolved pedestrians with at least
@@ -493,12 +493,8 @@ of them ($p{=}0.039$). By how wrong the tracker is at prediction time, the gain
 is absent in the quartile with the smallest velocity error ($+0.4\%$) and
 $-3.3\%$ in the largest, a difference of $3.7$ points ($p{=}0.013$), and
 $+0.1\%$ against $-5.0\%$ over position error ($5.1$ points, $p{=}0.019$,
-examples in Fig.~\ref{fig:onboardex}). On the half with the larger velocity
-error it is $-4.0\%$ ($p{=}0.003$) and on the other $+0.1\%$ ($p{=}0.96$). The
-detection noise is drawn independently of the pedestrian, and the trend holds
-on complete one-second histories alone ($4.0$ points, $p{=}0.019$), so it is
-not the filter's cold start. On all pedestrians it is weaker ($1.0$ and $1.9$
-points, $p{=}0.08$ and $0.10$). By what
+examples in Fig.~\ref{fig:onboardex}). The trend holds
+on complete one-second histories alone ($4.0$ points, $p{=}0.019$). By what
 the pedestrian goes on to do, the four manoeuvre measures of
 Sec.~\ref{sec:hide}, the gain is largest in the lowest quartile of every
 measure ($-3.4$ to $-5.6\%$) and shrinks toward the highest, by $3.8$ points
@@ -506,21 +502,18 @@ over constant-velocity residual ($p{=}0.048$) and $4.1$ over speed range
 ($p{=}0.019$). Against a stranger's pose, which holds the branch fixed, own
 pose is ahead in all $24$ quartiles, with the same trend over tracker error
 ($3.1$ and $5.5$ points, both $p{=}0.001$) and none over the manoeuvre
-($p\ge0.19$). The fitted poses' gain over a stranger's does not
-follow the tracker's error ($p{=}0.08$ and $0.87$) and shrinks with the
-manoeuvre, from $-8.4\%$ to $-3.5\%$ over constant-velocity residual
-($p{=}0.013$), as a leaked speed is worth most where the pedestrian keeps it.
+($p\ge0.19$).
 
 \begin{table}[t]
 \caption{Where the pre-fit gain sits. Each row sorts the $2{,}272$ pedestrians
 with at least $200$ returns and $1$\,s of future by one measure and cuts them
 into quartiles of $568$ (Q1 lowest). Cells give the gain at
-$s{=}30$\,cm: \minADE with the pedestrian's own pose against no pose, in
+$s{=}30$\,cm at each run's best validation epoch: \minADE with the
+pedestrian's own pose against no pose, in
 percent over $n{=}5$ seeds, negative favouring own pose. Tracker error is the
 distance of the tracked state from the label at the last observed frame.
 Trend is Q4 minus Q1 in points
-with its paired $p$, and asterisks mark $p{<}0.05$, uncorrected. The gain grows
-with the tracker's error and shrinks with the manoeuvre.}
+with its paired $p$, and asterisks mark $p{<}0.05$, uncorrected.}
 \label{tab:dyn}
 \centering
 \footnotesize
@@ -550,8 +543,7 @@ six modes of one seed at the final epoch, and titles give the mean \minADE.
 The examples are selected on the effect. Among the $568$ well-resolved
 pedestrians with the largest tracker velocity error, own pose is better on all
 five seeds for $43$ and worse on all five for $28$ at that epoch, and these are
-the four largest gains with a complete future. In the quartile with the smallest error
-the counts are $33$ and $32$. Dots are the tracked history, and the dashed line
+the four largest gains with a complete future. Dots are the tracked history, and the dashed line
 extends the tracker's velocity over $3$\,s.}
 \label{fig:onboardex}
 \end{figure}
@@ -559,19 +551,38 @@ extends the tracker's velocity over $3$\,s.}
 Three caveats bound this. The tracker is simulated, with Gaussian detection
 noise rather than a detector's correlated, occlusion-driven errors, and it
 never switches or fragments an identity, errors that degrade forecasts on real
-tracker output~\cite{weng2022mtp}. The pre-fit
+tracker output~\cite{weng2022mtp}. It also never follows a pedestrian for more
+than a second. On a steadily walking pedestrian the same filter's median
+velocity error at $30$\,cm is $0.33$\,m/s after one second and $0.16$\,m/s
+after three, so a longer-lived track leaves pose less to repair. The pre-fit
 poses are per-frame and unsmoothed, so a prior fitted to the body alone might
 recover more. The fit used here does not: on $1{,}789$ keypoint-labelled frames
 of the perception validation
 set~\cite{sun2020waymoperception,zheng2022keypoints} the fitted poses are less
 accurate than the pre-fit ones ($94.8$ against $90.7$\,mm MPJPE, aligned at the
 hip midpoint), and the loss is at the knees and ankles.
-Finally, returns are one of two stratifications scored at this noise level, four strata
-each, so $p{=}0.010$ is uncorrected over eight strata, and the splits of
-Table~\ref{tab:dyn} were chosen after that result and subdivide its stratum. The two experiments establish that the same body adds nothing to
-an offboard track and that a pose fitted to a labelled track inherits the
-label. That it adds to a causal track where the sensor resolves it rests on one
-stratification.
+Finally, $p{=}0.010$ is uncorrected over the eight strata scored at this
+noise level, and the splits of Table~\ref{tab:dyn} were chosen after that
+result.
+
+\textbf{Held-out scenes keep the trend and do not confirm the gain over no
+pose.} We fixed the stratum, the splits and the tests, and scored the fifteen
+models at their final epoch, the only checkpoint kept, on $5{,}648$ validation
+scenes that played no part in training, in selecting an epoch or in choosing
+the stratum, with $13{,}937$ pedestrians of at least $200$ returns. Own pose is ahead of a stranger's by $2.1\%$ ($p{=}0.12$, CI
+$[-5.0,+0.8]$), against $3.3\%$ ($p{=}0.045$) on the original scenes in the
+same pass. On the $13{,}350$ with $1$\,s of future, over the quartiles of the
+tracker's velocity error, this reads
+$0.0$, $-1.4$, $-1.7$ and $-4.9\%$, a trend of $4.9$ points ($p{<}0.001$).
+Against no pose the trend is $4.4$ points ($p{=}0.017$), but the gain is not
+confirmed: $+0.9\%$ ($p{=}0.67$, CI $[-4.3,+6.0]$), and $-0.1\%$ on the
+original scenes at the final epoch, where a stranger's pose costs $3.3\%$
+($p{=}0.035$). Such comparisons between architectures are unstable at a fixed
+epoch (Sec.~\ref{sec:real}), and the best-epoch rule behind the $2.1\%$ of
+Table~\ref{tab:dyn} need not be neutral either: from it the pose arms lose
+$3.1$ and $3.3\%$ to the final epoch and the no-pose arm $1.4\%$. On a causal track
+own pose is worth more than a stranger's where the tracker is wrong. That it
+is worth more than no pose is not established.
 
 \section{Why Pose Does Not Pay on Offboard Tracks}
 \label{sec:why}
@@ -595,19 +606,15 @@ epoch, as a real estimator's error is a property of the observation.
 At $25$k scenes every level converts, and the gain stays large: $-34.50\%$ with an
 exact bearing, $-19.77\%$ at $5.0^\circ$, $-15.68\%$ at $10.0^\circ$ and
 $-13.57\%$ at $15.1^\circ$, all at $p\le0.0016$ against minimum detectable
-effects of $1.4$ to $2.9$\,pp. The decay is not a single exponential.
-Two terms fit it to $0.4$\,pp:
-\begin{equation}
-\Delta\minADE(\theta) \;\approx\; -\big[\,13.1\% + 21.4\%\cdot e^{-\theta/4.4^\circ}\,\big],
-\label{eq:floor}
-\end{equation}
-a precision term with a half-life of $3.0^\circ$ over a term taken as flat across
-the fitted span, an assumption the half-life depends on. That term is slow,
-not permanent, and two levels held out of the fit measure it. By $24.9^\circ$ the
-precision term is below $0.1\%$, so that level reads the slow term almost alone,
-and it still converts: $-10.39\%$ ($p{=}0.003$, CI $[-12.9,-7.9]$) against the
-$-13.2\%$ Eq.~(\ref{eq:floor}) extrapolates (Table~\ref{tab:floor}). At $44.4^\circ$ the gain is
-$-6.92\%$ ($p{=}0.013$, CI $[-10.3,-3.5]$), so about half of it is left.
+effects of $1.4$ to $2.9$\,pp, then $-10.39\%$ at $24.9^\circ$ ($p{=}0.003$, CI
+$[-12.9,-7.9]$) and $-6.92\%$ at $44.4^\circ$ ($p{=}0.013$, CI $[-10.3,-3.5]$),
+a fifth of the exact gain (Table~\ref{tab:floor}). The decay is not a single
+exponential. Two exponentials fit all six levels to $0.3$\,pp, a fast term of
+$15.5\%$ with a half-life of $2.1^\circ$ and a slow term of $19.0\%$ with a
+half-life of $30^\circ$ ($1.6$ to $3.0^\circ$ and $24$ to $51^\circ$ across the
+three seeds). No level lies between $0^\circ$ and $5^\circ$, so the fast
+half-life is bounded more than measured: any value from $0.5^\circ$ to
+$3^\circ$ fits within $1$\,pp, and $4^\circ$ misses by $1.5$\,pp.
 
 \textbf{The angular axis is not an acceptance threshold.} It is tempting to read
 $\theta$ as the accuracy a cue must reach. The ladder refutes that reading
@@ -617,26 +624,22 @@ heading estimates the same future displacement bearing at $3.9^\circ$ in
 median, better than the $15.1^\circ$ channel at every percentile
 ($9.3^\circ$ against $25.8^\circ$ at the third quartile, $20.1^\circ$ against
 $36.3^\circ$ at the ninetieth). A channel uniformly less accurate than an input
-the model already has still buys $-13.6\%$. Nor does the branch pay for merely
-being occupied: carrying a stranger's pose it costs ${\sim}1.6\%$
-(Sec.~\ref{sec:real}). The $34.5\%$ is content, and the only content this
-channel has is the realised future.
+the model already has still buys $-13.6\%$, and the only content it has is the
+realised future.
 
-\textbf{The surviving term is future-side mode selection.} Eq.~(\ref{eq:floor})
-splits the gain, and the two terms behave differently in ways that identify them.
+\textbf{The slow term is future-side mode selection.} The two terms behave
+differently in ways that identify them.
 Per-agent records at each run's own best epoch, paired between arms on
-$16{,}486$ agents and averaged over seeds, put the persistent term at the end of
-the trajectory: refitting the decomposition at each horizon leaves the precision
-half-life at $2.9$ to $3.9^\circ$ throughout, while the persistent share of the
-gain rises from $21\%$ of the $2$\,s error reduction to $39\%$ at $8$\,s and
-$53\%$ at the endpoint. The selection reading predicts more: corrupting the bearing should barely affect which of the
+$16{,}486$ agents and averaged over seeds, put the slow term at the end of
+the trajectory: the $15.1^\circ$ channel keeps $25\%$ of the exact oracle's error
+reduction at $2$\,s, $40\%$ at $8$\,s and $54\%$ at the endpoint. The selection reading predicts more: corrupting the bearing should barely affect which of the
 six modes is right. It does not. The gap between the top-ranked mode and the best
 of six, which is what the forecaster loses by choosing wrongly, falls from $0.67$\,m to
 $0.26$\,m with an exact oracle, and still to $0.29$\,m at $15.1^\circ$: the
 corrupted channel closes $92\%$ of the perfect oracle's selection gap while
 recovering $39\%$ of its \minADE. A coarse future bearing says which way the
-agent went, and only a precise one refines where along that way, which is what
-$3^\circ$ of error destroys.
+agent went, and only a precise one refines where along that way, which a few
+degrees of error destroy.
 
 \minADE takes the best of six modes whatever their rank, so selection reaches it
 only through the decoder's scoring step, which keeps six of $64$ intention
@@ -646,10 +649,6 @@ score the ranking metrics directly on the $25$k arms. They are null as well:
 against a stranger's pose, top-$1$ ADE is $-2.07\%$ ($p{=}0.11$, MDE
 $3.7$\,pp), best-mode rank $-0.93\%$ ($p{=}0.22$) and endpoint mode spread
 $+0.17\%$ ($p{=}0.53$), over the same $16{,}486$ agents.
-
-\textbf{A null at low power looks like a threshold.} At $579$ scenes the same
-ladder is significant at $10.0^\circ$ and not at $15.1^\circ$ ($-1.4\%$,
-$p{=}0.47$, MDE $6.7$\,pp), where the $25$k ladder gives $-13.6\%$.
 
 \subsection{Why body facing does not pay}
 \label{sec:belowfloor}
@@ -676,7 +675,7 @@ at $41.2^\circ$. The pooled median largely measures the snapping.
 Where it would be non-redundant, it is worst. On the one case where
 velocity carries no directional information (which way a stationary pedestrian
 steps off), SMPL facing predicts onset direction at roughly twice chance over
-the $1{,}705$ onset events among $19{,}939$ stationary validation pedestrians: median error $44.2^\circ$, $50.6\%$ within
+the $1{,}705$ onset events among the $19{,}939$ stationary pedestrians of the whole validation split: median error $44.2^\circ$, $50.6\%$ within
 $45^\circ$ (chance $90^\circ$, $25\%$). That is informative, and not an
 artifact of our axis fitting: the box heading
 estimates the same quantity at $25.2^\circ$, and paired on the same events SMPL
@@ -696,8 +695,7 @@ $+0.04\%$ at $25$k scenes, bounded to $\pm1.7\%$.
 per-agent angular error, each level labelled by the median bearing error actually
 delivered. Tests are paired $t$ against each seed's own no-pose run, and
 negative favours the oracle. MDE is the minimum effect a level could detect at
-$80\%$ power. Every level converts, out to $44.4^\circ$. The last two levels are
-held out of Eq.~(\ref{eq:floor}).}
+$80\%$ power. Every level converts, out to $44.4^\circ$.}
 \label{tab:floor}
 \centering
 \footnotesize
@@ -737,11 +735,10 @@ frame, anchors and map inherit, and repeat the content test at $25$k scenes
 and three seeds (Table~\ref{tab:onboard}). The no-pose baseline loses $5.8\%$
 at $\sigma{=}15^\circ$ and $12.6\%$ at $30^\circ$, and pose recovers none of
 it: $-0.14\%$ ($p{=}0.90$) and $-0.11\%$ ($p{=}0.93$) against shuffled. This
-does not test a degraded heading, for two reasons. The per-timestep heading
-channel stays the clean heading expressed in the rotated frame, so the model
-can read the added error. And the pose root stays in world coordinates, so
-the body cannot state the correction. The control measures the cost of
-a misaligned frame, and whether facing pays under an onboard-quality heading is
+does not test a degraded heading. The per-timestep heading channel stays the
+clean heading expressed in the rotated frame, so the model can read the added
+error, and the pose root stays in world coordinates, so the body cannot state
+the correction. Whether facing pays under an onboard-quality heading is
 untested here. The clean condition reproduces the main results to within $0.4\%$.
 
 \subsection{A general condition}
@@ -773,9 +770,8 @@ For an AV stack, three consequences follow. First, before integrating an
 auxiliary modality, measure how much of its cue it explains beyond the
 inputs the model already receives, take those inputs at the quality a vehicle
 will have, and ask what the cue's own pipeline was fitted to. None of this costs
-training. A simulated causal tracker is a few lines in a data loader, and our
-fitted poses predict the labelled speed with $R^2{=}0.94$, which flags
-the leak before any training. Second, an oracle ladder is worth its few
+training: our fitted poses predict the labelled speed with $R^2{=}0.94$, which
+flags the leak before any model is trained. Second, an oracle ladder is worth its few
 runs as a positive control and an upper bound on the pathway, if its MDE is
 below the effect one would act on (Sec.~\ref{sec:floor}). Third, the cost of an extra
 branch (${\sim}1.6\%$ here, at the best-epoch operating point) is easily
@@ -784,16 +780,19 @@ separates the two, and early fusion avoids the cost while still reading the
 channel.
 
 \textbf{Limitations.} We test one forecaster, one dataset and one pose
-estimator, the model sees pedestrians and map only, and we do not model
-pose--pose interaction. The largest scale we train is $25$k of the $299{,}220$
+estimator, the model sees pedestrians and map only, so pose cannot act through
+interaction with vehicles and the baseline is not comparable with published
+WOMD results, and we do not model pose--pose interaction. The largest scale we train is $25$k of the $299{,}220$
 exported scenes, a compute limit, and the ladders run at $n{=}3$ per level, five
 for track noise. We did not test a degraded heading: the frame-rotation control
 leaves the clean heading readable, and the default pose arm carries its root in
 world coordinates (Sec.~\ref{sec:belowfloor}). The onboard track is simulated
 (Sec.~\ref{sec:onboard}). The pre-fit poses are still estimated from points cropped by
 offboard boxes, the pre-fit control covers the $30$\,cm level only, and we have
-not run either through early fusion. The redundancy counterfactual is run at
-$579$ scenes rather than at $25$k. WOMD ships camera data only as quantised tokens, so a
+not run either through early fusion. The null on offboard tracks is measured
+with fitted poses. Pre-fit poses were not trained on clean tracks, and the
+nearest evidence is the quartile of Table~\ref{tab:dyn} in which the tracker is
+nearly right, where they gain nothing over no pose. WOMD ships camera data only as quantised tokens, so a
 camera-based pose or gaze estimate cannot be tested at this scale.
 
 \section{Conclusion}
@@ -804,8 +803,9 @@ and an oracle through the same branch rules out a dead pathway. Under a
 simulated onboard tracker own pose beats a stranger's by $5.3\%$, and three
 quarters of that is the offboard label, carried in by a pose pipeline that fits
 the gait to the track. Poses that never saw the track gain a non-significant
-$1.3\%$ overall and $3.5\%$ on the best-resolved bodies, the latter in one
-stratification, where it grows with the tracker's error. The results are one mechanism: a cue pays only for what it carries
+$1.3\%$ overall and $3.5\%$ on the best-resolved bodies. On held-out scenes
+that is $2.1\%$ ($p{=}0.12$), it grows with the tracker's error, and a gain
+over no pose is not confirmed. The results are one mechanism: a cue pays only for what it carries
 beyond the model's existing inputs, an offboard track leaves the body nothing to
 add, and a cue fitted to a label carries the label.
 

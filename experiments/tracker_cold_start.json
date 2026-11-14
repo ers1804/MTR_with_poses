@@ -1,0 +1,35 @@
+{
+ "_meta": {
+  "speed_m_s": 1.1,
+  "n_walkers": 20000,
+  "note": "median error magnitude of the tracked state at the last frame, constant-velocity walker, the dataset's own filter (cold start at rest, sigma_a 1 m/s^2, sigma_v0 1.5 m/s). Track age is the number of frames the filter has run."
+ },
+ "0.1": {
+  "1.1 s (11 frames, as in the paper)": {
+   "velocity_m_s": 0.1325284137643365,
+   "position_m": 0.06812191374977981
+  },
+  "3 s": {
+   "velocity_m_s": 0.12447954637957213,
+   "position_m": 0.0631382698547606
+  },
+  "20 s": {
+   "velocity_m_s": 0.12407211037683176,
+   "position_m": 0.0633803861639566
+  }
+ },
+ "0.3": {
+  "1.1 s (11 frames, as in the paper)": {
+   "velocity_m_s": 0.32846952786715566,
+   "position_m": 0.19575635417931173
+  },
+  "3 s": {
+   "velocity_m_s": 0.16305398476961408,
+   "position_m": 0.14869475662183618
+  },
+  "20 s": {
+   "velocity_m_s": 0.16337723820144617,
+   "position_m": 0.14980701384889142
+  }
+ }
+}

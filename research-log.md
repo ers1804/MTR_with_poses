@@ -2744,3 +2744,483 @@ and to adapt the text. Uncommitted until the user decides.
 - Cuts to hold eight pages: the Fig. 3 description is one sentence, the low-power paragraph
   lost its closing sentence, the conclusion no longer says "and with no manoeuvre", the
   all-pedestrians trends are in one parenthesis. 7.97 pages, no spare line to speak of.
+
+## 2026-11-13 AI pre-submission review from Prof. Flohr (borderline reject), first assessment
+
+The review read a build older than 11a6ca3: it quotes "invalid first export", the old
+contribution 3 and two "[?]" citations in Sec. I and IV-E. Both places cite qi2021offboard,
+which entered references.bib on Nov 9, so the reviewed build had a stale .bib.
+
+Checked against code and data, no paper change yet:
+- Flaw 1 (the offboard null is measured on track-fitted poses only): correct. No pre-fit run
+  on clean tracks exists. Closest existing evidence: the lowest tracker-error quartiles of
+  the dynamics table (+0.4% and +0.1% against no pose, -1.5% and -0.3% against a stranger).
+- Flaw 2 (tracker only partly onboard): correct, and the cold-start part is sharper than the
+  paper admits. _track_past_causally starts every track at rest at its first observed frame,
+  so no track is older than 1.1 s. Same filter on a constant-velocity walker at 1.1 m/s
+  (20,000 draws): at s=30 cm the median velocity error is 0.33 m/s after 11 frames and
+  0.16 m/s after 3 s or at steady state, position 19.6 cm against 14.9 cm. At s=10 cm the
+  cold start does not matter (0.13 against 0.12 m/s). The paper's sentence "the trend holds
+  on complete one-second histories alone, so it is not the filter's cold start" is wrong as
+  worded: it rules out tracks shorter than a second, not the cold start.
+- Flaw 3 (no vehicles, cyclists or ego in the input, no official mAP): correct, stated in the
+  paper, not fixable without retraining everything.
+- Flaw 4 (Eq. 1 under-identified): correct, three parameters on four levels, and the paper
+  already concedes the flat term. The rewritten contributions no longer claim the split.
+- Minor: 2,365 against 2,372 is the intersection with the speed covariate and all runs.
+  Table II's clean row is the n=3 seed set of the frame-rotation control. The 5,171
+  validation scenes and the 579 training scenes are what the interrupted first export wrote,
+  a subset of the official splits in export order, not a random draw.
+
+## 2026-11-13 response to the AI review: text fixes (A) and analyses without training (B)
+
+User's decisions: A and B go ahead. Local GPU continues the 10 cm queue (seed 303 next).
+The Helma constraint stands, the runs the review asks for are queued there for the
+revision after the IV reviews (January). The title stays.
+
+B1 LADDER (tools/scripts/ladder_refit.py -> experiments/ladder_refit_25k.json). Two
+exponentials on all six levels fit to 0.27 pp: fast 15.5% with half-life 2.06 deg, slow
+19.0% with half-life 29.9 deg. Per seed the fast half-life is 1.6, 1.6, 3.0 deg and the slow
+24 to 51 deg. Profile over the fast half-life: 0.5 to 3 deg all fit within 0.9 pp, 4 deg
+misses by 1.5 pp. So the old "3.0 deg" rested on the flat term, as the review said. Eq. (1)
+is out of the paper, Sec. V-A describes the six-level fit and says the fast half-life is
+bounded more than measured. The per-horizon "persistent share" (fit-dependent) is replaced
+by a fit-free share: the 15.1 deg channel keeps 25% of the exact gain at 2 s, 40% at 8 s,
+54% at the endpoint (19% at 4 s, not quoted).
+
+B2 SCENE BOOTSTRAP (content_bound_scene_bootstrap.py). Content effect at 25k is +0.06%
+paired. Seed t interval [-1.59, +1.70]. Scenes resampled, seeds fixed: [-0.38, +0.50].
+Seeds and scenes resampled: [-1.06, +1.30]. The bound stands.
+
+B3 ASSOCIATION (pose_track_association.py), validation: 20,034 pose files, no track missing,
+root within 0.5 m of its own box centre on every frame for 95.7%, within 1 m for 99.5%,
+worst case 3.3 m, median worst distance 0.28 m. No cross-scene body left.
+
+COLD START (tracker_cold_start.py, the dataset's own filter): 30 cm 0.33 m/s after 11
+frames, 0.16 m/s after 3 s and after 20 s. 10 cm 0.13 against 0.12 m/s.
+
+B4 HELD-OUT REPLICATION, running. 21,985 of the 27,156 exported validation scenes were
+never used for the 30 cm pre-fit models. All inputs are local: scenarios in
+big1/helma_stage/valfull, pre-fit poses exported to scale_25k_valfull_prefit, return counts
+in experiments/val_agent_pointcount_heldout.pkl (129,488 pedestrians), fifteen epoch-30
+checkpoints pulled read-only from Helma to big1/heldout_eval/ckpt (only epoch 30 was kept).
+Scoring script tools/scripts/heldout_replication.py, design fixed in its docstring before
+any evaluation finished.
+MISTAKE: my export, return-count, association and evaluation jobs ran together from 13:37
+to 13:48 and read big1 beside the training run, whose iteration time went from 0.13 to
+about 0.29 s for those eleven minutes (about six minutes lost). Stopped them. Inputs are now
+copied to ssd2 at idle I/O priority and the evaluation will read from there.
+
+A TEXT. Tracker born at the first observed frame (stated), "not the filter's cold start"
+reworded to "not an effect of tracks shorter than a second", caveat with 0.33 against 0.16.
+Limitations say the offboard null is on fitted poses and name the nearest evidence, and
+that pose cannot act through vehicles and the baseline is not comparable with published
+WOMD numbers. Protocol says validation is 5,171 of 27,156 exported scenes and that
+selection is on the reported set for every arm alike. Fit window, auxiliary loss on early
+fusion (config: geo 0.1, gmm_pose 0.1 also there), Table II clean row seeds, 2,365 against
+2,372, the two populations the review could not place.
+Cuts for space: the low-power paragraph on the 579-scene ladder, half of the
+operating-point paragraph, the gait sentence after the walker numbers, two sentences of the
+acceptance-threshold paragraph, one of the frame-rotation paragraph, one in Practice.
+
+## 2026-11-13, afternoon: code review of the review-response work, held-out design changed
+
+CODE REVIEW (independent agent) of the A/B scripts and paper edits. No blocking errors, all
+numbers match their JSON. Two points taken into the paper, three into the scripts.
+- "Resampling scenes together with the seeds stays inside the seed interval" was true by
+  construction: a percentile bootstrap over five seeds is narrower than their t-interval.
+  Sec. IV-A now quotes the scene-only interval [-0.4, +0.5] and says the scenes contribute
+  less than the seeds. The joint interval is no longer quoted.
+- The auxiliary-loss sentence said every pose arm predicts "the future pose sequence it
+  was given". Checked in the dataset: the stranger arm's target is the stranger's future
+  (the donor file supplies past and future), the oracle arm's target is the pedestrian's
+  own SMPL future (only the input is replaced). Sentence corrected. Configs confirm geo 0.1
+  and gmm_pose 0.1 on every branch, early-fusion, stranger and oracle arm, 0 on no pose.
+- "Within 1 m for 99.5%" cannot tell a pedestrian from a neighbour in a crowd.
+  pose_track_association.py now also counts the frames on which the root is nearer to its
+  own track's box than to any other agent's. Rerun pending (reads the HDD).
+- ladder_refit.py asserts equal seed lists and the level order it indexes by.
+
+HELD-OUT REPLICATION, design changed before any evaluation ran. Two facts forced it. The
+first attempt at an evaluation beside the training died out of GPU memory (a scene holds up
+to 165 pedestrians and test.py passes them through at once), and the queue script launches
+its next run only below 4 GB of GPU memory, so a large evaluation would have stalled it.
+- Only the scenes holding a pedestrian with at least 200 returns are evaluated: 5,807
+  held-out (14,868 such pedestrians, six times the original 2,372) and 1,142 original.
+  List in experiments/heldout_wellresolved_scenes.txt. The other strata are dropped.
+- tools/scripts/eval_scene_subset.py wraps test.py: scene subset after the donor
+  permutation is drawn over the whole split, forward pass in chunks of pedestrians with a
+  logged check against one pass, GPU memory cap. Dataset and model code untouched.
+- tools/scripts/run_heldout_eval.sh runs the fifteen evaluations and gives way if it would
+  block the queue's launch.
+- Primary test unchanged (own against stranger, at least 200 returns, epoch 30, paired t
+  over five seeds). Secondary tests now written down in heldout_replication.py before any
+  result: own against no pose with a second of future (2.1% originally), the larger
+  velocity-error half (4.0%), and the two tracker trends of Table III (3.7 and 5.1 points).
+- Check built in: on the original scenes the re-evaluated own-pose model must return the
+  per-pedestrian minADE stored at epoch 30 during training.
+
+HELMA QUEUE FOR THE REVISION, submitted 2026-11-13 14:50 on the user's go ("Go with the Helma
+jobs as planned"). Job 1319997, array 0-32%3, slurm/80_revision.sh, --nice=4000 (priority
+1422 against 5420 to 5466 for the account's other pending jobs, which were not touched).
+Shipped as overlay 6: the script and nine configs, new files only (tar xk), recorded in
+SYNCED_COMMIT. The cluster's dataset, encoder, decoder, train and eval code is
+byte-identical to HEAD (md5), so no code was shipped.
+  0-9    pre-fit poses on the offboard track, own against stranger, five seeds (flaw 1)
+  10-18  oracle levels at median 1, 2, 3 deg (sigma 1.48, 2.97, 4.45), three seeds (flaw 4)
+  19-28  pre-fit poses through early fusion under the 30 cm tracker, five seeds
+  29-32  pre-fit 10 cm, seeds 404 and 505 (the workstation queue lists them too)
+All seven new configs were smoke-tested on CPU against the staged validation data (dataset
+builds, one scene collates, the changed input is the only difference to the reference).
+Not yet queued, both need code: the warm-started tracker with a degraded heading (flaw 2)
+and the three arms with vehicles and cyclists as context (flaw 3).
+
+REVISION RUNS THAT NEED CODE, developed in the worktree /home/erik/ssd2/gitprojects/MTR_rev_wt
+(branch revision-runs at 2cb8290), not in the main tree: the local queue imports the dataset
+module at every run start, and a half-finished edit would kill its next run.
+Three dataset options, all off by default (test_revision_dataset.py: with none set, every
+array of 120 collated validation scenes is bit-identical to the main tree, three configs):
+- CONTEXT_AGENTS all. The scenario files hold every agent (25 to 150 vehicles with a valid
+  past per scene, cyclists, the ego). They join the posed pedestrians as context with no
+  pose. Centres, labels, map and the posed rows are unchanged, the ego becomes the SDC flag
+  (it was an arbitrary pedestrian). 5,297 context tracks over 120 scenes in the test.
+- TRACK_WARM_START. First attempt drew the state at the first frame from the filter's
+  steady-state covariance. WRONG: that is the filter's belief under 1 m/s^2 process noise,
+  twice the real error on a steadily walking pedestrian (0.31 against 0.16 m/s). Replaced
+  by 3 s of made-up history: the first observed state extrapolated backward at the label's
+  own velocity there (which is the true displacement from the frame before the window,
+  checked: the frame-1 velocity is exactly the backward difference, and frame 0 is no
+  noisier than later frames), detections drawn around it, filter born at its start.
+  Velocity error on constant-velocity walkers is then 0.163 to 0.167 m/s on all eleven
+  frames, against 0.330 at the last frame for the cold start.
+- TRACK_HEADING_NOISE_DEG. One yaw error per track on every observed frame, applied before
+  the centre is taken, so the channel and the frame share it. Checked: constant within a
+  track, the centre's own heading channel stays at zero, and with AGENT_CENTRIC_POSE_ROT
+  the body's root turns by exactly minus the error.
+DESIGN POINT for the tracker runs. The paper's pose arm gives the root in world
+coordinates while the model works in the agent frame, so it cannot use the body to repair a
+wrong heading, whatever the body knows. The queued runs keep that encoding: they ask
+whether the pre-fit gain survives a warm tracker and a wrong heading. Whether facing can
+repair the heading needs the agent-frame root (two more arms, ten runs), proposed to the
+user, not queued. The heading level of 25 deg is assumed: a search found no per-class
+LiDAR figure for pedestrians that I could verify.
+Smoke test: one training step per new config on two validation scenes, finite loss and
+gradients, 46 objects of three types with context, 1.5 GB.
+
+SECOND HELMA ARRAY, submitted 2026-11-13 15:00: job 1320287 (mtr_rev2), array 0-29%3,
+--nice=4000, --dependency=afterany:1319997, script slurm/82_revision_code.sh in the worktree.
+Code lives in its own cluster directory $WS/MTR_rev (259 files, md5 of dataset file and
+script equal to the worktree's, compiled extensions copied from the main checkout, anchor
+file linked), so nothing in $WS/MTR_with_poses was replaced. The script refuses to train if
+python imports mtr from another checkout or if the dataset file lacks the three options.
+  0-14   three arms with full agent context, five seeds (flaw 3), tags CX_25k_...
+  15-29  three arms under the warm-started tracker with a 25 deg heading error, pre-fit
+         poses, 30 cm, five seeds (flaw 2), tags TW_25k_...
+Independent code review of the worktree diff: no defect. Its open point, whether the 25k
+training scenario files hold vehicles and the ego, checked on six files per split: they do
+(11 to 41 vehicles, ego row valid). The dataset now asserts the ego is among the added
+tracks. Not testable locally: evaluation memory with context on the densest scenes.
+The account's other jobs (r1pre, rs1_*, wymres) were listed before and after: unchanged.
+TO DO when the local queue is idle or right after one of its runs has started: bring the
+worktree changes (dataset patch, six configs, 82 script, test) into mtr_smpl.
+
+USER DECISIONS 2026-11-13 ~15:10: the paper is submitted on November 15 with what we have,
+everything else goes into the reviewed version in January. (1) No heading-error figure is
+available from the chair: derive one. (2) Queue the agent-frame-root arms. (3) Leave the
+duplicate 10 cm seeds. (4) Also run the tracker arms at 10 cm, and also redo the pose
+crops from noisy boxes.
+
+HEADING LEVEL, derived from published tables. APH weights each true positive by
+1 - |heading error| / pi, so pi (1 - APH / AP) is the mean absolute heading error of the
+detections that count. Pedestrians, Waymo Open Dataset, 3D, Level 1 (AP / APH):
+  PointPillars baseline (Sun et al. 2020, Table 6)      62.1 / 50.2   34.5 deg
+  PV-RCNN (CenterPoint paper, Table 11, validation)      61.4 / 53.4   23.5 deg
+  CenterPoint-Pillar (same table)                        76.1 / 65.1   26.0 deg
+  CenterPoint-Voxel (same table)                         79.0 / 72.9   13.9 deg
+  StarNet, PPBA, CenterPoint (Table 1, test)             21.0, 20.7, 14.3 deg
+  vehicles, CenterPoint-Voxel                            76.7 / 76.2    1.2 deg
+nuScenes, PointPillars, pedestrian AOE 0.37 rad = 21.2 deg (Caesar et al. 2020, per-class
+table). So single-frame LiDAR detectors sit at 14 to 35 deg, most near 20. A Gaussian of
+s.d. 25 deg has a mean absolute value of 19.9 deg, so the level already queued is kept and
+is now a calibrated one. Caveats: the ratio of two integrals over the PR curve only
+approximates the mean over true positives, the real error is not Gaussian (front/back
+flips), and a per-track error is the part a tracker cannot average away, an upper bound on
+what survives tracking.
+
+THIRD HELMA ARRAY, submitted 15:15: job 1320746 (mtr_rev3), array 30-54%3 of the extended
+slurm/82_revision_code.sh, --nice=4000, --dependency=afterany:1320287.
+  30-39  pre-fit own and stranger with AGENT_CENTRIC_POSE_ROT under the 30 cm warm tracker
+         with the 25 deg heading error, five seeds (no-pose arm shared with tasks 15-29)
+  40-54  the three default arms under the warm tracker with the heading error at 10 cm
+Each new config ran one training step locally. Queue total: 88 runs in three arrays
+(1319997, 1320287, 1320746), chained, three GPUs at a time.
+
+RE-CROPPING THE POSE INPUT FROM NOISY BOXES (review flaw 2, last item), scoped 2026-11-13,
+not started. Decided by the user for the January version.
+What it takes (read-only survey of /home/erik/ssd2/Waymo-3DSkelMo):
+- Stage 1, scripts/extract_waymo_motion.py, crops with the exact label box and stores only
+  the points inside it (_crop_points_by_bbox, lines 86-99, called at 257-259). A shifted
+  box cannot be rebuilt from the stored crops, so the raw WOMD LiDAR has to be decoded
+  again: env waymo_tf_gpu (TF 2.13, waymo-open-dataset 1.6.7), CPU, 16 workers, about one
+  scene per second, 5.7 MB of LiDAR per scene over NFS. For 25,000 + 5,171 scenes about
+  170 GB read and 8 to 14 h. It has no scene filter and no box perturbation: both are
+  small edits, the perturbation goes at the crop call only, the label box stays stored.
+- Stage 2, LiDAR-HMR/gen_lidar_hmr_waymo.py, env lidar-hmr, centres each crop on the
+  midpoint of its own extent and never uses the box, so the box acts only through which
+  points fall inside. About 100 frames/s on the 4090, so 4 to 8 h for 1.45 M frames,
+  beside the training queue. It loads a whole split's pickles into memory (62 GB machine).
+- Export: export_prefit_poses.py asserts that betas and timestamps match the fitted export,
+  which re-run output will not. Needs a variant.
+- Then ship a new pose tar to Helma and train the arms on it.
+Design to settle before running: crop with the per-frame detection (label centre plus the
+same per-frame noise the simulated tracker receives, same seeds, so crop and track agree),
+turned by the per-track heading error, label size. Levels 30 cm and 10 cm.
+When: after the submission on November 15. Stage 1 loads the CPU and the NAS for half a
+day, stage 2 needs the GPU the training queue owns.
+
+RE-CROPPING, CODE WRITTEN AND TESTED 2026-11-13 16:25 (user: "Ok, go ahead."). Heavy
+stages not started. Nothing in /home/erik/ssd2/Waymo-3DSkelMo was changed: the new code
+lives here and imports that repository's stage-1 helpers.
+- tools/scripts/recrop_noisy_boxes.py (env waymo_tf_gpu). Stage 1 again, with the crop box
+  at the detection: label centre + the (11, 2) draw of _track_past_causally (same crc32
+  seed), turned by the per-track draw of _degrade_past_heading, label size. The stored box
+  stays the label's, plus a 'crop_box' record with the label box's point count. Changes
+  against the survey above: (a) boxes and timestamps come from the processed scenarios
+  (sample_<scene>_0.pkl), so the 1000 raw scenario shards are not read at all, only one
+  LiDAR file per scene, (b) only pedestrians with a file in the final export are cropped,
+  (c) several noise settings are cropped in one decoding pass (--setting name:m:deg).
+  A reference draw is asserted at start, so a numpy with another stream cannot move the
+  crops silently. Measured 4.5 s per scene and worker: 30,171 scenes at 8 workers is
+  about 5 h for all settings together.
+- tools/scripts/test_recrop_noisy_boxes.py. noise (mtr_smpl): the eleven rows of the
+  dataset's detection noise, recovered from _track_past_causally with tracks born at each
+  frame, and the heading error equal the script's draws, 9 of 9. crop (waymo_tf_gpu),
+  three scenes: with no noise the stage returns the original extraction on the NAS entry
+  by entry (1,451 points, 0 differ, boxes equal), with noise every crop equals the label's
+  point set cut by the displaced box under a second implementation in world coordinates
+  (band = vehicle tilt times box half-diagonal + 5 mm).
+- tools/scripts/export_recropped_poses.py: reads the estimator's per-frame result files
+  directly (what convert_amass.py stacks into raw), mirrors the final export, drops
+  frames that are no row of the final export, counts pedestrians left without an
+  estimate (they leave the dataset for all arms on that export), and with --compare
+  reports the root and body-joint angle against the label-crop pre-fit poses.
+Smoke run, 20 validation scenes, 100 pedestrians, 946 crops, 86,452 points in label boxes:
+  30 cm + 25 deg keeps 72.3% of the points, 55 crops empty (3 with label boxes)
+  10 cm + 25 deg keeps 99.0%, 3 empty
+Output in /home/erik/ssd2/recrop/smoke. Stage 2 on it (GPU, seconds) is still to run, as
+is the zero-noise control: the estimator samples its 1024 input points at random, so a
+second run on identical crops gives the floor for the pose difference.
+
+HELD-OUT PASS, REPRODUCTION CHECK, 2026-11-13 16:30 (four own-pose evaluations done).
+37,151 of 37,152 per-pedestrian minADE values equal the ones stored during training within
+1.5e-4 m (seeds 101, 202, 303, 404, 9,288 pedestrians each). One does not: seed 202,
+scene 493261795d80d465, pedestrian 7345, 0.8766 m here against 0.3868 m stored. Cause
+found, not a data or checkpoint error: pose files and scenario are byte-identical to the
+training copies, chunked and unchunked passes both give 0.8766, and among the 64 modes the
+one with ADE 0.3868 (mode 4) ends 2.5000 m from a higher-scored mode (41), exactly on the
+2.5 m suppression threshold of the top-6 selection. With 0.1 mm of noise on the modes the
+selection returns 0.8766 in 1,042 of 2,000 draws and 0.3868 in 958. The stored value was
+computed on Helma (H100, other batch size). heldout_replication.py now counts such values
+(allowed: one in ten thousand) instead of failing on them, and writes them to the JSON.
+
+CODE REVIEW of the re-cropping scripts and the changed reproduction check (independent
+reviewer, 16:33). Contract points found sound: seed strings and id formatting, row t =
+observed frame t, axis order and sign, the displaced box transformed like the label's,
+timestamps (int(x * 1e6) of the processed scenario equals the final export's), row
+selection and betas in the export, the angle statistics. Five robustness defects, all fixed:
+- heldout_replication.py: a NaN difference fell between the two comparisons and was
+  neither counted nor failed. Now asserted finite, and an all-different seed no longer
+  dies in max() of an empty array.
+- recrop_noisy_boxes.py: an exception in one scene ended the whole pool run. Now caught
+  per scene, printed, counted (scenes_failed_<type>) and the run exits non-zero.
+- temp files named *.npz would be globbed by the dataset after a kill. Now .<name>.tmp.
+  A re-export into an existing directory left the old file of a pedestrian that has no
+  estimate any more. Now removed.
+- a scene with no entry was decoded again on every resume. It now gets an empty file.
+- np.concatenate of an empty list with an empty --scene-list selection.
+Tests rerun after the fixes: noise 9 of 9, crop all passed, resumed smoke run skips the
+three finished settings and crops a fourth (30 cm, no heading error: 72.4% kept).
+
+HELD-OUT REPLICATION, RESULT, 2026-11-13 17:10. All fifteen evaluations done (EVAL DONE
+17:07), heldout_replication.py on five seeds, experiments/heldout_replication.json.
+Design as fixed beforehand: epoch-30 checkpoints, pedestrians with at least 200 returns,
+5,648 held-out validation scenes with 13,937 such pedestrians scored by every run
+(13,350 with 1 s of future and a tracker state), original 1,142 scenes in the same pass.
+Reproduction: 46,439 of 46,440 own-pose values equal the stored epoch-30 values within
+1.5e-4 m, one is the mode-selection tie described above.
+                                   held-out                  original, same pass (epoch 30)
+  primary, own vs stranger         -2.10% p=0.116 [-5.0,+0.8]   -3.25% p=0.045
+  (a) own vs no pose, 1 s future   +0.86% p=0.667 [-4.3,+6.0]   -0.10% p=0.959
+  (b) larger velocity-error half   -0.17% p=0.922               -1.86% p=0.302
+      same half, own vs stranger   -3.38% p=0.026               -5.10% p=0.016
+  (c) Q4-Q1 own vs no pose, vel.   -4.41 pts p=0.017            -3.34 pts p=0.061
+      Q4-Q1 own vs no pose, pos.   -2.97 pts p=0.063            -3.47 pts p=0.111
+      Q4-Q1 own vs stranger, vel.  -4.85 pts p<0.001            -4.31 pts p=0.003
+      Q4-Q1 own vs stranger, pos.  -2.40 pts p=0.011            -4.41 pts p=0.002
+  stranger vs no pose              +3.02% p=0.069               +3.35% p=0.032
+  content by velocity quartile     -0.0 -1.4 -1.7 -4.9 (p=0.008 in Q4)
+Per seed, held-out: content [-2.0 -1.7 -6.0 +0.2 -1.1], own vs no pose [+1.4 -0.5 -3.2
++7.6 -0.8]. Seed 404 is the outlier: both of its pose arms lose 9% of validation minADE
+between epochs 27 and 30, its no-pose arm does not.
+Reading. (1) The pre-specified primary test is not significant: same sign, 60% of the
+size. (2) The dependence on the tracker's error replicates, clearly within architecture
+(p<0.001) and against no pose over velocity error (p=0.017). (3) The gain over no pose
+(paper: -2.1% p=0.039 and -4.0% p=0.003, best epoch, original scenes) is not confirmed:
+it is zero at the final epoch on the original scenes too, so the difference is the epoch
+rule and not the scenes. From best epoch to epoch 30 the validation minADE over all
+pedestrians rises 3.14% (own), 3.30% (stranger), 1.37% (no pose), from the training
+records (paired own minus no pose 1.8 points, p about 0.36, driven by seed 404). The
+no-pose re-evaluation is consistent with its records: this pass over the stored best
+epoch on the 9,288 shared pedestrians is within 0.7 points of the aggregate ratio on every
+seed, per-pedestrian correlation 0.92 to 0.93, as for the verified own arm.
+What cannot be done with what was kept: selecting the epoch on the original scenes and
+scoring on the held-out ones needs the best-epoch checkpoints, and every run kept epoch
+30 only (--max_ckpt_save_num 1, best_model.pth removed). Worth changing for the revision
+runs: keep the checkpoints of the late epochs.
+Paper, working tree (8 pages, verifier passes, not committed): new paragraph at the end
+of Sec. IV-E, abstract and Fig. 1 now carry the held-out content effect by quartile of
+tracker velocity error instead of the best-epoch gain over no pose, introduction,
+contributions, conclusion and the Table III caption adjusted, Sec. IV-B notes the one
+fixed-epoch comparison between architectures. Cut for room: stranger arms across pose
+sets, 10 cm sentences, the fitted poses' trends by tracker error and manoeuvre, the
+all-returns trend, the halves of Table III, per-seed range of the 30 cm effect, two
+caption sentences. The previous figure is kept in the scratchpad as
+fig_graphical_abstract_before_heldout.pdf and the previous text as main_before_heldout.tex.
+
+10 CM PRE-FIT, TWO SEEDS (101, 202), 2026-11-13 17:25. position_noise_ladder.py and
+position_noise_subpopulation.py rerun, JSONs updated, paper numbers unchanged (verifier
+passes). Content -0.26% (per seed +0.83, -1.34, p=0.85) against -2.54% with the fitted
+poses on the same seeds, so about a tenth survives, as a quarter does at 30 cm. At least
+200 returns: -1.92% (p=0.49, CI [-25,+22] at n=2). Not interpretable before the third
+seed (303 own pose started 17:18, about 17 h per run).
+
+RE-CROPPING, END-TO-END SMOKE TEST, 2026-11-13 17:35. Twenty validation scenes, 100
+pedestrians, stage 1 -> LiDAR-HMR -> export_recropped_poses.py, compared frame by frame
+with the existing pre-fit poses (label-box crops):
+  crop                    frames  root angle median / mean / >90 deg   body joints median
+  label boxes (control)     943     1.1 /  2.3 deg /  0%                0.9 deg
+  10 cm, 25 deg heading     943     3.1 / 14.8 deg /  5%                2.9 deg
+  30 cm, no heading error   889    20.6 / 47.1 deg / 22%               10.5 deg
+  30 cm, 25 deg heading     891    21.0 / 45.7 deg / 22%               10.1 deg
+The control is the floor: the estimator draws its 1024 input points at random (two runs
+on the same directory are identical, the seed is fixed, so the floor comes from the order
+of the samples). The box heading error does nothing, as expected of an estimator that
+centres the points itself in a near-square box. At 30 cm one pedestrian of 100 is left
+without any estimate and the root flips by more than 90 deg on a fifth of the frames.
+Point for the design, to raise with the user before the full run: a box displaced by
+30 cm independently of the points cuts bodies in half (72% of the points kept), which a
+detector that follows the points would not do. An alternative is the same centre noise
+with a crop enlarged by a margin.
+Stage 2 costs: batch 32 needs a single 3.2 GB allocation and does not fit beside
+training, batch 8 runs under a 4.9 GB cap at about 35 frames/s beside training
+(run_hmr_capped.py in the scratchpad sets the cap, the pipeline script is unchanged).
+For 1.45 M frames that is about 11 h per noise level beside training.
+
+REVISION DATASET OPTIONS BROUGHT INTO THE MAIN TREE, 2026-11-13 17:27, uncommitted. The
+10 cm seed 303 run had started at 17:19 and holds its dataset module in memory (DataLoader
+workers are forked), so this was the window. mtr/datasets/waymo/waymo_pose_dataset.py is
+now byte-identical to the tested worktree file (md5 ac02e513...), plus the eleven configs,
+slurm/82_revision_code.sh and tools/scripts/test_revision_dataset.py. Defaults are
+bit-identical to 2cb8290 by the digest test, so the queue's next runs are unaffected.
+The worktree /home/erik/ssd2/gitprojects/MTR_rev_wt can go once this is committed.
+
+HELMA REVISION ARRAYS RESUBMITTED, 2026-11-13 17:40 (user: "ok, go ahead" to keeping late
+checkpoints). Old arrays 1319997, 1320287, 1320746 were all still pending (no task had
+started, no log, no status line) and were cancelled. New: 1322077 mtr_rev 0-32%3,
+1322078 mtr_rev2 0-29%3 afterany:1322077, 1322079 mtr_rev3 30-54%3 afterany:1322078, all
+--nice=4000 (priority 1422 against 5437 to 5483 for the account's other pending jobs,
+none of which was touched). Both scripts now live in $WS/MTR_rev/slurm, which is my own
+checkout; $WS/MTR_with_poses was not written to (its old copy of 80_revision.sh is stale).
+Two changes in slurm/80_revision.sh and slurm/82_revision_code.sh:
+1. --max_ckpt_save_num 5 instead of 1, best_model.pth kept. After DONE the optimizer
+   state is removed from every kept checkpoint and latest_model.pth is deleted. Measured
+   on a real checkpoint: 1,279 MB -> 431 MB, the 1,028 weight tensors identical. Six
+   weight files per run take 2.6 GB, what checkpoint_epoch_30 plus latest_model took
+   before, so 88 runs add nothing to the earlier footprint. /hnvme has no byte quota for
+   the account, its file quota is 61K soft (46.7K used, about 45 files per run).
+   Stripping comes after DONE because train.py resumes from the newest file in ckpt/.
+2. BUG FOUND AND FIXED in 82_revision_code.sh: its start-up guard read mtr.__file__, which
+   is None (mtr has no __init__.py, a namespace package), so os.path.realpath raised
+   TypeError and all 55 tasks of the second and third array would have died at start.
+   The guard now checks the dataset module's own path. Tested the way the job runs it
+   (python - <repo> on stdin, from tools/): passes for the right checkout, refuses a
+   wrong one. The earlier "one training step per config" tests called train.py directly
+   and never ran the guard.
+
+USER DECISIONS, 2026-11-13 17:35: (1) the new Fig. 1 and abstract stay ("ok, leave it"),
+(2) keep late checkpoints on Helma ("ok, go ahead", done, see above), (3) "I think it
+makes sense to enlarge the crop".
+
+RE-CROPPING WITH AN ENLARGED CROP, 20-scene comparison, 2026-11-13 17:50. Poses against
+the existing label-crop pre-fit poses, 943 frames of 100 pedestrians (control, label boxes
+re-estimated: root 1.1 deg median, 0% flipped, joints 0.9 deg).
+  noise  margin  refine   body kept  outside   root median  flipped>90  joints median
+  30 cm    0       no       0.72      0.02        21.0 deg     22%         10.1 deg   (1 lost)
+  30 cm   15       no       0.85      0.11        15.3         19%          9.9
+  30 cm   30       no       0.94      0.17        19.0         21%         11.6
+  30 cm   45       no       0.98      0.23        26.6         23%         14.6
+  30 cm   60       no       0.995     0.30        35.2         28%         18.2
+  30 cm   30       yes      0.96      0.06         3.7          8%          3.1
+  30 cm   45       yes      0.95      0.08         4.0          9%          3.3
+  30 cm   60       yes      0.94      0.10         4.6         11%          3.7
+  10 cm    0       no       0.99      0.01         3.1          5%          2.9
+  10 cm   10       no       0.99      0.06         3.7          7%          3.3
+  10 cm   20       no       0.998     0.11         6.7         11%          5.6
+  10 cm   10       yes      0.98      0.03         3.0          5%          2.5
+  10 cm   20       yes      0.98      0.04         3.1          6%          2.5
+   0 cm   30       yes      0.98      0.05         2.9          8%          2.7
+("body kept": share of the label box's points in the crop, "outside": share of the crop
+that is not in the label's box.)
+A margin alone makes the pose worse, not better: LiDAR-HMR centres its input on the
+midpoint of the extent of whatever points it gets, and the ground and neighbours inside a
+larger box move that midpoint. What works is to let the larger box only find the body
+(refine): the centre moves from the detection to the median of the points above the feet
+within half a box width, iterated, and the crop is the label-sized box there. The crop
+centre is then 15 cm from the label's on average instead of 38 cm (the visible surface is
+not the body centre: with a perfect detection the same step leaves 13 cm and costs 8% of
+flipped frames). Smallest margin is best at both levels, so the full run uses a margin
+of one detection sigma with refinement: pos30_head25_m30r (0.3:25:0.3:1) and
+pos10_head25_m10r (0.1:25:0.1:1). The track the predictor sees keeps the detection's
+error. Code: recrop_noisy_boxes.py --setting name:m:deg[:margin[:refine]], test extended
+(crop test passes with a margin and with refinement). Heavy stages still wait for the
+submission on November 15.
+
+### 2026-11-14 00:30 Helma revision queue has started
+
+The first three tasks of mtr_rev (1322077_0 to _2: pre-fit own s101, stranger s101, own
+s202 on the offboard track) started at 23:21 on November 13 through backfill, at nice 4000
+and throttle 3. After one hour they are in their second epoch at 0.16 s per iteration,
+about 16.5 h per run, no errors. They sit on h12-13, h12-21 and h12-22. The six pending
+4-GPU jobs of the other project (wymres, r1pre) are planned on h11-01, h11-08, h11-14,
+h11-15, h12-01 and h12-15, and their expected starts moved from 05:59 to 06:37 before my
+tasks started to 04:55 to 06:37 after. (The conclusion drawn here at 00:30, that the
+revision runs do not hold them up and that there is no GPU limit, was wrong. See the next
+entry.)
+
+### 2026-11-14 01:30 Revision runs counted against a group GPU limit: stopped and held
+
+At 01:24 the six pending 4-GPU jobs of the other project showed the reason AssocGrpGRES
+instead of Priority, with no planned nodes. The account ran 26 GPUs at that moment: 23 of
+the other project (rs1, rs2) and my 3. The user's own association and the normal QOS carry
+no GPU limit, which is what I had checked, but a limit on an association above them does
+exist and is not readable for a normal user (PrivateData). Its value is unknown: with 26
+running a 4-GPU job was refused, with 23 it is accepted. On November 13 at 18:20 the
+account ran 45 GPUs, so the limit is either new or belongs to a wider group.
+
+Action at 01:28, on my own jobs only: scontrol hold 1322077 (tasks 3 to 32 held, so the
+dependent arrays 1322078 and 1322079 cannot start), then scancel of the three running
+tasks 1322077_0 to _2. Ninety seconds later the six jobs were back to Priority with
+planned nodes, which shows that my three GPUs were what put them over the limit. Their
+planned starts are now 06:37, 09:59, 12:13, 12:44, 13:34 and 14:01 instead of 04:55 to
+06:37. Five of the six earlier slots are gone, probably because blocked jobs hold no
+reservation. These are scheduler estimates from time limits.
+
+The three stopped runs keep checkpoint_epoch_1 and _2 and a complete latest_model.pth
+(01:24 to 01:26), no DONE file. They are queued again as 1326148 (mtr_rev4, array 0-2%3,
+nice 4000, afterany:1322079) and resume from the newest checkpoint. Releasing the queue
+is one command, scontrol release 1322077, and waits for the user's decision.
+
+Lesson: nice and the array throttle order jobs by priority, but a job refused by a group
+limit holds no place. A 1-GPU job of low priority that still fits under the limit starts
+ahead of a 4-GPU job of high priority that does not. Low priority therefore does not keep
+jobs of the same account out of each other's way when a group limit binds.

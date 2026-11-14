@@ -57,8 +57,25 @@ def _one_scene(args):
 
 
 def main() -> int:
-    recs = pickle.load(open(os.path.join(REPO, METRICS), 'rb'))
-    agents = {(str(r['scenario_id']), str(r['object_id'])) for r in recs}
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--pose-root', default=None,
+                    help='count every pedestrian with a pose file under this validation '
+                         'directory (<scene>/<id>.npz) instead of the agents of METRICS')
+    ap.add_argument('--skip-scenes', nargs='*', default=[],
+                    help='text files of scene ids to leave out, with --pose-root')
+    ap.add_argument('--out', default=OUT)
+    a = ap.parse_args()
+    if a.pose_root:
+        skip = set()
+        for f in a.skip_scenes:
+            skip |= set(open(f).read().split())
+        agents = {(sid, name[:-4]) for sid in sorted(os.listdir(a.pose_root)) if sid not in skip
+                  and os.path.isdir(os.path.join(a.pose_root, sid))
+                  for name in os.listdir(os.path.join(a.pose_root, sid)) if name.endswith('.npz')}
+    else:
+        recs = pickle.load(open(os.path.join(REPO, METRICS), 'rb'))
+        agents = {(str(r['scenario_id']), str(r['object_id'])) for r in recs}
     by_scene = defaultdict(set)
     for sid, oid in agents:
         by_scene[sid].add(oid)
@@ -88,8 +105,8 @@ def main() -> int:
               + '  '.join(f'p{q}={np.percentile(nl, q):.0f}'
                           for q in (10, 25, 50, 75, 90)))
         print(f'  zero-return agents: {int((nl == 0).sum())}')
-    pickle.dump(counts, open(OUT, 'wb'))
-    print(f'wrote {OUT}')
+    pickle.dump(counts, open(a.out, 'wb'))
+    print(f'wrote {a.out}')
     return 0
 
 
