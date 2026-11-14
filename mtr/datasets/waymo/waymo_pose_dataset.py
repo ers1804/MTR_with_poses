@@ -330,6 +330,23 @@ class WaymoPoseDataset(DatasetTemplate):
         # velocity Kalman filter. Heading is left clean, so this ladder is separate from
         # the heading one. Future targets are untouched.
         self.position_noise_m = float(self.dataset_cfg.get('POSITION_NOISE_M', 0.0))
+        # Revision runs (2026-11-13). All three default to the behaviour of every earlier run.
+        # TRACK_WARM_START: a track that is already valid at the first observed frame has
+        #   been tracked for TRACK_WARM_SECONDS before it, instead of being born at rest
+        #   there (see _track_past_causally).
+        # TRACK_HEADING_NOISE_DEG: one fixed yaw error per track on every observed frame, so
+        #   the heading channel and the agent-centric frame carry the same wrong heading and
+        #   no clean copy is left in the track (see _degrade_past_heading).
+        # CONTEXT_AGENTS: 'pedestrians' builds the scene from its posed pedestrians alone.
+        #   'all' adds every other track of the scenario (vehicles, cyclists, pedestrians
+        #   without a pose file, the ego vehicle) as context: no pose, never a centre.
+        self.track_warm_start = bool(self.dataset_cfg.get('TRACK_WARM_START', False))
+        self.track_warm_seconds = float(self.dataset_cfg.get('TRACK_WARM_SECONDS', 3.0))
+        self.track_heading_noise_deg = float(self.dataset_cfg.get('TRACK_HEADING_NOISE_DEG', 0.0))
+        self.context_agents = self.dataset_cfg.get('CONTEXT_AGENTS', 'pedestrians')
+        assert self.context_agents in ('pedestrians', 'all'), self.context_agents
+        assert not (self.track_warm_start and self.position_noise_m <= 0), \
+            'TRACK_WARM_START needs POSITION_NOISE_M'
 
         # Stationary fine-tune (2026-11-07): train only on pedestrians standing at
         # prediction time (label speed below this, m/s), the subpopulation whose facing
@@ -394,6 +411,12 @@ class WaymoPoseDataset(DatasetTemplate):
             n_fixed = sum(1 for k, v in self._pose_donor.items() if k == v)
             self.logger.info(f'SHUFFLE_POSES_ACROSS_AGENTS: {len(self._pose_donor)} pedestrians '
                              f'reassigned ({n_fixed} self-assignments remain)')
+        if self.track_warm_start or self.track_heading_noise_deg > 0 or self.context_agents != 'pedestrians':
+            self.logger.info(
+                f'REVISION OPTIONS: CONTEXT_AGENTS={self.context_agents} '
+                f'TRACK_WARM_START={self.track_warm_start} ({self.track_warm_seconds:g} s) '
+                f'TRACK_HEADING_NOISE_DEG={self.track_heading_noise_deg:g} '
+                f'POSITION_NOISE_M={self.position_noise_m:g}')
         if self.pose_representation != '6d':
             self.logger.info(f'POSE_REPRESENTATION={self.pose_representation} '
                              f'(encoder input dim {self.pose_input_dim})')
@@ -467,18 +490,22 @@ class WaymoPoseDataset(DatasetTemplate):
             id_to_traj: dict mapping int(object_id) -> (91, 10) float32 trajectory, or None
             map_infos: map_infos dict from the scenario pkl, or None
         """
+        return self._load_scene_waymo_data_and_scenario(scene_id)[:2]
+
+    def _load_scene_waymo_data_and_scenario(self, scene_id):
+        """_load_scene_waymo_data plus the scenario itself, read once."""
         if self.processed_scenarios_path is None:
-            return None, None
+            return None, None, None
         pkl_path = self.processed_scenarios_path / f'sample_{scene_id}_0.pkl'
         if not pkl_path.exists():
-            return None, None
+            return None, None, None
         with open(pkl_path, 'rb') as f:
             scenario = pickle.load(f)
         ti = scenario['track_infos']
         trajs = ti['trajs']  # (num_agents, 91, 10)
         id_to_traj = {int(oid): trajs[i] for i, oid in enumerate(ti['object_id'])}
         map_infos = scenario.get('map_infos', None)
-        return id_to_traj, map_infos
+        return id_to_traj, map_infos, scenario
 
     def _load_scene_waymo_trajs(self, scene_id):
         id_to_traj, _ = self._load_scene_waymo_data(scene_id)
@@ -781,7 +808,7 @@ class WaymoPoseDataset(DatasetTemplate):
         num_objects = len(npz_files)
 
         # Load real Waymo trajectories and map data from NAS if configured
-        waymo_traj_map, map_infos = self._load_scene_waymo_data(scene_id)
+        waymo_traj_map, map_infos, scenario = self._load_scene_waymo_data_and_scenario(scene_id)
 
         # Load all pedestrians in the scene
         obj_trajs_full_list = []
@@ -802,18 +829,43 @@ class WaymoPoseDataset(DatasetTemplate):
             betas_list.append(betas)
             obj_ids.append(Path(npz_path).stem)
 
+        # The posed pedestrians come first and are the only possible centres. With
+        # CONTEXT_AGENTS 'all' every other track of the scenario follows them as context.
+        num_posed = num_objects
+        obj_types = ['TYPE_PEDESTRIAN'] * num_posed
+        sdc_row = None
+        if self.context_agents == 'all':
+            assert scenario is not None, f'{scene_id}: CONTEXT_AGENTS all needs the scenario file'
+            ti = scenario['track_infos']
+            posed = {int(i) for i in obj_ids}
+            for row, (oid, otype) in enumerate(zip(ti['object_id'], ti['object_type'])):
+                if int(oid) in posed:
+                    continue
+                if row == scenario.get('sdc_track_index', -1):
+                    sdc_row = len(obj_ids)
+                obj_trajs_full_list.append(np.array(ti['trajs'][row], dtype=obj_trajs_full_list[0].dtype))
+                pose_6d_full_list.append(np.zeros_like(pose_6d_full_list[0]))
+                pose_input_full_list.append(np.zeros_like(pose_input_full_list[0]))
+                betas_list.append(np.zeros_like(betas_list[0]))
+                obj_ids.append(str(oid))
+                obj_types.append(str(otype))
+            # an export that kept pedestrians alone would turn this run into the old one
+            assert sdc_row is not None, f'{scene_id}: the scenario has no ego track to add'
+
         obj_trajs_full = np.stack(obj_trajs_full_list, axis=0)  # (num_objects, total_timestamps, 10)
         pose_6d_full = np.stack(pose_6d_full_list, axis=0)  # (num_objects, total_timestamps, 144)
         pose_input_all = np.stack(pose_input_full_list, axis=0)  # (num_objects, total, pose_input_dim)
         betas_all = np.stack(betas_list, axis=0)  # (num_objects, 10)
 
-        obj_types = np.array(['TYPE_PEDESTRIAN'] * num_objects)
+        obj_types = np.array(obj_types)
         obj_ids = np.array(obj_ids)
 
         # Before the split, so the past view, the center objects (and with them the frame
         # origin) and center_gt_trajs_src all see the same tracked history.
         if self.position_noise_m > 0:
             self._track_past_causally(obj_trajs_full, obj_ids, scene_id)
+        if self.track_heading_noise_deg > 0:
+            self._degrade_past_heading(obj_trajs_full, obj_ids, scene_id)
 
         # Split into past and future
         obj_trajs_past = obj_trajs_full[:, :self.num_past]  # (num_objects, 11, 10)
@@ -827,7 +879,7 @@ class WaymoPoseDataset(DatasetTemplate):
         timestamps = np.arange(self.num_past, dtype=np.float32) * self.dt
 
         # Determine which pedestrians to predict: those valid at current_time_index
-        valid_at_current = obj_trajs_full[:, self.current_time_index, -1] > 0  # (num_objects,)
+        valid_at_current = obj_trajs_full[:num_posed, self.current_time_index, -1] > 0  # (num_posed,)
         track_index_to_predict = np.where(valid_at_current)[0]
 
         if len(track_index_to_predict) == 0:
@@ -837,9 +889,9 @@ class WaymoPoseDataset(DatasetTemplate):
         # Get center objects (state at current time)
         center_objects, track_index_to_predict = self.get_interested_agents(
             track_index_to_predict=track_index_to_predict,
-            obj_trajs_full=obj_trajs_full,
+            obj_trajs_full=obj_trajs_full[:num_posed],     # its fallback must not pick a context track
             current_time_index=self.current_time_index,
-            obj_types=obj_types, scene_id=scene_id
+            obj_types=obj_types[:num_posed], scene_id=scene_id
         )
 
         if self.training and self.train_center_speed_max > 0:
@@ -863,8 +915,9 @@ class WaymoPoseDataset(DatasetTemplate):
             center_objects = self._corrupt_center_heading(
                 center_objects, obj_ids, track_index_to_predict, scene_id)
 
-        # Use the first valid pedestrian as a pseudo-SDC
-        sdc_track_index = track_index_to_predict[0]
+        # Use the first valid pedestrian as a pseudo-SDC, or the ego vehicle when the
+        # scenario's other tracks are in the scene
+        sdc_track_index = track_index_to_predict[0] if sdc_row is None else sdc_row
 
         # Create agent data (centered trajectories, masks, future states)
         (obj_trajs_data, obj_trajs_mask, obj_trajs_pos, obj_trajs_last_pos,
@@ -1137,6 +1190,30 @@ class WaymoPoseDataset(DatasetTemplate):
         center_objects[:, 6] = center_objects[:, 6] + ang
         return center_objects
 
+    def _degrade_past_heading(self, obj_trajs_full, obj_ids, scene_id):
+        """Add one fixed yaw error per track to the heading of every observed frame.
+
+        The onboard-heading ladder (HEADING_NOISE_DEG) changed the centre's heading where
+        the frame is assembled and left the track's own heading history clean, so the model
+        could read the error off the heading channel and the ladder amounted to a rotation
+        of the frame. Here the error is in the track: the heading channel of every observed
+        frame, the centre state taken from it and with it the agent-centric frame, the
+        intention anchors and the map all carry the same wrong heading. What still states
+        the true heading is what a vehicle would have: the direction of the tracked
+        velocity, and a body pose whose root is expressed relative to the frame
+        (AGENT_CENTRIC_POSE_ROT, or the early-fusion descriptors).
+
+        Deterministic per (scene, object) like the other corruptions. In place on the past
+        frames of obj_trajs_full. The future is not touched.
+        """
+        import zlib
+        sig = np.deg2rad(self.track_heading_noise_deg)
+        tag = f'{scene_id}:trkhead{self.track_heading_noise_deg:g}'
+        err = np.array([np.random.default_rng(
+            zlib.crc32(f'{tag}:{oid}'.encode()) & 0xffffffff).normal(0.0, sig)
+            for oid in obj_ids], dtype=obj_trajs_full.dtype)
+        obj_trajs_full[:, :self.num_past, 6] += err[:, None]
+
     def _track_past_causally(self, obj_trajs_full, obj_ids, scene_id, sigma_a=1.0, sigma_v0=1.5):
         """Overwrite the observed positions and velocities with a causal tracker's output.
 
@@ -1146,6 +1223,16 @@ class WaymoPoseDataset(DatasetTemplate):
         observed frames only, cold-started at each track's first valid frame with zero
         velocity and a sigma_v0 m/s prior, which is what a tracker has at track birth.
         Gaps are predicted through without an update.
+
+        With TRACK_WARM_START a track that is valid at the first observed frame is taken to
+        have been tracked before the window opened. WOMD has no frames before the window,
+        so TRACK_WARM_SECONDS of history are made up: the first observed state is
+        extrapolated backward at the velocity the label carries there (WOMD velocity is a
+        backward difference, so this is the true displacement from the frame before the
+        window, and nothing from inside or after the window is used), detections are drawn
+        around that path with the same noise, and the filter is born at the start of it. By
+        the first observed frame it has converged, and it carries on into the real
+        detections. A track that first appears inside the window is still born at rest there.
 
         In place on the past frames of obj_trajs_full, which is a fresh np.stack here;
         heading, box size and the future are not touched.
@@ -1161,13 +1248,25 @@ class WaymoPoseDataset(DatasetTemplate):
             for i in range(n)])
         z = past[..., 0:2].astype(np.float64) + noise
 
+        K = 0                                   # made-up frames before the window
+        if getattr(self, 'track_warm_start', False):
+            K = int(round(getattr(self, 'track_warm_seconds', 3.0) / dt))
+            back = (np.arange(K, 0, -1) * dt)[None, :, None]              # K .. 1 frames back
+            pre = (past[:, None, 0, 0:2].astype(np.float64)
+                   - past[:, None, 0, 7:9].astype(np.float64) * back)     # (n, K, 2)
+            pre_noise = np.stack([np.random.default_rng(
+                zlib.crc32(f'{tag}:warm:{obj_ids[i]}'.encode()) & 0xffffffff).normal(0.0, s, (K, 2))
+                for i in range(n)])
+            z = np.concatenate([pre + pre_noise, z], axis=1)
+            valid = np.concatenate([np.repeat(valid[:, :1], K, axis=1), valid], axis=1)
+
         F = np.eye(4); F[0, 2] = F[1, 3] = dt
         q = np.array([[dt ** 4 / 4, dt ** 3 / 2], [dt ** 3 / 2, dt ** 2]]) * sigma_a ** 2
         Q = np.zeros((4, 4)); Q[np.ix_([0, 2], [0, 2])] = q; Q[np.ix_([1, 3], [1, 3])] = q
         H = np.zeros((2, 4)); H[0, 0] = H[1, 1] = 1.0
         R = np.eye(2) * s ** 2
         x = np.zeros((n, 4)); P = np.zeros((n, 4, 4)); live = np.zeros(n, bool)
-        for t in range(T):
+        for t in range(K + T):
             x[live] = x[live] @ F.T
             P[live] = F @ P[live] @ F.T + Q
             born = valid[:, t] & ~live
@@ -1176,12 +1275,13 @@ class WaymoPoseDataset(DatasetTemplate):
             upd = valid[:, t] & live
             if upd.any():
                 S = H @ P[upd] @ H.T + R
-                K = P[upd] @ H.T @ np.linalg.inv(S)
-                x[upd] = x[upd] + (K @ (z[upd, t] - x[upd] @ H.T)[..., None])[..., 0]
-                P[upd] = (np.eye(4) - K @ H) @ P[upd]
+                Kg = P[upd] @ H.T @ np.linalg.inv(S)
+                x[upd] = x[upd] + (Kg @ (z[upd, t] - x[upd] @ H.T)[..., None])[..., 0]
+                P[upd] = (np.eye(4) - Kg @ H) @ P[upd]
             live |= born
-            past[valid[:, t], t, 0:2] = x[valid[:, t], 0:2]
-            past[valid[:, t], t, 7:9] = x[valid[:, t], 2:4]
+            if t >= K:
+                past[valid[:, t], t - K, 0:2] = x[valid[:, t], 0:2]
+                past[valid[:, t], t - K, 7:9] = x[valid[:, t], 2:4]
 
     def create_agent_data_for_center_objects(
             self, center_objects, obj_trajs_past, obj_trajs_future, track_index_to_predict,
